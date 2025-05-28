@@ -1,20 +1,8 @@
-Copyright (c) 2000, 2025, Oracle and/or its affiliates.
+MySQL RP (Restore Performance) 8.0
 
-This is a release of MySQL, an SQL database server.
+This is modified version of MySQL 8.0 Community.
+Developing to restore performance equal to or better than previous major versions.
 
-License information can be found in the LICENSE file.
+The license of this code is governed by the same license as MySQL "Community" only. (./LICENSE)
 
-In test packages where this file is renamed README-test, the license
-file is renamed LICENSE-test.
-
-This distribution may include materials developed by third parties.
-For license and attribution notices for these materials,
-please refer to the LICENSE file.
-
-For further information on MySQL or additional documentation, visit
-  http://dev.mysql.com/doc/
-
-For additional downloads and the source of MySQL, visit
-  http://dev.mysql.com/downloads/
-
-MySQL is brought to you by the MySQL team at Oracle.
+The rights to the code for proprietary differences from the original are reserved by buildup-db.
