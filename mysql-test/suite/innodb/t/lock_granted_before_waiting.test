@@ -33,7 +33,7 @@ SET @@global.innodb_lock_wait_timeout = 20;
 
 # The CHAR(200) is just to make records large, so page split comes sooner.
 CREATE TABLE t1 (id INT NOT NULL PRIMARY KEY, val CHAR(200));
-INSERT INTO t1 (id,val) VALUES (1, "a"),  (3, "c"), (1998,"x"), (2000, "z");
+INSERT INTO t1 (id,val) VALUES (1, "a"),  (3, "c"), (5, "e"), (1998,"x"), (2000, "z");
 
 --connect (con1, localhost, root,,)
   CALL register_connection("con1");
