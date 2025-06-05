@@ -46,6 +46,7 @@
 #include "my_bitmap.h"
 #include "my_dbug.h"
 #include "my_inttypes.h"
+#include "my_rdtsc.h"
 #include "my_sys.h"  // my_micro_time, get_charset
 #include "my_systime.h"
 #include "my_time.h"
@@ -1094,10 +1095,10 @@ static bool fill_value_maps(
   assert(sample_percentage <= 100.0);
   assert(fields.size() == value_maps.size());
 
-  std::random_device rd;
-  std::uniform_int_distribution<int> dist;
-  int sampling_seed = dist(rd);
+  /* TODO: Can remove. Seed is not used. Non-deterministic random-gen. */
+  int sampling_seed = (unsigned int)(my_timer_cycles() & UINT_MAX);
 
+  /* This doesn't work for deterministic results. */
   DBUG_EXECUTE_IF("histogram_force_sampling", {
     sampling_seed = 1;
     sample_percentage = 50.0;

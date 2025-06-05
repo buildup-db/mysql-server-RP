@@ -56,6 +56,7 @@
 #include "my_macros.h"
 #include "my_pointer_arithmetic.h"
 #include "my_psi_config.h"
+#include "my_rnd.h"
 #include "my_sqlcommand.h"
 #include "my_sys.h"  // MEM_DEFINED_IF_ADDRESSABLE()
 #include "myisam.h"  // TT_FOR_UPGRADE
@@ -3039,8 +3040,6 @@ int handler::ha_sample_init(void *&scan_ctx, double sampling_percentage,
   assert(sampling_percentage <= 100.0);
   assert(inited == NONE);
 
-  // Initialise the random number generator.
-  m_random_number_engine.seed(sampling_seed);
   m_sampling_percentage = sampling_percentage;
 
   int result = sample_init(scan_ctx, sampling_percentage, sampling_seed,
@@ -3089,8 +3088,7 @@ int handler::sample_next(void *scan_ctx [[maybe_unused]], uchar *buf) {
   // Temporary set inited to RND, since we are calling rnd_next().
   int res = rnd_next(buf);
 
-  std::uniform_real_distribution<double> rnd(0.0, 1.0);
-  while (!res && rnd(m_random_number_engine) > (m_sampling_percentage / 100.0))
+  while (!res && my_rnd_double() > (m_sampling_percentage / 100.0))
     res = rnd_next(buf);
 
   return res;

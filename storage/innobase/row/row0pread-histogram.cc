@@ -31,6 +31,7 @@ Parallel read histogram interface implementation
 Created 2019-04-20 by Darshan M N */
 
 #include "row0pread-histogram.h"
+#include "my_rnd.h"
 #include "row0row.h"
 #include "row0sel.h"
 #include "srv0srv.h"
@@ -39,14 +40,10 @@ Created 2019-04-20 by Darshan M N */
 #include <current_thd.h>
 #endif /* UNIV_DEBUG */
 
-std::uniform_real_distribution<double> Histogram_sampler::m_distribution(0,
-                                                                         100);
-
 Histogram_sampler::Histogram_sampler(size_t max_threads, int sampling_seed,
                                      double sampling_percentage,
                                      enum_sampling_method sampling_method)
     : m_parallel_reader(max_threads),
-      m_random_generator(sampling_seed),
       m_sampling_method(sampling_method),
       m_sampling_percentage(sampling_percentage),
       m_sampling_seed(sampling_seed) {
@@ -199,7 +196,7 @@ bool Histogram_sampler::skip() {
 
   switch (m_sampling_method) {
     case enum_sampling_method::SYSTEM: {
-      double rand = m_distribution(m_random_generator);
+      double rand = my_rnd_double() * 100.0;
 
       DBUG_PRINT("histogram_sampler_buffering_print",
                  ("-> New page. Random value generated - %lf", rand));

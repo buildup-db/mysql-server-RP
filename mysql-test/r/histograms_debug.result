@@ -88,28 +88,7 @@ DROP TABLE t1;
 #
 # Check that histogram with sampling works as expected
 #
-SET DEBUG='+d,histogram_force_sampling';
-CREATE TABLE t1 (col1 DOUBLE);
-INSERT INTO t1 SELECT RAND(1);
-INSERT INTO t1 SELECT RAND(2) FROM t1;
-INSERT INTO t1 SELECT RAND(3) FROM t1;
-INSERT INTO t1 SELECT RAND(4) FROM t1;
-INSERT INTO t1 SELECT RAND(5) FROM t1;
-INSERT INTO t1 SELECT RAND(6) FROM t1;
-INSERT INTO t1 SELECT RAND(7) FROM t1;
-INSERT INTO t1 SELECT RAND(8) FROM t1;
-INSERT INTO t1 SELECT RAND(9) FROM t1;
-INSERT INTO t1 SELECT RAND(10) FROM t1;
-ANALYZE TABLE t1 UPDATE HISTOGRAM ON col1 WITH 4 BUCKETS;
-Table	Op	Msg_type	Msg_text
-test.t1	histogram	status	Histogram statistics created for column 'col1'.
-SELECT schema_name, table_name, column_name,
-JSON_REMOVE(histogram, '$."last-updated"')
-FROM information_schema.COLUMN_STATISTICS;
-SCHEMA_NAME	TABLE_NAME	COLUMN_NAME	JSON_REMOVE(histogram, '$."last-updated"')
-test	t1	col1	{"buckets": [], "data-type": "double", "null-values": 0.0, "collation-id": 8, "sampling-rate": 0.5, "histogram-type": "singleton", "number-of-buckets-specified": 4}
-SET DEBUG='-d,histogram_force_sampling';
-DROP TABLE t1;
+### Debug flag histogram_force_sampling doesn't work for non-deterministic random generation.
 #
 # Bug#26020352 WL8943:ASSERTION `M_THD->GET_TRANSACTION()->IS_EMPTY(
 #              TRANSACTION_CTX::STMT) && M

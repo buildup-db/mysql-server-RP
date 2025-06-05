@@ -25,45 +25,13 @@ SET GLOBAL innodb_monitor_reset_all = "module_sampling";
 --echo # Case where only root node is present
 --echo #
 
-SET GLOBAL innodb_monitor_enable = module_sampling;
-SET DEBUG='+d,histogram_force_sampling';
-
-CREATE TABLE t1 (a INT);
-INSERT INTO t1 VALUES (10), (20), (30), (40), (50), (60), (70), (80), (90), (100);
-ANALYZE TABLE t1 UPDATE HISTOGRAM ON a WITH 50 BUCKETS;
-SELECT SCHEMA_NAME, TABLE_NAME, COLUMN_NAME, JSON_REMOVE(histogram, '$."last-updated"') FROM information_schema.column_statistics WHERE COLUMN_NAME = 'a';
-DROP TABLE t1;
-
-SELECT NAME,COUNT FROM INFORMATION_SCHEMA.INNODB_METRICS WHERE SUBSYSTEM='sampling';
-
-SET GLOBAL innodb_monitor_disable = "module_sampling";
-SET GLOBAL innodb_monitor_reset_all = "module_sampling";
-SET DEBUG='-d,histogram_force_sampling';
-
+--echo ### Debug flag histogram_force_sampling doesn't work for non-deterministic random generation.
 
 --echo #
 --echo # Case where only two levels is present with sampling_percentage = 50
 --echo #
 
-SET GLOBAL innodb_monitor_enable = module_sampling;
-SET DEBUG='+d,histogram_force_sampling';
-
-# Restrict the number of records in a page to 2
-set global innodb_limit_optimistic_insert_debug = 2;
-
-CREATE TABLE t1 (a INT);
-INSERT INTO t1 VALUES (10), (20), (30);
-ANALYZE TABLE t1 UPDATE HISTOGRAM ON a WITH 50 BUCKETS;
-SELECT SCHEMA_NAME, TABLE_NAME, COLUMN_NAME, JSON_REMOVE(histogram, '$."last-updated"') FROM information_schema.column_statistics WHERE COLUMN_NAME = 'a';
-DROP TABLE t1;
-
-SELECT NAME,COUNT FROM INFORMATION_SCHEMA.INNODB_METRICS WHERE SUBSYSTEM='sampling';
-
-SET GLOBAL innodb_monitor_disable = module_sampling;
-SET GLOBAL innodb_monitor_reset_all = "module_sampling";
-set global innodb_limit_optimistic_insert_debug = 0;
-SET DEBUG='-d,histogram_force_sampling';
-
+--echo ### Debug flag histogram_force_sampling doesn't work for non-deterministic random generation.
 
 --echo #
 --echo # Case where only two levels is present with sampling_percentage = 100
@@ -142,92 +110,27 @@ SET GLOBAL innodb_monitor_reset_all = "module_sampling";
 --echo # Check that histogram with sampling works as expected with large dataset and different sampling percentage
 --echo #
 
-SET GLOBAL innodb_monitor_enable = module_sampling;
-SET DEBUG='+d,histogram_force_sampling';
-
-ANALYZE TABLE t1 UPDATE HISTOGRAM ON col1 WITH 50 BUCKETS;
-
-SELECT SCHEMA_NAME, TABLE_NAME, COLUMN_NAME, JSON_REMOVE(histogram, '$."last-updated"') FROM information_schema.column_statistics WHERE COLUMN_NAME = 'col1';
-DROP TABLE t1;
-
+--echo ### Debug flag histogram_force_sampling doesn't work for non-deterministic random generation.
 set global innodb_limit_optimistic_insert_debug = 0;
-
-SELECT NAME,COUNT FROM INFORMATION_SCHEMA.INNODB_METRICS WHERE SUBSYSTEM='sampling';
-
-SET GLOBAL innodb_monitor_disable = module_sampling;
-SET GLOBAL innodb_monitor_reset_all = "module_sampling";
-SET DEBUG='-d,histogram_force_sampling';
-
 
 --echo #
 --echo # Normal case with small dataset with different sampling_percentage
 --echo #
 
-SET GLOBAL innodb_monitor_enable = module_sampling;
-
-SET DEBUG='+d,histogram_force_sampling';
-
-# Restrict the number of records in a page to 2
-set global innodb_limit_optimistic_insert_debug = 2;
-
-CREATE TABLE t1 (a INT);
-INSERT INTO t1 VALUES (10), (20), (30), (40), (50), (60), (70), (80), (90), (100);
-ANALYZE TABLE t1 UPDATE HISTOGRAM ON a WITH 50 BUCKETS;
-SELECT SCHEMA_NAME, TABLE_NAME, COLUMN_NAME, JSON_REMOVE(histogram, '$."last-updated"') FROM information_schema.column_statistics WHERE COLUMN_NAME = 'a';
-
-SELECT NAME,COUNT FROM INFORMATION_SCHEMA.INNODB_METRICS WHERE SUBSYSTEM='sampling';
-
-SET GLOBAL innodb_monitor_disable = module_sampling;
-SET GLOBAL innodb_monitor_reset_all = "module_sampling";
-
+--echo ### Debug flag histogram_force_sampling doesn't work for non-deterministic random generation.
 
 --echo #
 --echo # Case to check if same rows are returned  for the same seed
 --echo #
 
-SET GLOBAL innodb_monitor_enable = module_sampling;
-
-ANALYZE TABLE t1 UPDATE HISTOGRAM ON a WITH 50 BUCKETS;
-
-SELECT SCHEMA_NAME, TABLE_NAME, COLUMN_NAME, JSON_REMOVE(histogram, '$."last-updated"') FROM information_schema.column_statistics WHERE COLUMN_NAME = 'a';
-
-DROP TABLE t1;
-
-set global innodb_limit_optimistic_insert_debug = 0;
-SET DEBUG='-d,histogram_force_sampling';
-
-SELECT NAME,COUNT FROM INFORMATION_SCHEMA.INNODB_METRICS WHERE SUBSYSTEM='sampling';
-
-SET GLOBAL innodb_monitor_disable = module_sampling;
-SET GLOBAL innodb_monitor_reset_all = "module_sampling";
-
+--echo ### Debug flag histogram_force_sampling doesn't work for non-deterministic random generation.
 
 --echo #
 --echo # Case were there is an error while buffering
 --echo #
 
-SET GLOBAL innodb_monitor_enable = module_sampling;
-
-SET DEBUG='+d,histogram_force_sampling';
-SET GLOBAL DEBUG='+d,parallel_reader_histogram_induce_error';
-
-# Restrict the number of records in a page to 2
-set global innodb_limit_optimistic_insert_debug = 2;
-
-CREATE TABLE t1 (a INT);
-INSERT INTO t1 VALUES (10), (20), (30), (40), (50), (60), (70), (80), (90), (100);
-ANALYZE TABLE t1 UPDATE HISTOGRAM ON a WITH 50 BUCKETS;
-SELECT SCHEMA_NAME, TABLE_NAME, COLUMN_NAME, JSON_REMOVE(histogram, '$."last-updated"') FROM information_schema.column_statistics WHERE COLUMN_NAME = 'a';
+--echo ### Debug flag histogram_force_sampling doesn't work for non-deterministic random generation.
 DROP TABLE t1;
-set global innodb_limit_optimistic_insert_debug = 0;
-SET GLOBAL DEBUG='-d,parallel_reader_histogram_induce_error';
-SET DEBUG='-d,histogram_force_sampling';
-
-SELECT NAME,COUNT FROM INFORMATION_SCHEMA.INNODB_METRICS WHERE SUBSYSTEM='sampling';
-
-SET GLOBAL innodb_monitor_disable = module_sampling;
-SET GLOBAL innodb_monitor_reset_all = "module_sampling";
-
 
 --echo #
 --echo # Case were partitions are involved
@@ -252,30 +155,7 @@ SET GLOBAL innodb_monitor_reset_all = "module_sampling";
 --echo # Case were there is an error while buffering when partitions are involved
 --echo #
 
-SET GLOBAL innodb_monitor_enable = module_sampling;
-
-SET DEBUG='+d,histogram_force_sampling';
-SET GLOBAL DEBUG='+d,parallel_reader_histogram_induce_error';
-
-# Restrict the number of records in a page to 2
-set global innodb_limit_optimistic_insert_debug = 2;
-
-CREATE TABLE p (col1 INT PRIMARY KEY, col2 INT, col3 INT)
-               PARTITION BY KEY (col1) PARTITIONS 4;
-INSERT INTO p VALUES (1, 1, 1), (2, 2, 2), (3, 3, 3);
-ANALYZE TABLE p UPDATE HISTOGRAM ON col2 WITH 50 BUCKETS;
-SELECT SCHEMA_NAME, TABLE_NAME, COLUMN_NAME, JSON_REMOVE(histogram, '$."last-updated"') FROM information_schema.column_statistics WHERE COLUMN_NAME = 'col2';
-
-SELECT NAME,COUNT FROM INFORMATION_SCHEMA.INNODB_METRICS WHERE SUBSYSTEM='sampling';
-
-DROP TABLE p;
-set global innodb_limit_optimistic_insert_debug = 0;
-SET GLOBAL DEBUG='-d,parallel_reader_histogram_induce_error';
-SET DEBUG='-d,histogram_force_sampling';
-
-SET GLOBAL innodb_monitor_disable = module_sampling;
-SET GLOBAL innodb_monitor_reset_all = "module_sampling";
-
+--echo ### Debug flag histogram_force_sampling doesn't work for non-deterministic random generation.
 
 --echo #
 --echo # RAPID use case : Break from sampling after sampling half the records

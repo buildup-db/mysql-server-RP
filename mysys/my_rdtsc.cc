@@ -181,6 +181,7 @@ ulonglong my_timer_cycles(void) {
   /* gethrtime may appear as either cycle or nanosecond counter */
   return (ulonglong)gethrtime();
 #else
+#error "No instructions to get clock counter value equivalent."
   return 0;
 #endif
 }
