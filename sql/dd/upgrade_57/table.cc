@@ -1708,7 +1708,8 @@ static bool migrate_table_to_dd(THD *thd, const String_type &schema_name,
     while ((partition_elem = partition_iter++)) {
       if (partition_elem->tablespace_name != nullptr) {
         // Add name of all partitions to take MDL
-        tablespace_name_set.insert(partition_elem->tablespace_name);
+        tablespace_name_set.insert(
+            const_cast<char *>(partition_elem->tablespace_name));
       }
       if (thd->work_part_info->is_sub_partitioned()) {
         // Add name of all sub partitions to take MDL
@@ -1716,7 +1717,8 @@ static bool migrate_table_to_dd(THD *thd, const String_type &schema_name,
         partition_element *sub_elem;
         while ((sub_elem = sub_it++)) {
           if (sub_elem->tablespace_name != nullptr) {
-            tablespace_name_set.insert(sub_elem->tablespace_name);
+            tablespace_name_set.insert(
+                const_cast<char *>(sub_elem->tablespace_name));
           }
         }
       }
@@ -1724,7 +1726,8 @@ static bool migrate_table_to_dd(THD *thd, const String_type &schema_name,
   }
 
   // Add name of the tablespace used by table to the hash set.
-  if (share.tablespace != nullptr) tablespace_name_set.insert(share.tablespace);
+  if (share.tablespace != nullptr)
+    tablespace_name_set.insert(const_cast<char *>(share.tablespace));
 
   /*
     Acquire lock on tablespace names

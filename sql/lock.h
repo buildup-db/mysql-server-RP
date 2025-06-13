@@ -26,10 +26,8 @@
 
 #include <stddef.h>
 #include <sys/types.h>
-#include <string>
-
-#include "map_helpers.h"
 #include "sql/mdl.h"
+#include "sql/sql_hset.h"
 
 class THD;
 // Forward declarations
@@ -53,8 +51,11 @@ MYSQL_LOCK *mysql_lock_merge(MYSQL_LOCK *a, MYSQL_LOCK *b);
 /* Lock based on name */
 bool lock_schema_name(THD *thd, const char *db);
 
-// Hash set to hold set of tablespace names.
-typedef malloc_unordered_set<std::string> Tablespace_hash_set;
+// Function generating hash key for Tablespace_hash_set.
+const uchar *tablespace_set_get_key(const uchar *record, size_t *length);
+
+// Hash_set to hold set of tablespace names.
+typedef Hash_set<char, tablespace_set_get_key> Tablespace_hash_set;
 
 // Lock tablespace names.
 bool lock_tablespace_names(THD *thd, Tablespace_hash_set *tablespace_set,

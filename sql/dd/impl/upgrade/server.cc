@@ -732,12 +732,13 @@ static bool check_tables(THD *thd, std::unique_ptr<Schema> &schema,
               thd, schema->name().c_str(), table->name().c_str(), &space_names))
         return true;
 
-      for (const std::string &name : space_names) {
-        if (shared_spaces->find(String_type(name.c_str())) !=
-            shared_spaces->end()) {
+      Tablespace_hash_set::Iterator it(space_names);
+      char *name = NULL;
+      while ((name = it++)) {
+        if (shared_spaces->find(String_type(name)) != shared_spaces->end()) {
           (*error_count)++;
           LogErr(ERROR_LEVEL, ER_SHARED_TABLESPACE_USED_BY_PARTITIONED_TABLE,
-                 table->name().c_str(), name.c_str());
+                 table->name().c_str(), name);
         }
       }
     }

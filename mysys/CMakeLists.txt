@@ -74,6 +74,7 @@ SET(MYSYS_SOURCES
   my_fstream.cc
   my_gethwaddr.cc
   my_getwd.cc
+  my_hash.cc
   my_init.cc
   my_lib.cc
   my_malloc.cc
