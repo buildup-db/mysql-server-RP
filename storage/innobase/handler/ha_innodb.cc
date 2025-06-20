@@ -783,9 +783,7 @@ static PSI_mutex_info all_innodb_mutexes[] = {
     PSI_MUTEX_KEY(zip_pad_mutex, 0, 0, PSI_DOCUMENT_ME),
     PSI_MUTEX_KEY(master_key_id_mutex, 0, 0, PSI_DOCUMENT_ME),
     PSI_MUTEX_KEY(sync_array_mutex, 0, 0, PSI_DOCUMENT_ME),
-    PSI_MUTEX_KEY(row_drop_list_mutex, 0, 0, PSI_DOCUMENT_ME),
-    PSI_MUTEX_KEY(ahi_enabled_mutex, 0, 0,
-                  "Mutex used for AHI disabling and enabling.")};
+    PSI_MUTEX_KEY(row_drop_list_mutex, 0, 0, PSI_DOCUMENT_ME)};
 #endif /* UNIV_PFS_MUTEX */
 
 #ifdef UNIV_PFS_RWLOCK
@@ -3998,7 +3996,7 @@ static bool predefine_undo_tablespaces(
   return (false);
 }
 
-/** Invalidate an entry or entries for partitioned table from the dict cache.
+/** Invalidate an entry or entries for partitoined table from the dict cache.
 @param[in]      schema_name     Schema name
 @param[in]      table_name      Table name */
 static void innobase_dict_cache_reset(const char *schema_name,
@@ -20651,7 +20649,7 @@ static void innodb_adaptive_hash_index_update(
   if (*(bool *)save) {
     btr_search_enable();
   } else {
-    btr_search_disable();
+    btr_search_disable(true);
   }
 }
 
@@ -22024,6 +22022,7 @@ static MYSQL_SYSVAR_UINT(
     nullptr, innodb_merge_threshold_set_all_debug_update,
     DICT_INDEX_MERGE_THRESHOLD_DEFAULT, 1, 50, 0);
 
+extern ulong srv_fatal_semaphore_wait_threshold;
 static MYSQL_SYSVAR_ULONG(
     semaphore_wait_timeout_debug, srv_fatal_semaphore_wait_threshold,
     PLUGIN_VAR_RQCMDARG,
@@ -22070,6 +22069,7 @@ static MYSQL_SYSVAR_STR(ft_server_stopword_table,
                         "The user supplied stopword table name.",
                         innodb_stopword_table_validate, nullptr, nullptr);
 
+extern uint srv_flush_log_at_timeout;
 static MYSQL_SYSVAR_UINT(flush_log_at_timeout, srv_flush_log_at_timeout,
                          PLUGIN_VAR_OPCMDARG,
                          "Write and flush logs every (n) second.", nullptr,
@@ -22195,7 +22195,7 @@ static MYSQL_SYSVAR_ULONGLONG(
     nullptr, nullptr, 20, 1, ~0ULL, 0);
 
 static MYSQL_SYSVAR_BOOL(
-    adaptive_hash_index, srv_btr_search_enabled, PLUGIN_VAR_OPCMDARG,
+    adaptive_hash_index, btr_search_enabled, PLUGIN_VAR_OPCMDARG,
     "Enable InnoDB adaptive hash index (enabled by default). "
     " Disable with --skip-innodb-adaptive-hash-index.",
     nullptr, innodb_adaptive_hash_index_update, true);
@@ -22209,6 +22209,7 @@ static MYSQL_SYSVAR_ULONG(
     "Number of InnoDB Adaptive Hash Index Partitions. (default = 8). ", nullptr,
     nullptr, 8, 1, 512, 0);
 
+extern ulong srv_replication_delay;
 static MYSQL_SYSVAR_ULONG(
     replication_delay, srv_replication_delay, PLUGIN_VAR_RQCMDARG,
     "Replication thread delay (ms) on the slave server if"
@@ -22650,6 +22651,7 @@ static MYSQL_SYSVAR_ULONG(
     " This is not used when user thread has to wait for log flushed to disk.",
     NULL, NULL, INNODB_LOG_WAIT_FOR_WRITE_SPIN_DELAY_DEFAULT, 0, UINT32_MAX, 0);
 
+extern ulong srv_log_wait_for_write_timeout;
 static MYSQL_SYSVAR_ULONG(
     log_wait_for_write_timeout, srv_log_wait_for_write_timeout,
     PLUGIN_VAR_RQCMDARG,
@@ -22662,6 +22664,7 @@ static MYSQL_SYSVAR_ULONG(
     "Number of spin iterations, when spinning and waiting for log flushed.",
     NULL, NULL, INNODB_LOG_WAIT_FOR_FLUSH_SPIN_DELAY_DEFAULT, 0, UINT32_MAX, 0);
 
+extern ulong srv_log_wait_for_flush_timeout;
 static MYSQL_SYSVAR_ULONG(
     log_wait_for_flush_timeout, srv_log_wait_for_flush_timeout,
     PLUGIN_VAR_RQCMDARG,
@@ -22681,11 +22684,13 @@ static MYSQL_SYSVAR_ULONG(
     " for new data to write without sleeping.",
     NULL, NULL, INNODB_LOG_WRITER_SPIN_DELAY_DEFAULT, 0, UINT32_MAX, 0);
 
+extern ulong srv_log_writer_timeout;
 static MYSQL_SYSVAR_ULONG(
     log_writer_timeout, srv_log_writer_timeout, PLUGIN_VAR_RQCMDARG,
     "Initial timeout used to wait on event in log writer thread (microseconds)",
     NULL, NULL, INNODB_LOG_WRITER_TIMEOUT_DEFAULT, 0, UINT32_MAX, 0);
 
+extern ulong srv_log_checkpoint_every;
 static MYSQL_SYSVAR_ULONG(
     log_checkpoint_every, srv_log_checkpoint_every, PLUGIN_VAR_RQCMDARG,
     "Checkpoints are executed at least every that many milliseconds.", NULL,
@@ -22697,6 +22702,7 @@ static MYSQL_SYSVAR_ULONG(
     " for new data to flush, without sleeping.",
     NULL, NULL, INNODB_LOG_FLUSHER_SPIN_DELAY_DEFAULT, 0, UINT32_MAX, 0);
 
+extern ulong srv_log_flusher_timeout;
 static MYSQL_SYSVAR_ULONG(log_flusher_timeout, srv_log_flusher_timeout,
                           PLUGIN_VAR_RQCMDARG,
                           "Initial timeout used to wait on event in log "
@@ -22711,6 +22717,7 @@ static MYSQL_SYSVAR_ULONG(
     " for advanced write_lsn, without sleeping.",
     NULL, NULL, INNODB_LOG_WRITE_NOTIFIER_SPIN_DELAY_DEFAULT, 0, UINT32_MAX, 0);
 
+extern ulong srv_log_write_notifier_timeout;
 static MYSQL_SYSVAR_ULONG(
     log_write_notifier_timeout, srv_log_write_notifier_timeout,
     PLUGIN_VAR_RQCMDARG,
@@ -22725,6 +22732,7 @@ static MYSQL_SYSVAR_ULONG(
     " for advanced flushed_to_disk_lsn, without sleeping.",
     NULL, NULL, INNODB_LOG_FLUSH_NOTIFIER_SPIN_DELAY_DEFAULT, 0, UINT32_MAX, 0);
 
+extern ulong srv_log_flush_notifier_timeout;
 static MYSQL_SYSVAR_ULONG(
     log_flush_notifier_timeout, srv_log_flush_notifier_timeout,
     PLUGIN_VAR_RQCMDARG,
@@ -22739,6 +22747,7 @@ static MYSQL_SYSVAR_UINT(
     "Percentage of the buffer pool to reserve for 'old' blocks.", nullptr,
     innodb_old_blocks_pct_update, 100 * 3 / 8, 5, 95, 0);
 
+extern uint buf_LRU_old_threshold;
 static MYSQL_SYSVAR_UINT(
     old_blocks_time, buf_LRU_old_threshold, PLUGIN_VAR_RQCMDARG,
     "Move blocks to the 'new' end of the buffer pool if the first access"

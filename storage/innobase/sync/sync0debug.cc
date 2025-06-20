@@ -533,7 +533,6 @@ LatchDebug::LatchDebug() {
   LEVEL_MAP_INSERT(SYNC_STATS_AUTO_RECALC);
   LEVEL_MAP_INSERT(SYNC_DICT_AUTOINC_MUTEX);
   LEVEL_MAP_INSERT(SYNC_DICT);
-  LEVEL_MAP_INSERT(SYNC_AHI_ENABLED);
   LEVEL_MAP_INSERT(SYNC_PARSER);
   LEVEL_MAP_INSERT(SYNC_FTS_CACHE);
   LEVEL_MAP_INSERT(SYNC_DICT_OPERATION);
@@ -764,7 +763,6 @@ Latches *LatchDebug::check_order(const latch_t *latch,
     case SYNC_TEMP_POOL_MANAGER:
     case SYNC_PARSER:
     case SYNC_DICT:
-    case SYNC_AHI_ENABLED:
     case SYNC_ALTER_STAGE:
 
       /* This is the most typical case, in which we expect requested<held. */
@@ -1201,8 +1199,6 @@ static void sync_latch_meta_init() UNIV_NOTHROW {
 
   LATCH_ADD_MUTEX(LOCK_FREE_HASH, SYNC_LOCK_FREE_HASH,
                   lock_free_hash_mutex_key);
-
-  LATCH_ADD_MUTEX(AHI_ENABLED, SYNC_AHI_ENABLED, ahi_enabled_mutex_key);
 
   LATCH_ADD_MUTEX(ALTER_STAGE, SYNC_ALTER_STAGE, alter_stage_mutex_key);
 
