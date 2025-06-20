@@ -3,6 +3,7 @@
 Copyright (c) 1995, 2025, Oracle and/or its affiliates.
 Copyright (c) 2008, 2009 Google Inc.
 Copyright (c) 2009, Percona Inc.
+Copyright (c) 2025, buildup-db.
 
 Portions of this file contain modifications contributed and copyrighted by
 Google, Inc. Those modifications are gratefully acknowledged and are described
@@ -1298,8 +1299,14 @@ static void srv_refresh_innodb_monitor_stats(void) {
 
   os_aio_refresh_stats();
 
-  btr_cur_n_sea_old = btr_cur_n_sea;
-  btr_cur_n_non_sea_old = btr_cur_n_non_sea;
+  uint64_t btr_cur_n_sea_sum = 0;
+  uint64_t btr_cur_n_non_sea_sum = 0;
+  for (size_t i = 0; i < BTR_CUR_COUNTER_SHARDING; i++) {
+    btr_cur_n_sea_sum += btr_cur_n_sea[i];
+    btr_cur_n_non_sea_sum += btr_cur_n_non_sea[i];
+  }
+  btr_cur_n_sea_old = btr_cur_n_sea_sum;
+  btr_cur_n_non_sea_old = btr_cur_n_non_sea_sum;
 
   log_refresh_stats(*log_sys);
 
@@ -1450,11 +1457,18 @@ bool srv_printf_innodb_monitor(FILE *file, bool nowait, ulint *trx_start_pos,
     rw_lock_s_unlock(&part.latch);
   }
 
+  uint64_t btr_cur_n_sea_sum = 0;
+  uint64_t btr_cur_n_non_sea_sum = 0;
+  for (size_t i = 0; i < BTR_CUR_COUNTER_SHARDING; i++) {
+    btr_cur_n_sea_sum += btr_cur_n_sea[i];
+    btr_cur_n_non_sea_sum += btr_cur_n_non_sea[i];
+  }
+
   fprintf(file, "%.2f hash searches/s, %.2f non-hash searches/s\n",
-          (btr_cur_n_sea - btr_cur_n_sea_old) / time_elapsed,
-          (btr_cur_n_non_sea - btr_cur_n_non_sea_old) / time_elapsed);
-  btr_cur_n_sea_old = btr_cur_n_sea;
-  btr_cur_n_non_sea_old = btr_cur_n_non_sea;
+          (btr_cur_n_sea_sum - btr_cur_n_sea_old) / time_elapsed,
+          (btr_cur_n_non_sea_sum - btr_cur_n_non_sea_old) / time_elapsed);
+  btr_cur_n_sea_old = btr_cur_n_sea_sum;
+  btr_cur_n_non_sea_old = btr_cur_n_non_sea_sum;
 
   fputs(
       "---\n"
