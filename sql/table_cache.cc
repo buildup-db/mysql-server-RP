@@ -46,9 +46,9 @@ PSI_mutex_info Table_cache::m_mutex_keys[] = {
 #endif
 
 static const uchar *table_cache_key(const uchar *record, size_t *length) {
-  TABLE_SHARE *share = ((Table_cache_element *)record)->get_share();
+  TABLE_SHARE *share = ((const Table_cache_element *)record)->get_share();
   *length = share->table_cache_key.length;
-  return (uchar *)share->table_cache_key.str;
+  return (const uchar *)share->table_cache_key.str;
 }
 
 static void table_cache_free_entry(void *arg) {

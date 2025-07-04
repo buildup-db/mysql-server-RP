@@ -445,9 +445,9 @@ size_t get_table_def_key(const Table_ref *table_list, const char **key) {
 *****************************************************************************/
 
 static const uchar *table_def_key(const uchar *record, size_t *length) {
-  TABLE_SHARE *entry = (TABLE_SHARE *)record;
+  const TABLE_SHARE *entry = (const TABLE_SHARE *)record;
   *length = entry->table_cache_key.length;
-  return (uchar *)entry->table_cache_key.str;
+  return (const uchar *)entry->table_cache_key.str;
 }
 
 static void table_def_free_entry(void *arg) {
@@ -5206,9 +5206,9 @@ end:
 
 namespace {
 const uchar *schema_set_get_key(const uchar *record, size_t *length) {
-  Table_ref *table = (Table_ref *)record;
+  const Table_ref *table = (const Table_ref *)record;
   *length = table->db_length;
-  return (uchar *)table->db;
+  return (const uchar *)table->db;
 }
 }  // namespace
 
