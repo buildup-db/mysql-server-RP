@@ -1,6 +1,7 @@
 /*****************************************************************************
 
 Copyright (c) 2017, 2025, Oracle and/or its affiliates.
+Copyright (c) 2025, buildup-db.
 
 This program is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License, version 2.0, as published by the
@@ -399,7 +400,7 @@ int dd_table_open_on_dd_obj(THD *thd, dd::cache::Dictionary_client *client,
 
   ut_ad(table_id != dd::INVALID_OBJECT_ID);
 
-  dict_sys_mutex_enter();
+  dict_sys_s_lock();
 
   HASH_SEARCH(id_hash, dict_sys->table_id_hash, hash_value, dict_table_t *,
               table, ut_ad(table->cached), table->id == table_id);
@@ -408,7 +409,7 @@ int dd_table_open_on_dd_obj(THD *thd, dd::cache::Dictionary_client *client,
     table->acquire();
   }
 
-  dict_sys_mutex_exit();
+  dict_sys_s_unlock();
 
   if (table != nullptr) {
     return 0;
@@ -697,17 +698,19 @@ hold Shared MDL lock on it.
 table_id was found) mdl=NULL if we are resurrecting table IX locks in recovery
 @param[in]      dict_locked             dict_sys mutex is held
 @param[in]      check_corruption        check if the table is corrupted or not.
+@param[in]      for_modification        if false, dict_locked means s-lock.
 @return table
 @retval NULL if the table does not exist or cannot be opened */
 dict_table_t *dd_table_open_on_id(table_id_t table_id, THD *thd,
                                   MDL_ticket **mdl, bool dict_locked,
-                                  bool check_corruption) {
+                                  bool check_corruption,
+                                  bool for_modification) {
   dict_table_t *ib_table;
   const auto hash_value = ut::hash_uint64(table_id);
   char full_name[MAX_FULL_NAME_LEN + 1];
 
   if (!dict_locked) {
-    dict_sys_mutex_enter();
+    dict_sys_s_lock();
   }
 
   HASH_SEARCH(id_hash, dict_sys->table_id_hash, hash_value, dict_table_t *,
@@ -721,12 +724,12 @@ reopen:
       space_id_t space_id = dict_sdi_get_space_id(table_id);
 
       /* Create in-memory table object for SDI table */
-      dict_index_t *sdi_index =
-          dict_sdi_create_idx_in_mem(space_id, false, 0, false);
+      dict_index_t *sdi_index = dict_sdi_create_idx_in_mem(
+          space_id, false, 0, false, dict_locked && for_modification);
 
       if (sdi_index == nullptr) {
         if (!dict_locked) {
-          dict_sys_mutex_exit();
+          dict_sys_s_unlock();
         }
         return nullptr;
       }
@@ -737,15 +740,24 @@ reopen:
       ib_table->acquire();
 
       if (!dict_locked) {
+        /* dict_sdi_create_idx_in_mem() re-obtains with x-lock. */
         dict_sys_mutex_exit();
       }
     } else {
-      dict_sys_mutex_exit();
+      if (dict_locked && for_modification) {
+        dict_sys_mutex_exit();
+      } else {
+        dict_sys_s_unlock();
+      }
 
       ib_table = dd_table_open_on_id_low(thd, mdl, table_id);
 
       if (dict_locked) {
-        dict_sys_mutex_enter();
+        if (for_modification) {
+          dict_sys_mutex_enter();
+        } else {
+          dict_sys_s_lock();
+        }
       }
     }
 #else  /* !UNIV_HOTBACKUP */
@@ -762,7 +774,7 @@ reopen:
     }
 
     if (!dict_locked) {
-      dict_sys_mutex_exit();
+      dict_sys_s_unlock();
     }
   } else {
     for (;;) {
@@ -778,12 +790,20 @@ reopen:
 
       ut_ad(!ib_table->is_temporary());
 
-      dict_sys_mutex_exit();
+      if (dict_locked && for_modification) {
+        dict_sys_mutex_exit();
+      } else {
+        dict_sys_s_unlock();
+      }
 
 #ifndef UNIV_HOTBACKUP
       if (db_str.empty() || tbl_str.empty()) {
         if (dict_locked) {
-          dict_sys_mutex_enter();
+          if (for_modification) {
+            dict_sys_mutex_enter();
+          } else {
+            dict_sys_s_lock();
+          }
         }
         return nullptr;
       }
@@ -797,7 +817,11 @@ reopen:
 #endif /* !UNIV_HOTBACKUP */
 
       /* Re-lookup the table after acquiring MDL. */
-      dict_sys_mutex_enter();
+      if (dict_locked && for_modification) {
+        dict_sys_mutex_enter();
+      } else {
+        dict_sys_s_lock();
+      }
 
       HASH_SEARCH(id_hash, dict_sys->table_id_hash, hash_value, dict_table_t *,
                   ib_table, ut_ad(ib_table->cached), ib_table->id == table_id);
@@ -832,7 +856,11 @@ reopen:
         }
       }
 
-      dict_sys_mutex_exit();
+      if (dict_locked && for_modification) {
+        dict_sys_mutex_exit();
+      } else {
+        dict_sys_s_unlock();
+      }
       break;
     }
 
@@ -857,11 +885,16 @@ reopen:
 #endif /* !UNIV_HOTBACKUP */
 
     if (dict_locked) {
-      dict_sys_mutex_enter();
+      if (for_modification) {
+        dict_sys_mutex_enter();
+      } else {
+        dict_sys_s_lock();
+      }
     }
   }
 
-  ut_ad(dict_locked == dict_sys_mutex_own());
+  ut_ad(dict_locked ==
+        (for_modification ? dict_sys_mutex_own() : dict_sys_s_lock_own()));
 
   return ib_table;
 }

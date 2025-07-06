@@ -10949,10 +10949,10 @@ int ha_innopart::exchange_partition_low(uint part_id, dd::Table *part_table,
   dict_table_t *swap;
   const auto hash_value = ut::hash_uint64(table_id);
 
-  dict_sys_mutex_enter();
+  dict_sys_s_lock();
   HASH_SEARCH(id_hash, dict_sys->table_id_hash, hash_value, dict_table_t *,
               swap, ut_ad(swap->cached), swap->id == table_id);
-  dict_sys_mutex_exit();
+  dict_sys_s_unlock();
   ut_ad(swap != nullptr);
   ut_ad(swap->n_ref_count == 1);
 

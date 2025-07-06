@@ -2,6 +2,7 @@
 
 Copyright (c) 1996, 2025, Oracle and/or its affiliates.
 Copyright (c) 2012, Facebook Inc.
+Copyright (c) 2025, buildup-db.
 
 This program is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License, version 2.0, as published by the
@@ -499,19 +500,18 @@ void dict_table_close(dict_table_t *table, bool dict_locked, bool try_drop) {
 #ifdef UNIV_DEBUG
   if (!table->is_intrinsic()) {
     /* This is now only for validation in debug mode */
+    /* Cannot execute the validation when s-locked */
     if (!dict_locked) {
       dict_sys_mutex_enter();
-    }
 
-    ut_ad(dict_lru_validate());
+      ut_ad(dict_lru_validate());
 
-    if (table->can_be_evicted) {
-      ut_ad(dict_lru_find_table(table));
-    } else {
-      ut_ad(dict_non_lru_find_table(table));
-    }
+      if (table->can_be_evicted) {
+        ut_ad(dict_lru_find_table(table));
+      } else {
+        ut_ad(dict_non_lru_find_table(table));
+      }
 
-    if (!dict_locked) {
       dict_sys_mutex_exit();
     }
   }
@@ -1016,7 +1016,7 @@ void dict_init(void) {
   UT_LIST_INIT(dict_sys->table_LRU);
   UT_LIST_INIT(dict_sys->table_non_LRU);
 
-  mutex_create(LATCH_ID_DICT_SYS, &dict_sys->mutex);
+  rw_lock_create(dict_sys_mutex_key, &dict_sys->lock, LATCH_ID_DICT_SYS);
 
   dict_sys->table_hash = ut::new_<hash_table_t>(
       buf_pool_get_curr_size() / (DICT_POOL_PER_TABLE_HASH * UNIV_WORD_SIZE));
@@ -2777,7 +2777,7 @@ void dict_index_remove_from_cache(dict_table_t *table, /*!< in/out: table */
 
 std::vector<table_id_t> dict_get_all_table_ids() {
   std::vector<table_id_t> ids;
-  mutex_enter(&dict_sys->mutex);
+  rw_lock_s_lock(&dict_sys->lock, UT_LOCATION_HERE);
   ids.reserve(dict_sys->table_LRU.get_length() +
               dict_sys->table_non_LRU.get_length());
   for (dict_table_t *table : dict_sys->table_LRU) {
@@ -2786,7 +2786,7 @@ std::vector<table_id_t> dict_get_all_table_ids() {
   for (dict_table_t *table : dict_sys->table_non_LRU) {
     ids.push_back(table->id);
   }
-  mutex_exit(&dict_sys->mutex);
+  rw_lock_s_unlock(&dict_sys->lock);
   return ids;
 }
 

@@ -2,6 +2,7 @@
 
 Copyright (c) 1996, 2025, Oracle and/or its affiliates.
 Copyright (c) 2012, Facebook Inc.
+Copyright (c) 2025, buildup-db.
 
 This program is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License, version 2.0, as published by the
@@ -60,13 +61,19 @@ this program; if not, write to the Free Software Foundation, Inc.,
 #include "ut0new.h"
 #include "ut0rnd.h"
 
-#define dict_sys_mutex_enter() mutex_enter(&dict_sys->mutex)
+#define dict_sys_mutex_enter() rw_lock_x_lock(&dict_sys->lock, UT_LOCATION_HERE)
 
-#define dict_sys_mutex_exit() mutex_exit(&dict_sys->mutex)
+#define dict_sys_mutex_exit() rw_lock_x_unlock(&dict_sys->lock)
 
-#define dict_sys_mutex_own() mutex_own(&dict_sys->mutex)
+#define dict_sys_mutex_own() rw_lock_own(&dict_sys->lock, RW_LOCK_X)
 
-#define dict_sys_mutex_free() mutex_free(&dict_sys->mutex)
+#define dict_sys_s_lock() rw_lock_s_lock(&dict_sys->lock, UT_LOCATION_HERE)
+
+#define dict_sys_s_unlock() rw_lock_s_unlock(&dict_sys->lock)
+
+#define dict_sys_s_lock_own() rw_lock_own(&dict_sys->lock, RW_LOCK_S)
+
+#define dict_sys_mutex_free() rw_lock_free(&dict_sys->lock)
 /** initial memory heap size when creating a table or index object */
 constexpr uint32_t DICT_HEAP_SIZE = 100;
 
@@ -1008,7 +1015,7 @@ extern dict_persist_t *dict_persist;
 /* Dictionary system struct */
 struct dict_sys_t {
 #ifndef UNIV_HOTBACKUP
-  DictSysMutex mutex;          /*!< mutex protecting the data
+  DictSysLock lock;            /*!< rw-lock protecting the data
                                dictionary; protects also the
                                disk-based dictionary system tables;
                                this mutex serializes CREATE TABLE
@@ -1056,7 +1063,7 @@ struct dict_sys_t {
   @param[in,out]  functor to be invoked on each table */
   template <typename Functor>
   void for_each_table(Functor &functor) {
-    mutex_enter(&mutex);
+    rw_lock_x_lock(&lock, UT_LOCATION_HERE);
 
     hash_table_t *hash = table_id_hash;
     const auto n_cells = hash->get_n_cells();
@@ -1069,7 +1076,7 @@ struct dict_sys_t {
       }
     }
 
-    mutex_exit(&mutex);
+    rw_lock_x_unlock(&lock);
   }
 
   /** Check if a tablespace id is a reserved tablespace ID
