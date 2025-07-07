@@ -1,6 +1,7 @@
 /*****************************************************************************
 
 Copyright (c) 1996, 2025, Oracle and/or its affiliates.
+Copyright (c) 2025, buildup-db.
 
 This program is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License, version 2.0, as published by the
@@ -252,7 +253,21 @@ que_thr_t *que_fork_scheduler_round_robin(
       case QUE_THR_COMMAND_WAIT:
       case QUE_THR_COMPLETED:
         ut_a(!thr->is_active);
-        que_thr_init_command(thr);
+
+        /* que_thr_init_command(thr) equivallent, except for the counter
+        operations (thr->graph->n_active_thrs++, trx->lock.n_active_thrs++).
+        If stop to use them, (and no interruption of the tasks,)
+        the workers don't need to obtain trx_mutex. */
+
+        ut_ad(thr->graph->fork_type == QUE_FORK_PURGE);
+        thr->run_node = thr;
+        thr->prev_node = thr->common.parent;
+        ut_ad(thr->state != QUE_THR_RUNNING);
+        if (!thr->is_active) {
+          thr->is_active = true;
+        }
+        thr->state = QUE_THR_RUNNING;
+
         break;
 
       case QUE_THR_SUSPENDED:
@@ -966,6 +981,17 @@ static void que_run_threads_low(que_thr_t *thr) /*!< in: query thread */
     /*-------------------------*/
     next_thr = que_thr_step(thr);
     /*-------------------------*/
+
+    if (thr->graph->fork_type == QUE_FORK_PURGE) {
+      /* not need to call que_thr_stop() at que_thr_dec_refer_count() */
+      ut_ad(thr->state != QUE_THR_RUNNING || next_thr == thr);
+
+      if (next_thr != thr) {
+        ut_a(next_thr == nullptr);
+        thr->is_active = false;
+      }
+      continue;
+    }
 
     trx_mutex_enter(trx);
 
