@@ -198,7 +198,7 @@ static inline uint64_t random_from_interval_fast(uint64_t low, uint64_t high) {
 
 static inline uint64_t hash_uint64(uint64_t value) {
 #ifndef CRC32_DEFAULT
-  if (ut_crc32_cpu_enabled) {
+  if (UNIV_LIKELY(ut_crc32_cpu_enabled)) {
     return crc32_hash_uint64(value);
   }
 #endif /* !CRC32_DEFAULT */
