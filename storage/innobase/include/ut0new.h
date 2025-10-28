@@ -808,7 +808,7 @@ inline T *new_(Args &&...args) {
  */
 template <typename T>
 inline void delete_(T *ptr) noexcept {
-  if (unlikely(!ptr)) return;
+  if (!ptr) return;
   ptr->~T();
   ut::free(ptr);
 }
@@ -1108,7 +1108,7 @@ inline T *new_arr(Count count) {
  */
 template <typename T>
 inline void delete_arr(T *ptr) noexcept {
-  if (unlikely(!ptr)) return;
+  if (!ptr) return;
   using impl = detail::select_malloc_impl_t<WITH_PFS_MEMORY, true>;
   using malloc_impl = detail::Alloc_<impl>;
   const auto data_len = malloc_impl::datalen(ptr);

@@ -1811,7 +1811,7 @@ bool page_simple_validate_old(
       goto func_exit;
     }
 
-    if (UNIV_UNLIKELY(rec_get_n_owned_old(rec))) {
+    if (UNIV_LIKELY(rec_get_n_owned_old(rec))) {
       /* This is a record pointed to by a dir slot */
       if (UNIV_UNLIKELY(rec_get_n_owned_old(rec) != own_count)) {
         ib::error(ER_IB_MSG_872)

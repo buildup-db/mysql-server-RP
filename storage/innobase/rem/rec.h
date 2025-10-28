@@ -1,6 +1,7 @@
 /*****************************************************************************
 
 Copyright (c) 1994, 2025, Oracle and/or its affiliates.
+Copyright (c) 2025, buildup-db.
 
 This program is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License, version 2.0, as published by the
@@ -500,25 +501,6 @@ static inline uint64_t rec_get_instant_offset(const dict_index_t *index,
   }
 }
 
-/** The following function determines the offsets to each field in the record.
-The offsets are written to a previously allocated array of ulint, where
-rec_offs_n_fields(offsets) has been initialized to the number of fields in the
-record. The rest of the array will be initialized by this function.
-- rec_offs_base(offsets)[0] will be set to the extra size
-  (if REC_OFFS_COMPACT is set, the record is in the new format;
-   if REC_OFFS_EXTERNAL is set, the record contains externally stored columns).
-- rec_offs_base(offsets)[1..n_fields] will be set to offsets past the end of
-  fields 0..n_fields, or to the beginning of fields 1..n_fields+1.
-- If the high-order bit of the offset at [i+1] is set (REC_OFFS_SQL_NULL),
-  the field i is NULL.
-- If the second high-order bit of the offset at [i+1] is set
-(REC_OFFS_EXTERNAL), the field i is being stored externally.
-@param[in]      rec     physical record
-@param[in]      index   record descriptor
-@param[in,out]  offsets array of offsets */
-void rec_init_offsets(const rec_t *rec, const dict_index_t *index,
-                      ulint *offsets);
-
 #ifdef UNIV_DEBUG
 /** Validates offsets returned by rec_get_offsets().
  @return true if valid */
@@ -755,12 +737,8 @@ static inline enum REC_INSERT_STATE get_rec_insert_state(
   }
 
   /* Position just before info-bits where version will be there if any */
-  const byte *v_ptr =
-      (byte *)rec -
-      ((temp ? REC_N_TMP_EXTRA_BYTES : REC_N_NEW_EXTRA_BYTES) + 1);
   const bool is_versioned =
       (temp) ? rec_new_temp_is_versioned(rec) : rec_new_is_versioned(rec);
-  const uint8_t version = (is_versioned) ? (uint8_t)(*v_ptr) : UINT8_UNDEFINED;
 
   const bool is_instant = (temp) ? rec_get_instant_flag_new_temp(rec)
                                  : rec_get_instant_flag_new(rec);
@@ -783,6 +761,10 @@ static inline enum REC_INSERT_STATE get_rec_insert_state(
 
   enum REC_INSERT_STATE rec_insert_state = REC_INSERT_STATE::NONE;
   if (is_versioned) {
+    const byte *v_ptr =
+        (byte *)rec -
+        ((temp ? REC_N_TMP_EXTRA_BYTES : REC_N_NEW_EXTRA_BYTES) + 1);
+    const uint8_t version = (uint8_t)(*v_ptr);
     ut_a(is_valid_row_version(version));
     if (version == 0) {
       ut_ad(index->has_instant_cols());
@@ -1121,7 +1103,8 @@ inline void rec_init_offsets_comp_ordinary(const rec_t *rec, bool temp,
     const dict_col_t *col = field->col;
     uint64_t len;
 
-    switch (rec_insert_state) {
+    switch (UNIV_EXPECT(rec_insert_state,
+                        INSERTED_INTO_TABLE_WITH_NO_INSTANT_NO_VERSION)) {
       case INSERTED_INTO_TABLE_WITH_NO_INSTANT_NO_VERSION:
         ut_ad(!index->has_instant_cols_or_row_versions());
         break;
@@ -1183,6 +1166,7 @@ inline void rec_init_offsets_comp_ordinary(const rec_t *rec, bool temp,
 
       default:
         ut_ad(false);
+        MY_ASSERT_UNREACHABLE();
     }
 
     if (!(col->prtype & DATA_NOT_NULL)) {

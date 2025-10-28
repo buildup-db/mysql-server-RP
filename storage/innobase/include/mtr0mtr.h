@@ -337,10 +337,6 @@ struct mtr_t {
     Shards m_count_nologging_mtr;
   };
 
-  /** Check if redo logging is disabled globally and mark
-  the global counter till mtr ends. */
-  void check_nolog_and_mark();
-
   /** Check if the mtr has marked the global no log counter and
   unmark it. */
   void check_nolog_and_unmark();
