@@ -50,14 +50,9 @@
 */
 #ifdef HAVE_BUILTIN_EXPECT
 
-// likely/unlikely are likely to clash with other symbols, do not #define
-#if defined(__cplusplus)
-constexpr bool likely(bool expr) { return __builtin_expect(expr, true); }
-constexpr bool unlikely(bool expr) { return __builtin_expect(expr, false); }
-#else
-#define likely(x) __builtin_expect((x), 1)
-#define unlikely(x) __builtin_expect((x), 0)
-#endif
+// __builtin_expect() might not affect for the caller code. should #define
+#define likely(x) __builtin_expect(!!(x), 1)
+#define unlikely(x) __builtin_expect(!!(x), 0)
 
 #else /* HAVE_BUILTIN_EXPECT */
 
