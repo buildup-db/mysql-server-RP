@@ -1,6 +1,7 @@
 /*****************************************************************************
 
 Copyright (c) 1995, 2025, Oracle and/or its affiliates.
+Copyright (c) 2025, buildup-db.
 
 This program is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License, version 2.0, as published by the
@@ -117,7 +118,7 @@ struct ut_list_base {
    @param diff the value by which to increase the length. Can be negative. */
   void update_length(int diff) {
     ut_ad(diff > 0 || static_cast<size_t>(-diff) <= get_length());
-    count.store(get_length() + diff, std::memory_order_release);
+    count.fetch_add(diff, std::memory_order_acq_rel);
   }
 
   void clear() {

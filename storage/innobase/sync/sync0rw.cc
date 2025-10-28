@@ -2,6 +2,7 @@
 
 Copyright (c) 1995, 2025, Oracle and/or its affiliates.
 Copyright (c) 2008, Google Inc.
+Copyright (c) 2025, buildup-db.
 
 Portions of this file contain modifications contributed and copyrighted by
 Google, Inc. Those modifications are gratefully acknowledged and are described
@@ -282,8 +283,8 @@ void rw_lock_s_lock_spin(rw_lock_t *lock, ulint pass, ut::Location location) {
 lock_loop:
 
   /* Spin waiting for the writer field to become free */
-  os_rmb;
-  while (i < srv_n_spin_wait_rounds && lock->lock_word <= 0) {
+  while (i < srv_n_spin_wait_rounds &&
+         lock->lock_word.load(std::memory_order_acquire) <= 0) {
     if (srv_spin_wait_delay) {
       ut_delay(ut::random_from_interval_fast(0, srv_spin_wait_delay));
     }
@@ -376,17 +377,15 @@ static inline void rw_lock_x_lock_wait_func(rw_lock_t *lock,
   sync_array_t *sync_arr;
   uint64_t count_os_wait = 0;
 
-  os_rmb;
-  ut_ad(lock->lock_word <= threshold);
+  ut_ad(lock->lock_word.load(std::memory_order_acquire) <= threshold);
 
-  while (lock->lock_word < threshold) {
+  while (lock->lock_word.load(std::memory_order_acquire) < threshold) {
     if (srv_spin_wait_delay) {
       ut_delay(ut::random_from_interval_fast(0, srv_spin_wait_delay));
     }
 
     if (i < srv_n_spin_wait_rounds) {
       i++;
-      os_rmb;
       continue;
     }
 
@@ -399,7 +398,7 @@ static inline void rw_lock_x_lock_wait_func(rw_lock_t *lock,
     i = 0;
 
     /* Check lock_word to ensure wake-up isn't missed.*/
-    if (lock->lock_word < threshold) {
+    if (lock->lock_word.load(std::memory_order_acquire) < threshold) {
       ++count_os_wait;
 
       /* Add debug info as it is needed to detect possible
@@ -484,7 +483,8 @@ static inline bool rw_lock_x_lock_low(
       } else {
         /* At least one X lock by this thread already
         exists. Add another. */
-        if (lock->lock_word == 0 || lock->lock_word == -X_LOCK_HALF_DECR) {
+        const int32_t lock_word = lock->lock_word;
+        if (lock_word == 0 || lock_word == -X_LOCK_HALF_DECR) {
           lock->lock_word -= X_LOCK_DECR;
         } else {
           ut_ad(lock->lock_word <= -X_LOCK_DECR);
@@ -594,8 +594,9 @@ lock_loop:
     }
 
     /* Spin waiting for the lock_word to become free */
-    os_rmb;
-    while (i < srv_n_spin_wait_rounds && lock->lock_word <= X_LOCK_HALF_DECR) {
+    while (i < srv_n_spin_wait_rounds &&
+           lock->lock_word.load(std::memory_order_acquire) <=
+               X_LOCK_HALF_DECR) {
       if (srv_spin_wait_delay) {
         ut_delay(ut::random_from_interval_fast(0, srv_spin_wait_delay));
       }
@@ -659,8 +660,9 @@ lock_loop:
 
   } else {
     /* Spin waiting for the lock_word to become free */
-    os_rmb;
-    while (i < srv_n_spin_wait_rounds && lock->lock_word <= X_LOCK_HALF_DECR) {
+    while (i < srv_n_spin_wait_rounds &&
+           lock->lock_word.load(std::memory_order_acquire) <=
+               X_LOCK_HALF_DECR) {
       if (srv_spin_wait_delay) {
         ut_delay(ut::random_from_interval_fast(0, srv_spin_wait_delay));
       }
