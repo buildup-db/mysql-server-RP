@@ -1,6 +1,7 @@
 /*****************************************************************************
 
 Copyright (c) 1994, 2025, Oracle and/or its affiliates.
+Copyright (c) 2025, buildup-db.
 
 This program is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License, version 2.0, as published by the
@@ -131,9 +132,9 @@ value.
                                 be updated, or NULL
 @param[in]      trx_id          Transaction id
 @param[in,out]  mtr             Mini-transaction */
-static inline void page_update_max_trx_id(buf_block_t *block,
-                                          page_zip_des_t *page_zip,
-                                          trx_id_t trx_id, mtr_t *mtr);
+static ALWAYS_INLINE void page_update_max_trx_id(buf_block_t *block,
+                                                 page_zip_des_t *page_zip,
+                                                 trx_id_t trx_id, mtr_t *mtr);
 
 /** Returns the RTREE SPLIT SEQUENCE NUMBER (FIL_RTREE_SPLIT_SEQ_NUM).
 @param[in]      page    page
@@ -333,8 +334,9 @@ static inline ulint page_dir_slot_get_n_owned(
 @param[in,out]  slot            directory slot
 @param[in,out]  page_zip        compressed page, or NULL
 @param[in]      n               number of records owned by the slot */
-static inline void page_dir_slot_set_n_owned(page_dir_slot_t *slot,
-                                             page_zip_des_t *page_zip, ulint n);
+static ALWAYS_INLINE void page_dir_slot_set_n_owned(page_dir_slot_t *slot,
+                                                    page_zip_des_t *page_zip,
+                                                    ulint n);
 
 /** Calculates the space reserved for directory slots of a given
  number of records. The exact value is a fraction number
@@ -382,11 +384,11 @@ static inline const rec_t *page_rec_get_next_low(const rec_t *rec, ulint comp);
 
 /** Gets the pointer to the next record on the page.
  @return pointer to next record */
-static inline rec_t *page_rec_get_next(
+static ALWAYS_INLINE rec_t *page_rec_get_next(
     rec_t *rec); /*!< in: pointer to record */
 /** Gets the pointer to the next record on the page.
  @return pointer to next record */
-static inline const rec_t *page_rec_get_next_const(
+static ALWAYS_INLINE const rec_t *page_rec_get_next_const(
     const rec_t *rec); /*!< in: pointer to record */
 /** Gets the pointer to the next non delete-marked record on the page.
  If all subsequent records are delete-marked, then this function
@@ -477,7 +479,7 @@ move to the next record) is at most the specified value
 
 /** Looks for the record which owns the given record.
  @return the owner record */
-static inline rec_t *page_rec_find_owner_rec(
+static ALWAYS_INLINE rec_t *page_rec_find_owner_rec(
     rec_t *rec); /*!< in: the physical record */
 
 /** Returns the maximum combined size of records which can be inserted on top
@@ -492,8 +494,8 @@ of record heap if page is first reorganized.
 @param[in]      page    index page
 @param[in]      n_recs  number of records
 @return maximum combined size for inserted records */
-static inline ulint page_get_max_insert_size_after_reorganize(
-    const page_t *page, ulint n_recs);
+static ALWAYS_INLINE ulint
+page_get_max_insert_size_after_reorganize(const page_t *page, ulint n_recs);
 
 /** Calculates free space if a page is emptied.
 @param[in]  comp    nonzero=compact page format
@@ -519,8 +521,9 @@ page.
 @param[in]      next_rec        pointer to the new head of the free record
                                 list
 @param[in]      need            number of bytes allocated */
-static inline void page_mem_alloc_free(page_t *page, page_zip_des_t *page_zip,
-                                       rec_t *next_rec, ulint need);
+static ALWAYS_INLINE void page_mem_alloc_free(page_t *page,
+                                              page_zip_des_t *page_zip,
+                                              rec_t *next_rec, ulint need);
 
 /** Allocates a block of memory from the heap of an index page.
  @return pointer to start of allocated buffer, or NULL if allocation fails */

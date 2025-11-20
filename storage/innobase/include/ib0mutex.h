@@ -1,6 +1,7 @@
 /*****************************************************************************
 
 Copyright (c) 2013, 2025, Oracle and/or its affiliates.
+Copyright (c) 2025, buildup-db.
 
 This program is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License, version 2.0, as published by the
@@ -405,7 +406,7 @@ struct TTASEventMutex {
   /** This is the real destructor. This mutex can be created in BSS and
   its destructor will be called on exit(). We can't call
   os_event_destroy() at that stage. */
-  void destroy() UNIV_NOTHROW {
+  ALWAYS_INLINE void destroy() UNIV_NOTHROW {
     ut_ad(!is_locked());
 
     /* We have to free the event before InnoDB shuts down. */
@@ -686,7 +687,8 @@ struct PolicyMutex {
   @param[in]    id              Mutex ID
   @param[in]    filename        file where created
   @param[in]    line            line number in file where created */
-  void init(latch_id_t id, const char *filename, uint32_t line) UNIV_NOTHROW {
+  ALWAYS_INLINE void init(latch_id_t id, const char *filename,
+                          uint32_t line) UNIV_NOTHROW {
 #ifdef UNIV_PFS_MUTEX
     pfs_add(sync_latch_get_pfs_key(id));
 #endif /* UNIV_PFS_MUTEX */

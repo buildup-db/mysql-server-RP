@@ -1,6 +1,7 @@
 /*****************************************************************************
 
 Copyright (c) 2015, 2025, Oracle and/or its affiliates.
+Copyright (c) 2025, buildup-db.
 
 This program is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License, version 2.0, as published by the
@@ -69,7 +70,7 @@ class buf_stat_per_index_t {
 
   /** Decrement the number of pages for a given index with 1.
   @param[in]    id      id of the index whose count to decrement */
-  void dec(const index_id_t &id) {
+  ALWAYS_INLINE void dec(const index_id_t &id) {
     if (should_skip(id)) {
       return;
     }

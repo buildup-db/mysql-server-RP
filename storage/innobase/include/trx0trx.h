@@ -1,6 +1,7 @@
 /*****************************************************************************
 
 Copyright (c) 1996, 2025, Oracle and/or its affiliates.
+Copyright (c) 2025, buildup-db.
 
 This program is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License, version 2.0, as published by the
@@ -214,10 +215,10 @@ void trx_mark_sql_stat_end(trx_t *trx); /*!< in: trx handle */
 ReadView *trx_assign_read_view(trx_t *trx); /*!< in: active transaction */
 
 /** @return the transaction's read view or NULL if one not assigned. */
-static inline ReadView *trx_get_read_view(trx_t *trx);
+static ALWAYS_INLINE ReadView *trx_get_read_view(trx_t *trx);
 
 /** @return the transaction's read view or NULL if one not assigned. */
-static inline const ReadView *trx_get_read_view(const trx_t *trx);
+static ALWAYS_INLINE const ReadView *trx_get_read_view(const trx_t *trx);
 
 /** Prepares a transaction for commit/rollback. */
 void trx_commit_or_rollback_prepare(trx_t *trx); /*!< in/out: transaction */

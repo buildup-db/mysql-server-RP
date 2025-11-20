@@ -1,6 +1,7 @@
 /*****************************************************************************
 
 Copyright (c) 2015, 2025, Oracle and/or its affiliates.
+Copyright (c) 2025, buildup-db.
 
 This program is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License, version 2.0, as published by the
@@ -189,7 +190,7 @@ class ut_lock_free_list_node_t {
     ut_ad(n_elements > 0);
   }
 
-  static ut_lock_free_list_node_t *alloc(size_t n_elements) {
+  static ALWAYS_INLINE ut_lock_free_list_node_t *alloc(size_t n_elements) {
     return ut::aligned_new_withkey<ut_lock_free_list_node_t<T>>(
         ut::make_psi_memory_key(mem_key_ut_lock_free_hash_t),
         alignof(ut_lock_free_list_node_t<T>), n_elements);

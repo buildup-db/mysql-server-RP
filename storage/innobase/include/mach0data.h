@@ -1,6 +1,7 @@
 /*****************************************************************************
 
 Copyright (c) 1995, 2025, Oracle and/or its affiliates.
+Copyright (c) 2025, buildup-db.
 
 This program is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License, version 2.0, as published by the
@@ -109,7 +110,7 @@ bytes. The most significant byte is at the lowest address.
 @param[in]      b       pointer to memory where to store
 @param[in]      n       ulint integer to be stored
 @return stored size in bytes */
-static inline ulint mach_write_compressed(byte *b, ulint n);
+static ALWAYS_INLINE ulint mach_write_compressed(byte *b, ulint n);
 
 /** Return the size of an ulint when written in the compressed form.
 @param[in]      n       ulint integer to be stored
@@ -120,7 +121,7 @@ static inline uint32_t mach_get_compressed_size(ulint n);
 @param[in,out]  b       pointer to memory where to read;
 advanced by the number of bytes consumed
 @return unsigned value */
-static inline uint32_t mach_read_next_compressed(const byte **b);
+static ALWAYS_INLINE uint32_t mach_read_next_compressed(const byte **b);
 
 /** The following function is used to store data in 6 consecutive
 bytes. We store the most significant byte to the lowest address.
@@ -168,13 +169,13 @@ static inline ulint mach_u64_write_compressed(byte *b, uint64_t n);
 @param[in,out]  b       pointer to memory where to read;
 advanced by the number of bytes consumed
 @return unsigned value */
-static inline uint64_t mach_u64_read_next_compressed(const byte **b);
+static ALWAYS_INLINE uint64_t mach_u64_read_next_compressed(const byte **b);
 
 /** Writes a 64-bit integer in a compressed form (1..11 bytes).
 @param[in]      b       pointer to memory where to store
 @param[in]      n       64-bit integer to be stored
 @return size in bytes */
-static inline ulint mach_u64_write_much_compressed(byte *b, uint64_t n);
+static ALWAYS_INLINE ulint mach_u64_write_much_compressed(byte *b, uint64_t n);
 
 /** Reads a 64-bit integer in a compressed form.
 @param[in]      b       pointer to memory from where to read

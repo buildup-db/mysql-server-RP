@@ -2,6 +2,7 @@
 
 Copyright (c) 1996, 2025, Oracle and/or its affiliates.
 Copyright (c) 2008, Google Inc.
+Copyright (c) 2025, buildup-db.
 
 Portions of this file contain modifications contributed and copyrighted by
 Google, Inc. Those modifications are gratefully acknowledged and are described
@@ -100,8 +101,12 @@ constexpr uint32_t BTR_SEARCH_BUILD_LIMIT = 100;
 /** Compute the hash value of an index identifier.
 @param[in]	index	Pointer to index descriptor.
 @return hash value */
-static uint64_t btr_search_hash_index_id(const dict_index_t *index) {
+static ALWAYS_INLINE uint64_t
+btr_search_hash_index_id_inline(const dict_index_t *index) {
   return ut::hash_uint64_pair(index->id, index->space);
+}
+static uint64_t btr_search_hash_index_id(const dict_index_t *index) {
+  return btr_search_hash_index_id_inline(index);
 }
 
 /** Determine the number of accessed key fields.
@@ -698,10 +703,9 @@ true, then cursor->up_match and cursor->low_match both have sensible values.
 @param[in]      mode            PAGE_CUR_L, PAGE_CUR_LE, PAGE_CUR_G, PAGE_CUR_GE
 @param[in]      mtr             Mini-transaction
 @return true if success */
-static bool btr_search_check_guess(btr_cur_t *cursor,
-                                   bool can_only_compare_to_cursor_rec,
-                                   const dtuple_t *tuple, ulint mode,
-                                   mtr_t *mtr) {
+static ALWAYS_INLINE bool btr_search_check_guess(
+    btr_cur_t *cursor, bool can_only_compare_to_cursor_rec,
+    const dtuple_t *tuple, ulint mode, mtr_t *mtr) {
   rec_t *rec;
   ulint n_unique;
   ulint match;
@@ -888,13 +892,13 @@ bool btr_search_guess_on_hash(dict_index_t *index, btr_search_t *info,
   info->n_hash_succ++;
 #endif
   const auto hash_value = dtuple_hash(tuple, cursor->n_fields, cursor->n_bytes,
-                                      btr_search_hash_index_id(index));
+                                      btr_search_hash_index_id_inline(index));
 
   cursor->hash_value = hash_value;
   cursor->flag = BTR_CUR_HASH;
 
   if (!has_search_latch) {
-    btr_search_s_lock(index, UT_LOCATION_HERE);
+    btr_search_s_lock_inline(index, UT_LOCATION_HERE);
 
     if (!btr_search_enabled) {
       btr_search_s_unlock(index);
@@ -1161,7 +1165,8 @@ retry:
     offsets = rec_get_offsets(rec, index, offsets,
                               btr_search_get_n_fields(n_fields, n_bytes),
                               UT_LOCATION_HERE, &heap);
-    hash_value = rec_hash(rec, offsets, n_fields, n_bytes, index_hash, index);
+    hash_value =
+        rec_hash_inline(rec, offsets, n_fields, n_bytes, index_hash, index);
 
     if (hash_value == prev_hash_value && prev_hash_value != 0) {
       goto next_rec;
@@ -1493,8 +1498,8 @@ static void btr_search_build_page_hash_index(dict_index_t *index,
     offsets = rec_get_offsets(next_rec, index, offsets,
                               btr_search_get_n_fields(n_fields, n_bytes),
                               UT_LOCATION_HERE, &heap);
-    next_hash_value =
-        rec_hash(next_rec, offsets, n_fields, n_bytes, index_hash, index);
+    next_hash_value = rec_hash_inline(next_rec, offsets, n_fields, n_bytes,
+                                      index_hash, index);
 
     if (hash_value != next_hash_value) {
       /* Insert an entry into the hash index */
@@ -1738,7 +1743,7 @@ void btr_search_update_hash_node_on_insert(btr_cur_t *cursor) {
 
   func_exit:
     assert_block_ahi_valid(block);
-    btr_search_x_unlock(index);
+    btr_search_x_unlock_inline(index);
   } else {
     btr_search_x_unlock(index);
 
@@ -1896,7 +1901,7 @@ function_exit:
     mem_heap_free(heap);
   }
   if (locked) {
-    btr_search_x_unlock(index);
+    btr_search_x_unlock_inline(index);
   }
 }
 

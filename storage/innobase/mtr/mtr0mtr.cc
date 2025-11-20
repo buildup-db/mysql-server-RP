@@ -74,7 +74,7 @@ struct Iterate {
   }
 
   /** @return false if the functor returns false. */
-  bool operator()(mtr_buf_t::block_t *block) {
+  ALWAYS_INLINE bool operator()(mtr_buf_t::block_t *block) {
     const mtr_memo_slot_t *start =
         reinterpret_cast<const mtr_memo_slot_t *>(block->begin());
 
@@ -237,7 +237,7 @@ bool mtr_t::conflicts_with(const mtr_t *mtr2) const {
 
 /** Release latches and decrement the buffer fix count.
 @param[in]      slot    memo slot */
-static void memo_slot_release(mtr_memo_slot_t *slot) {
+static ALWAYS_INLINE void memo_slot_release_inline(mtr_memo_slot_t *slot) {
   switch (slot->type) {
 #ifndef UNIV_HOTBACKUP
     buf_block_t *block;
@@ -277,13 +277,16 @@ static void memo_slot_release(mtr_memo_slot_t *slot) {
 
   slot->object = nullptr;
 }
+static void memo_slot_release(mtr_memo_slot_t *slot) {
+  memo_slot_release_inline(slot);
+}
 
 /** Release the latches and blocks acquired by the mini-transaction. */
 struct Release_all {
   /** @return true always. */
-  bool operator()(mtr_memo_slot_t *slot) const {
+  ALWAYS_INLINE bool operator()(mtr_memo_slot_t *slot) const {
     if (slot->object != nullptr) {
-      memo_slot_release(slot);
+      memo_slot_release_inline(slot);
     }
 
     return true;
@@ -328,7 +331,7 @@ struct Add_dirty_blocks_to_flush_list {
                                  Flush_observer *observer);
 
   /** Add the modified page to the buffer flush list. */
-  void add_dirty_page_to_flush_list(mtr_memo_slot_t *slot) const {
+  ALWAYS_INLINE void add_dirty_page_to_flush_list(mtr_memo_slot_t *slot) const {
     ut_ad(m_end_lsn > m_start_lsn || (m_end_lsn == 0 && m_start_lsn == 0));
 
 #ifndef UNIV_HOTBACKUP
@@ -342,7 +345,7 @@ struct Add_dirty_blocks_to_flush_list {
   }
 
   /** @return true always. */
-  bool operator()(mtr_memo_slot_t *slot) const {
+  ALWAYS_INLINE bool operator()(mtr_memo_slot_t *slot) const {
     if (slot->object != nullptr) {
       if (slot->type == MTR_MEMO_PAGE_X_FIX ||
           slot->type == MTR_MEMO_PAGE_SX_FIX) {
@@ -400,7 +403,7 @@ class mtr_t::Command {
 
   /** Write the redo log record, add dirty pages to the flush list and
   release the resources. */
-  void execute();
+  ALWAYS_INLINE void execute();
 
   /** Add blocks modified in this mini-transaction to the flush list. */
   void add_dirty_blocks_to_flush_list(lsn_t start_lsn, lsn_t end_lsn);
@@ -409,13 +412,13 @@ class mtr_t::Command {
   void release_all();
 
   /** Release the resources */
-  void release_resources();
+  ALWAYS_INLINE void release_resources();
 
  private:
 #ifndef UNIV_HOTBACKUP
   /** Prepare to write the mini-transaction log to the redo log buffer.
   @return number of bytes to write in finish_write() */
-  ulint prepare_write();
+  ALWAYS_INLINE ulint prepare_write();
 #endif /* !UNIV_HOTBACKUP */
 
   /** true if it is a sync mini-transaction. */
@@ -503,7 +506,7 @@ mtr_log_t mtr_t::set_log_mode(mtr_log_t mode) {
 struct mtr_write_log_t {
   /** Append a block to the redo log buffer.
   @return whether the appending should continue */
-  bool operator()(const mtr_buf_t::block_t *block) {
+  ALWAYS_INLINE bool operator()(const mtr_buf_t::block_t *block) {
     lsn_t start_lsn;
     lsn_t end_lsn;
 

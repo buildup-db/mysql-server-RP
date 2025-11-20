@@ -1,6 +1,7 @@
 /*****************************************************************************
 
 Copyright (c) 1994, 2025, Oracle and/or its affiliates.
+Copyright (c) 2025, buildup-db.
 
 This program is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License, version 2.0, as published by the
@@ -98,7 +99,7 @@ static inline void page_cur_position(const rec_t *rec, const buf_block_t *block,
                                      page_cur_t *cur);
 
 /** Moves the cursor to the next record on page. */
-static inline void page_cur_move_to_next(
+static ALWAYS_INLINE void page_cur_move_to_next(
     page_cur_t *cur); /*!< in/out: cursor; must not be after last */
 /** Moves the cursor to the previous record on page. */
 static inline void page_cur_move_to_prev(
@@ -121,9 +122,15 @@ mtr_commit().
 @param[in,out] heap      Pointer to memory heap, or to nullptr.
 @param[in]     mtr       Mini-transaction handle, or nullptr.
 @return pointer to record if succeed, NULL otherwise */
-[[nodiscard]] static inline rec_t *page_cur_tuple_insert(
+[[nodiscard]] static ALWAYS_INLINE rec_t *page_cur_tuple_insert_inline(
     page_cur_t *cursor, const dtuple_t *tuple, dict_index_t *index,
     ulint **offsets, mem_heap_t **heap, mtr_t *mtr);
+static inline rec_t *page_cur_tuple_insert(page_cur_t *cursor,
+                                           const dtuple_t *tuple,
+                                           dict_index_t *index, ulint **offsets,
+                                           mem_heap_t **heap, mtr_t *mtr) {
+  return page_cur_tuple_insert_inline(cursor, tuple, index, offsets, heap, mtr);
+}
 #endif /* !UNIV_HOTBACKUP */
 
 /** Inserts a record next to page cursor. Returns pointer to inserted record

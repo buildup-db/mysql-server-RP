@@ -2,6 +2,7 @@
 
 Copyright (c) 1995, 2025, Oracle and/or its affiliates.
 Copyright (c) 2009, Percona Inc.
+Copyright (c) 2025, buildup-db.
 
 Portions of this file contain modifications contributed and copyrighted
 by Percona Inc.. Those modifications are
@@ -1249,10 +1250,9 @@ os_file_delete_if_exists()
 @param[in]      exist           indicate if file pre-exist
 @param[in]      src_location    location where func invoked
 @return true if success */
-static inline bool pfs_os_file_delete_if_exists_func(mysql_pfs_key_t key,
-                                                     const char *name,
-                                                     bool *exist,
-                                                     ut::Location src_location);
+static ALWAYS_INLINE bool pfs_os_file_delete_if_exists_func(
+    mysql_pfs_key_t key, const char *name, bool *exist,
+    ut::Location src_location);
 
 #else /* UNIV_PFS_IO */
 

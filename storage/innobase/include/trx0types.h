@@ -1,6 +1,7 @@
 /*****************************************************************************
 
 Copyright (c) 1996, 2025, Oracle and/or its affiliates.
+Copyright (c) 2025, buildup-db.
 
 This program is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License, version 2.0, as published by the
@@ -220,13 +221,13 @@ struct trx_rseg_t {
 #endif /* UNIV_DEBUG */
 
   /** Enter the rseg->mutex. */
-  void latch() {
+  ALWAYS_INLINE void latch() {
     mutex_enter(&mutex);
     ut_ad(validate_curr_size(false));
   }
 
   /** Exit the rseg->mutex. */
-  void unlatch() {
+  ALWAYS_INLINE void unlatch() {
     ut_ad(validate_curr_size(false));
     mutex_exit(&mutex);
   }

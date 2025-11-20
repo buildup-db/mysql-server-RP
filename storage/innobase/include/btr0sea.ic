@@ -1,6 +1,7 @@
 /*****************************************************************************
 
 Copyright (c) 1996, 2025, Oracle and/or its affiliates.
+Copyright (c) 2025, buildup-db.
 
 This program is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License, version 2.0, as published by the
@@ -90,7 +91,7 @@ static inline void btr_search_x_lock(const dict_index_t *index,
   rw_lock_x_lock_gen(btr_get_search_latch(index), 0, location);
 }
 
-static inline void btr_search_x_unlock(const dict_index_t *index) {
+static inline void btr_search_x_unlock_inline(const dict_index_t *index) {
   rw_lock_x_unlock(btr_get_search_latch(index));
 }
 
@@ -106,7 +107,7 @@ static inline void btr_search_x_unlock_all() {
   }
 }
 
-static inline void btr_search_s_lock(const dict_index_t *index,
+static inline void btr_search_s_lock_inline(const dict_index_t *index,
                                      ut::Location location) {
   rw_lock_s_lock_gen(btr_get_search_latch(index), 0, location);
 }

@@ -1,6 +1,7 @@
 /*****************************************************************************
 
 Copyright (c) 1995, 2025, Oracle and/or its affiliates.
+Copyright (c) 2025, buildup-db.
 
 This program is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License, version 2.0, as published by the
@@ -57,12 +58,17 @@ this program; if not, write to the Free Software Foundation, Inc.,
 @param[in] mtr Mini-transaction
 @param[in] str String to write
 @param[in] len String length */
-void mlog_catenate_string(mtr_t *mtr, const byte *str, ulint len) {
+static ALWAYS_INLINE void mlog_catenate_string_inline(mtr_t *mtr,
+                                                      const byte *str,
+                                                      ulint len) {
   if (mtr_get_log_mode(mtr) == MTR_LOG_NONE) {
     return;
   }
 
   mtr->get_log()->push(str, uint32_t(len));
+}
+void mlog_catenate_string(mtr_t *mtr, const byte *str, ulint len) {
+  mlog_catenate_string_inline(mtr, str, len);
 }
 
 #ifndef UNIV_HOTBACKUP
@@ -363,7 +369,7 @@ void mlog_log_string(byte *ptr,  /*!< in: pointer written to */
 
   mlog_close(mtr, log_ptr);
 
-  mlog_catenate_string(mtr, ptr, len);
+  mlog_catenate_string_inline(mtr, ptr, len);
 }
 #endif /* !UNIV_HOTBACKUP */
 
@@ -876,7 +882,7 @@ bool mlog_open_and_write_index(mtr_t *mtr, const byte *rec,
   std::vector<dict_field_t *> instant_fields_to_log;
 
   /* To check _size is available on buffer. If not, close and reopen buffer */
-  auto f = [&](const size_t _size) {
+  auto f = [&](const size_t _size) ALWAYS_INLINE_ATTR {
     if (log_ptr + _size > log_end) {
       if (!close_and_reopen_log(log_ptr, log_start, log_end, mtr, alloc,
                                 total)) {

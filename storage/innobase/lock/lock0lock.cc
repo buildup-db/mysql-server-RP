@@ -1,6 +1,7 @@
 /*****************************************************************************
 
 Copyright (c) 1996, 2025, Oracle and/or its affiliates.
+Copyright (c) 2025, buildup-db.
 
 This program is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License, version 2.0, as published by the
@@ -1505,7 +1506,8 @@ rows (and thus: queues) this function moves it to the front of whole hash cell.
 @param  [in]    lock    a granted lock to be moved
 @param  [in]    rec_id  record id which specifies particular queue and hash
 cell */
-static void lock_rec_move_granted_to_front(lock_t *lock, const RecID &rec_id) {
+static ALWAYS_INLINE void lock_rec_move_granted_to_front(lock_t *lock,
+                                                         const RecID &rec_id) {
   ut_ad(!lock->is_waiting());
   ut_ad(rec_id.matches(lock));
   ut_ad(locksys::owns_page_shard(rec_id.get_page_id()));

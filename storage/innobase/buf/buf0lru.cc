@@ -1,6 +1,7 @@
 /*****************************************************************************
 
 Copyright (c) 1995, 2025, Oracle and/or its affiliates.
+Copyright (c) 2025, buildup-db.
 
 This program is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License, version 2.0, as published by the
@@ -1224,7 +1225,8 @@ bool buf_LRU_buf_pool_running_out(void) {
 The block is taken off the free list.  If it is empty, returns NULL.
 @param[in]      buf_pool        buffer pool instance
 @return a free control block, or NULL if the buf_block->free list is empty */
-buf_block_t *buf_LRU_get_free_only(buf_pool_t *buf_pool) {
+static ALWAYS_INLINE buf_block_t *buf_LRU_get_free_only_inline(
+    buf_pool_t *buf_pool) {
   buf_block_t *block;
 
   mutex_enter(&buf_pool->free_list_mutex);
@@ -1267,6 +1269,9 @@ buf_block_t *buf_LRU_get_free_only(buf_pool_t *buf_pool) {
   mutex_exit(&buf_pool->free_list_mutex);
 
   return (block);
+}
+buf_block_t *buf_LRU_get_free_only(buf_pool_t *buf_pool) {
+  return buf_LRU_get_free_only_inline(buf_pool);
 }
 
 /** Checks how much of buf_pool is occupied by non-data objects like
@@ -1359,7 +1364,7 @@ loop:
   buf_LRU_check_size_of_non_data_objects(buf_pool);
 
   /* If there is a block in the free list, take it */
-  block = buf_LRU_get_free_only(buf_pool);
+  block = buf_LRU_get_free_only_inline(buf_pool);
 
   if (block != nullptr) {
     ut_ad(!block->page.someone_has_io_responsibility());
@@ -1474,7 +1479,7 @@ static size_t calculate_desired_LRU_old_size(const buf_pool_t *buf_pool) {
 /** Moves the LRU_old pointer so that the length of the old blocks list
 is inside the allowed limits.
 @param[in]      buf_pool        buffer pool instance */
-static inline void buf_LRU_old_adjust_len(buf_pool_t *buf_pool) {
+static ALWAYS_INLINE void buf_LRU_old_adjust_len_inline(buf_pool_t *buf_pool) {
   ulint old_len;
   ulint new_len;
 
@@ -1526,6 +1531,9 @@ static inline void buf_LRU_old_adjust_len(buf_pool_t *buf_pool) {
       return;
     }
   }
+}
+static void buf_LRU_old_adjust_len(buf_pool_t *buf_pool) {
+  buf_LRU_old_adjust_len_inline(buf_pool);
 }
 
 /** Initializes the old blocks pointer in the LRU list. This function should be
@@ -1649,7 +1657,7 @@ static inline void buf_LRU_remove_block(buf_page_t *bpage) {
   }
 
   /* Adjust the length of the old block list if necessary */
-  buf_LRU_old_adjust_len(buf_pool);
+  buf_LRU_old_adjust_len_inline(buf_pool);
 }
 
 /** Adds a block to the LRU list of decompressed zip pages.
@@ -1718,7 +1726,7 @@ static inline void buf_LRU_add_block_low(buf_page_t *bpage, bool old) {
     /* Adjust the length of the old block list if necessary */
 
     buf_page_set_old(bpage, old);
-    buf_LRU_old_adjust_len(buf_pool);
+    buf_LRU_old_adjust_len_inline(buf_pool);
 
   } else if (UT_LIST_GET_LEN(buf_pool->LRU) == BUF_LRU_OLD_MIN_LEN) {
     /* The LRU list is now long enough for LRU_old to become

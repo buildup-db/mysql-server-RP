@@ -1,6 +1,7 @@
 /*****************************************************************************
 
 Copyright (c) 1995, 2025, Oracle and/or its affiliates.
+Copyright (c) 2025, buildup-db.
 
 This program is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License, version 2.0, as published by the
@@ -546,7 +547,7 @@ danger of dropping from the buffer pool.
 NOTE: does not reserve the LRU list mutex.
 @param[in]      bpage   block to make younger
 @return true if should be made younger */
-static inline bool buf_page_peek_if_too_old(const buf_page_t *bpage);
+static ALWAYS_INLINE bool buf_page_peek_if_too_old(const buf_page_t *bpage);
 
 /** Gets the youngest modification log sequence number for a frame.
  Returns zero if not file page or no modification occurred yet.
@@ -961,8 +962,8 @@ static inline buf_pool_t *buf_pool_from_array(
 @param[in]      buf_pool        buffer pool instance
 @param[in]      page_id         page id
 @return block, NULL if not found */
-static inline buf_page_t *buf_page_hash_get_low(buf_pool_t *buf_pool,
-                                                const page_id_t &page_id);
+static ALWAYS_INLINE buf_page_t *buf_page_hash_get_low(
+    buf_pool_t *buf_pool, const page_id_t &page_id);
 
 /** Returns the control block of a file page, NULL if not found.
 If the block is found and lock is not NULL then the appropriate
@@ -1217,7 +1218,7 @@ class buf_page_t {
   @return true when space reference stored leads was deleted or truncated and
   this page should be discarded. When false is returned, the status of stale is
   checked to be guaranteed. */
-  inline bool was_stale() const {
+  ALWAYS_INLINE bool was_stale() const {
     ut_a(m_space != nullptr);
     ut_a(id.space() == m_space->id);
     /* If the the version is OK, then the space must not be deleted.
@@ -2494,9 +2495,8 @@ inline rw_lock_t *buf_page_hash_lock_get(const buf_pool_t *buf_pool,
 }
 
 /** If not appropriate page_hash_lock, relock until appropriate. */
-inline rw_lock_t *buf_page_hash_lock_s_confirm(rw_lock_t *hash_lock,
-                                               const buf_pool_t *buf_pool,
-                                               const page_id_t page_id) {
+ALWAYS_INLINE rw_lock_t *buf_page_hash_lock_s_confirm(
+    rw_lock_t *hash_lock, const buf_pool_t *buf_pool, const page_id_t page_id) {
   return hash_lock_s_confirm(hash_lock, buf_pool->page_hash, page_id.hash());
 }
 

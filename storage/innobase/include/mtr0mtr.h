@@ -2,6 +2,7 @@
 
 Copyright (c) 1995, 2025, Oracle and/or its affiliates.
 Copyright (c) 2012, Facebook Inc.
+Copyright (c) 2025, buildup-db.
 
 This program is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License, version 2.0, as published by the
@@ -124,6 +125,7 @@ savepoint. */
 
 /** Lock an rw-lock in s-mode. */
 #define mtr_s_lock(l, m, loc) (m)->s_lock((l), loc)
+#define mtr_s_lock_inline(l, m, loc) (m)->s_lock_inline((l), loc)
 
 /** Lock an rw-lock in x-mode. */
 #define mtr_x_lock(l, m, loc) (m)->x_lock((l), loc)
@@ -141,6 +143,8 @@ savepoint. */
 
 #define mtr_release_block_at_savepoint(m, s, b) \
   (m)->release_block_at_savepoint((s), (b))
+#define mtr_release_block_at_savepoint_inline(m, s, b) \
+  (m)->release_block_at_savepoint_inline((s), (b))
 
 #define mtr_block_sx_latch_at_savepoint(m, s, b) \
   (m)->sx_latch_at_savepoint((s), (b))
@@ -177,6 +181,7 @@ inline std::ostream &operator<<(std::ostream &out, const mtr_memo_slot_t &obj) {
 struct mtr_t {
   /** State variables of the mtr */
   struct Impl {
+    ALWAYS_INLINE ~Impl() {}
     /** memo stack for locks etc. */
     mtr_buf_t m_memo;
 
@@ -348,7 +353,7 @@ struct mtr_t {
     m_impl.m_shard_index = 0;
   }
 
-  ~mtr_t() {
+  ALWAYS_INLINE ~mtr_t() {
 #ifdef UNIV_DEBUG
     switch (m_impl.m_state) {
       case MTR_STATE_ACTIVE:
@@ -408,7 +413,11 @@ struct mtr_t {
   inline void release_s_latch_at_savepoint(ulint savepoint, rw_lock_t *lock);
 
   /** Release the block in an mtr memo after a savepoint. */
-  inline void release_block_at_savepoint(ulint savepoint, buf_block_t *block);
+  ALWAYS_INLINE void release_block_at_savepoint_inline(ulint savepoint,
+                                                       buf_block_t *block);
+  inline void release_block_at_savepoint(ulint savepoint, buf_block_t *block) {
+    release_block_at_savepoint_inline(savepoint, block);
+  }
 
   /** SX-latch a not yet latched block after a savepoint. */
   inline void sx_latch_at_savepoint(ulint savepoint, buf_block_t *block);
@@ -437,18 +446,22 @@ struct mtr_t {
   @param lock   rw-lock
   @param location location from where called */
   inline void s_lock(rw_lock_t *lock, ut::Location location);
+  ALWAYS_INLINE void s_lock_inline(rw_lock_t *lock, ut::Location location) {
+    rw_lock_s_lock_gen(lock, 0, location);
+    memo_push(lock, MTR_MEMO_S_LOCK);
+  }
 
   /** Locks a rw-latch in X mode.
   NOTE: use mtr_x_lock().
   @param lock   rw-lock
   @param location location where name from where called */
-  inline void x_lock(rw_lock_t *lock, ut::Location location);
+  ALWAYS_INLINE void x_lock(rw_lock_t *lock, ut::Location location);
 
   /** Locks a rw-latch in X mode.
   NOTE: use mtr_sx_lock().
   @param lock   rw-lock
   @param location location from where called */
-  inline void sx_lock(rw_lock_t *lock, ut::Location location);
+  ALWAYS_INLINE void sx_lock(rw_lock_t *lock, ut::Location location);
 
   /** Acquire a tablespace X-latch.
   NOTE: use mtr_x_lock_space().
@@ -626,7 +639,7 @@ struct mtr_t {
   /** Push an object to an mtr memo stack.
   @param object object
   @param type   object type: MTR_MEMO_S_LOCK, ... */
-  inline void memo_push(void *object, mtr_memo_type_t type);
+  ALWAYS_INLINE void memo_push(void *object, mtr_memo_type_t type);
 
 #ifdef UNIV_DEBUG
   /** Iterate all MTRs created in this thread to assure they are not latching

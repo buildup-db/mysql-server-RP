@@ -1,6 +1,7 @@
 /*****************************************************************************
 
 Copyright (c) 1995, 2025, Oracle and/or its affiliates.
+Copyright (c) 2025, buildup-db.
 
 This program is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License, version 2.0, as published by the
@@ -52,7 +53,7 @@ we can reserve an empty cell of it.
 @param[in]      location        location where requested
 @param[out]     cell    the cell reserved, never NULL
 @return the sync array found, never NULL. */
-static inline sync_array_t *sync_array_get_and_reserve_cell(
+static ALWAYS_INLINE sync_array_t *sync_array_get_and_reserve_cell(
     void *object, ulint type, ut::Location location, sync_cell_t **cell);
 
 /** Reserves a wait array cell for waiting for an object.
@@ -104,7 +105,7 @@ void sync_array_init(ulint n_threads); /*!< in: Number of slots to create */
 void sync_array_close();
 
 /** Get an instance of the sync wait array. */
-static inline sync_array_t *sync_array_get();
+static ALWAYS_INLINE sync_array_t *sync_array_get();
 
 #include "sync0arr.ic"
 

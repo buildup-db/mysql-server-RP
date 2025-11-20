@@ -1,6 +1,7 @@
 /*****************************************************************************
 
 Copyright (c) 1995, 2025, Oracle and/or its affiliates.
+Copyright (c) 2025, buildup-db.
 
 This program is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License, version 2.0, as published by the
@@ -689,7 +690,7 @@ class LatchCounter {
   }
 
   /** Register a single instance counter */
-  void single_register(Count *count) UNIV_NOTHROW {
+  ALWAYS_INLINE void single_register(Count *count) UNIV_NOTHROW {
     m_mutex.enter();
 
     m_counters.push_back(count);
@@ -699,7 +700,7 @@ class LatchCounter {
 
   /** Deregister a single instance counter
   @param[in]    count           The count instance to deregister */
-  void single_deregister(Count *count) UNIV_NOTHROW {
+  ALWAYS_INLINE void single_deregister(Count *count) UNIV_NOTHROW {
     m_mutex.enter();
 
     m_counters.erase(std::remove(m_counters.begin(), m_counters.end(), count),

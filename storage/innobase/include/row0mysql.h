@@ -1,6 +1,7 @@
 /*****************************************************************************
 
 Copyright (c) 2000, 2025, Oracle and/or its affiliates.
+Copyright (c) 2025, buildup-db.
 
 This program is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License, version 2.0, as published by the
@@ -816,7 +817,7 @@ struct row_prebuilt_t {
 
   lob::undo_vers_t *get_lob_undo() { return (&m_lob_undo); }
 
-  void lob_undo_reset() { m_lob_undo.reset(); }
+  ALWAYS_INLINE void lob_undo_reset() { m_lob_undo.reset(); }
 
   /** Can a record buffer or a prefetch cache be utilized for prefetching
   records in this scan?

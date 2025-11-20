@@ -2,6 +2,7 @@
 
 Copyright (c) 2005, 2025, Oracle and/or its affiliates.
 Copyright (c) 2012, Facebook Inc.
+Copyright (c) 2025, buildup-db.
 
 This program is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License, version 2.0, as published by the
@@ -349,10 +350,8 @@ page.
 @param[in]      page    page that is compressed
 @param[in]      index   index
 @param[in]      mtr     mtr */
-static inline void page_zip_compress_write_log_no_data(ulint level,
-                                                       const page_t *page,
-                                                       dict_index_t *index,
-                                                       mtr_t *mtr);
+static ALWAYS_INLINE void page_zip_compress_write_log_no_data(
+    ulint level, const page_t *page, dict_index_t *index, mtr_t *mtr);
 
 /** Parses a log record of compressing an index page without the data.
 @param[in]      ptr             buffer

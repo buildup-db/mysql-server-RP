@@ -1,6 +1,7 @@
 /*****************************************************************************
 
 Copyright (c) 2017, 2025, Oracle and/or its affiliates.
+Copyright (c) 2025, buildup-db.
 
 This program is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License, version 2.0,
@@ -93,7 +94,7 @@ class Sharded_rw_lock {
     m_n_shards = 0;
   }
 
-  size_t s_lock(ut::Location location) {
+  ALWAYS_INLINE size_t s_lock(ut::Location location) {
     const size_t shard_no =
         default_indexer_t<>::get_rnd_index() & (m_n_shards - 1);
     rw_lock_s_lock_gen(&m_shards[shard_no], 0, location);

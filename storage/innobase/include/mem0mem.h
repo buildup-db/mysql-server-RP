@@ -1,6 +1,7 @@
 /*****************************************************************************
 
 Copyright (c) 1994, 2025, Oracle and/or its affiliates.
+Copyright (c) 2025, buildup-db.
 
 This program is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License, version 2.0, as published by the
@@ -128,7 +129,7 @@ static inline mem_heap_t *mem_heap_create(ulint size, ut::Location loc,
 
 /** Frees the space occupied by a memory heap.
 @param[in]      heap    Heap to be freed */
-static inline void mem_heap_free(mem_heap_t *heap);
+static ALWAYS_INLINE void mem_heap_free(mem_heap_t *heap);
 
 /** Allocates and zero-fills n bytes of memory from a memory heap.
 @param[in]      heap    memory heap
@@ -143,7 +144,7 @@ static inline void *mem_heap_zalloc(mem_heap_t *heap, ulint n);
 the buffer pool, this must be <= MEM_MAX_ALLOC_IN_BUF
 @return allocated storage, NULL if did not succeed (only possible for
 MEM_HEAP_BTR_SEARCH type heaps) */
-static inline void *mem_heap_alloc(mem_heap_t *heap, ulint n);
+static ALWAYS_INLINE void *mem_heap_alloc(mem_heap_t *heap, ulint n);
 
 /** Returns a pointer to the heap top.
 @param[in]      heap            memory heap
@@ -443,7 +444,7 @@ struct Scoped_heap {
       : m_ptr(mem_heap_create(n, location, MEM_HEAP_DYNAMIC)) {}
 
   /** Destructor. */
-  ~Scoped_heap() = default;
+  ALWAYS_INLINE ~Scoped_heap() = default;
 
   /** Create the heap, it must not already be created.
   @param[in] n                  Initial size of the heap to allocate.

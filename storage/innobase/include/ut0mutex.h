@@ -1,6 +1,7 @@
 /*****************************************************************************
 
 Copyright (c) 2012, 2025, Oracle and/or its affiliates.
+Copyright (c) 2025, buildup-db.
 
 This program is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License, version 2.0, as published by the
@@ -110,7 +111,7 @@ extern ulong srv_n_spin_wait_rounds;
 #define mutex_create(I, M) mutex_init((M), (I), __FILE__, __LINE__)
 
 template <typename Mutex>
-void mutex_enter_inline(Mutex *m, ut::Location loc) {
+ALWAYS_INLINE void mutex_enter_inline(Mutex *m, ut::Location loc) {
   m->enter(srv_n_spin_wait_rounds, srv_spin_wait_delay, loc.filename, loc.line);
 }
 
@@ -136,7 +137,7 @@ struct IB_mutex_guard {
   }
 
   /** Destructor to release mutex */
-  ~IB_mutex_guard() { clear(); }
+  ALWAYS_INLINE ~IB_mutex_guard() { clear(); }
 
   /** Disable copy construction */
   IB_mutex_guard(IB_mutex_guard const &) = delete;
@@ -233,8 +234,8 @@ Add the mutex instance to the global mutex list.
 @param[in]      file_name       Filename from where it was called
 @param[in]      line            Line number in filename from where called */
 template <typename Mutex>
-void mutex_init(Mutex *mutex, latch_id_t id, const char *file_name,
-                uint32_t line) {
+ALWAYS_INLINE void mutex_init(Mutex *mutex, latch_id_t id,
+                              const char *file_name, uint32_t line) {
   new (mutex) Mutex();
 
   mutex->init(id, file_name, line);

@@ -2,6 +2,7 @@
 
 Copyright (c) 1996, 2025, Oracle and/or its affiliates.
 Copyright (c) 2012, Facebook Inc.
+Copyright (c) 2025, buildup-db.
 
 This program is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License, version 2.0, as published by the
@@ -1930,13 +1931,13 @@ struct dict_table_t {
   /** Acquire the table handle, with lock() and unlock() the table.
   This function needs to be called for opening table when the table
   is in memory and later the stats information would be initialized */
-  inline void acquire_with_lock();
+  ALWAYS_INLINE void acquire_with_lock();
 
   /** Release the table handle. */
   inline void release();
 
   /** Lock the table handle. */
-  inline void lock();
+  ALWAYS_INLINE void lock();
 
   /** Unlock the table handle. */
   inline void unlock();

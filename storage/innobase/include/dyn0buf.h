@@ -1,6 +1,7 @@
 /*****************************************************************************
 
 Copyright (c) 2013, 2025, Oracle and/or its affiliates.
+Copyright (c) 2025, buildup-db.
 
 This program is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License, version 2.0, as published by the
@@ -181,7 +182,7 @@ class dyn_buf_t {
   copying the elements, the caller must close the buffer using close().
   @param size   in bytes of the buffer; MUST be <= MAX_DATA_SIZE!
   @return       pointer to the buffer */
-  [[nodiscard]] byte *open(ulint size) {
+  [[nodiscard]] ALWAYS_INLINE byte *open(ulint size) {
     ut_ad(size > 0);
     ut_ad(size <= MAX_DATA_SIZE);
 
@@ -215,7 +216,7 @@ class dyn_buf_t {
   @param size   in bytes of the element
   @return       pointer to the element */
   template <typename Type>
-  Type push(uint32_t size) {
+  ALWAYS_INLINE Type push(uint32_t size) {
     ut_ad(size > 0);
     ut_ad(size <= MAX_DATA_SIZE);
 
@@ -234,7 +235,7 @@ class dyn_buf_t {
   Pushes n bytes.
   @param        ptr     string to write
   @param        len     string length */
-  void push(const byte *ptr, uint32_t len) {
+  ALWAYS_INLINE void push(const byte *ptr, uint32_t len) {
     while (len > 0) {
       uint32_t n_copied;
 
@@ -294,7 +295,7 @@ class dyn_buf_t {
   Iterate over each block and call the functor.
   @return       false if iteration was terminated. */
   template <typename Functor>
-  bool for_each_block(Functor &functor) const {
+  ALWAYS_INLINE bool for_each_block(Functor &functor) const {
     for (const block_t *block : m_list) {
       if (!functor(block)) {
         return (false);
@@ -308,7 +309,7 @@ class dyn_buf_t {
   Iterate over all the blocks in reverse and call the iterator
   @return       false if iteration was terminated. */
   template <typename Functor>
-  bool for_each_block_in_reverse(Functor &functor) const {
+  ALWAYS_INLINE bool for_each_block_in_reverse(Functor &functor) const {
     for (block_t *block = UT_LIST_GET_LAST(m_list); block != nullptr;
          block = UT_LIST_GET_PREV(m_node, block)) {
       if (!functor(block)) {
@@ -381,7 +382,7 @@ class dyn_buf_t {
 
   /**
   Allocate and add a new block to m_list */
-  block_t *add_block() {
+  ALWAYS_INLINE block_t *add_block() {
     block_t *block;
 
     if (m_heap == nullptr) {

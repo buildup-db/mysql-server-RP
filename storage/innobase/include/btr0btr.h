@@ -2,6 +2,7 @@
 
 Copyright (c) 1994, 2025, Oracle and/or its affiliates.
 Copyright (c) 2012, Facebook Inc.
+Copyright (c) 2025, buildup-db.
 
 This program is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License, version 2.0, as published by the
@@ -149,8 +150,8 @@ void btr_corruption_report(const buf_block_t *block, /*!< in: corrupted block */
 /** Assert that a B-tree page is not corrupted.
 @param block buffer block containing a B-tree page
 @param index the B-tree index */
-inline void btr_assert_not_corrupted(const buf_block_t *block,
-                                     const dict_index_t *index) {
+ALWAYS_INLINE void btr_assert_not_corrupted(const buf_block_t *block,
+                                            const dict_index_t *index) {
   if (page_is_comp(buf_block_get_frame(block)) !=
       dict_table_is_comp((index)->table)) {
     btr_corruption_report(block, index);
@@ -210,8 +211,8 @@ static inline buf_block_t *btr_block_get(const page_id_t &page_id,
 
 /** Gets the index id field of a page.
  @return index id */
-[[nodiscard]] static inline space_index_t btr_page_get_index_id(
-    const page_t *page); /*!< in: index page */
+[[nodiscard]] static ALWAYS_INLINE space_index_t
+btr_page_get_index_id(const page_t *page); /*!< in: index page */
 /** Gets the node level field in an index page.
  @param[in] page index page
  @return level, leaf level == 0 */
@@ -234,8 +235,8 @@ static inline buf_block_t *btr_block_get(const page_id_t &page_id,
 @param[in]      block           buffer block
 @param[in]      latch_mode      BTR_SEARCH_LEAF or BTR_MODIFY_LEAF
 @param[in]      mtr             mtr */
-static inline void btr_leaf_page_release(buf_block_t *block, ulint latch_mode,
-                                         mtr_t *mtr);
+static ALWAYS_INLINE void btr_leaf_page_release(buf_block_t *block,
+                                                ulint latch_mode, mtr_t *mtr);
 #endif /* !UNIV_HOTBACKUP */
 
 /** Gets the child node file address in a node pointer.

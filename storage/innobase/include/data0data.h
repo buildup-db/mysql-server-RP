@@ -1,6 +1,7 @@
 /*****************************************************************************
 
 Copyright (c) 1994, 2025, Oracle and/or its affiliates.
+Copyright (c) 2025, buildup-db.
 
 This program is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License, version 2.0, as published by the
@@ -163,7 +164,7 @@ If len>0, tests the first len bytes of the content for equality.
 @param[in] len   Data length or UNIV_SQL_NULL
 @param[in] data  Data
 @return true if equal */
-[[nodiscard]] static inline bool dfield_data_is_binary_equal(
+[[nodiscard]] static ALWAYS_INLINE bool dfield_data_is_binary_equal(
     const dfield_t *field, ulint len, const byte *data);
 /** Gets number of fields in a data tuple.
  @return number of fields */

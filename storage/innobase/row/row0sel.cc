@@ -2,6 +2,7 @@
 
 Copyright (c) 1997, 2025, Oracle and/or its affiliates.
 Copyright (c) 2008, Google Inc.
+Copyright (c) 2025, buildup-db.
 
 Portions of this file contain modifications contributed and copyrighted by
 Google, Inc. Those modifications are gratefully acknowledged and are described
@@ -630,7 +631,7 @@ static void sel_dequeue_prefetched_row(
 
 /** Pushes the column values for a prefetched, cached row to the column prefetch
  buffers from the val fields in the column nodes. */
-static inline void sel_enqueue_prefetched_row(
+static ALWAYS_INLINE void sel_enqueue_prefetched_row(
     plan_t *plan) /*!< in: plan node for a table */
 {
   sel_buf_t *sel_buf;
@@ -2503,7 +2504,7 @@ mysql_col_len, mbminlen, mbmaxlen
                                 record but the prebuilt template is in
                                 clustered index format and used only for end
                                 range comparison. */
-void row_sel_field_store_in_mysql_format_func(
+static ALWAYS_INLINE void row_sel_field_store_in_mysql_format_func_inline(
     byte *dest, const mysql_row_templ_t *templ, const dict_index_t *index,
     IF_DEBUG(ulint field_no, ) const byte *data,
     ulint len IF_DEBUG(, ulint sec_field)) {
@@ -2699,6 +2700,19 @@ void row_sel_field_store_in_mysql_format_func(
       memcpy(dest, data, len);
   }
 }
+void row_sel_field_store_in_mysql_format_func(
+    byte *dest, const mysql_row_templ_t *templ, const dict_index_t *index,
+    IF_DEBUG(ulint field_no, ) const byte *data,
+    ulint len IF_DEBUG(, ulint sec_field)) {
+  row_sel_field_store_in_mysql_format_func_inline(
+      dest, templ, index, IF_DEBUG(field_no, ) data, len IF_DEBUG(, sec_field));
+}
+static ALWAYS_INLINE void row_sel_field_store_in_mysql_format_inline(
+    byte *dest, const mysql_row_templ_t *templ, const dict_index_t *idx,
+    ulint field, const byte *src, ulint len, ulint sec) {
+  row_sel_field_store_in_mysql_format_func_inline(
+      dest, templ, idx, IF_DEBUG(field, ) src, len IF_DEBUG(, sec));
+}
 
 // clang-format off
 /** Convert a field in the Innobase format to a field in the MySQL format.
@@ -2721,7 +2735,7 @@ void row_sel_field_store_in_mysql_format_func(
 @param[in]      lob_undo        the LOB undo information.
 @param[in,out]  blob_heap       If not null then use this heap for BLOBs */
 // clang-format on
-[[nodiscard]] static bool row_sel_store_mysql_field(
+[[nodiscard]] static ALWAYS_INLINE bool row_sel_store_mysql_field(
     byte *mysql_rec, row_prebuilt_t *prebuilt, const rec_t *rec,
     const dict_index_t *rec_index, const dict_index_t *prebuilt_index,
     const ulint *offsets, ulint field_no, const mysql_row_templ_t *templ,
@@ -2877,9 +2891,9 @@ void row_sel_field_store_in_mysql_format_func(
       field_no = clust_field_no;
     }
 
-    row_sel_field_store_in_mysql_format(mysql_rec + templ->mysql_col_offset,
-                                        templ, rec_index, field_no, data, len,
-                                        sec_field_no);
+    row_sel_field_store_in_mysql_format_inline(
+        mysql_rec + templ->mysql_col_offset, templ, rec_index, field_no, data,
+        len, sec_field_no);
   }
 
   ut_ad(rec_field_not_null_not_add_col_def(len));
@@ -2893,13 +2907,12 @@ void row_sel_field_store_in_mysql_format_func(
   return true;
 }
 
-bool row_sel_store_mysql_rec(byte *mysql_rec, row_prebuilt_t *prebuilt,
-                             const rec_t *rec, const dtuple_t *vrow,
-                             bool rec_clust, const dict_index_t *rec_index,
-                             const dict_index_t *prebuilt_index,
-                             const ulint *offsets, bool clust_templ_for_sec,
-                             lob::undo_vers_t *lob_undo,
-                             mem_heap_t *&blob_heap) {
+static ALWAYS_INLINE bool row_sel_store_mysql_rec_inline(
+    byte *mysql_rec, row_prebuilt_t *prebuilt, const rec_t *rec,
+    const dtuple_t *vrow, bool rec_clust, const dict_index_t *rec_index,
+    const dict_index_t *prebuilt_index, const ulint *offsets,
+    bool clust_templ_for_sec, lob::undo_vers_t *lob_undo,
+    mem_heap_t *&blob_heap) {
   std::vector<const dict_col_t *> template_col;
 
   DBUG_TRACE;
@@ -3051,6 +3064,17 @@ bool row_sel_store_mysql_rec(byte *mysql_rec, row_prebuilt_t *prebuilt,
 
   return true;
 }
+bool row_sel_store_mysql_rec(byte *mysql_rec, row_prebuilt_t *prebuilt,
+                             const rec_t *rec, const dtuple_t *vrow,
+                             bool rec_clust, const dict_index_t *rec_index,
+                             const dict_index_t *prebuilt_index,
+                             const ulint *offsets, bool clust_templ_for_sec,
+                             lob::undo_vers_t *lob_undo,
+                             mem_heap_t *&blob_heap) {
+  return row_sel_store_mysql_rec_inline(
+      mysql_rec, prebuilt, rec, vrow, rec_clust, rec_index, prebuilt_index,
+      offsets, clust_templ_for_sec, lob_undo, blob_heap);
+}
 
 /** Builds a previous version of a clustered index record for a consistent read
 @param[in]      read_view       read view
@@ -3119,11 +3143,12 @@ class Row_sel_get_clust_rec_for_mysql {
                              the same mtr is used to access the clustered index
   @param[in]     lob_undo    the LOB undo information.
   @return DB_SUCCESS, DB_SUCCESS_LOCKED_REC, or error code */
-  dberr_t operator()(row_prebuilt_t *prebuilt, dict_index_t *sec_index,
-                     const rec_t *rec, que_thr_t *thr, const rec_t **out_rec,
-                     ulint **offsets, mem_heap_t **offset_heap,
-                     const dtuple_t **vrow, mtr_t *mtr,
-                     lob::undo_vers_t *lob_undo);
+  ALWAYS_INLINE dberr_t operator()(row_prebuilt_t *prebuilt,
+                                   dict_index_t *sec_index, const rec_t *rec,
+                                   que_thr_t *thr, const rec_t **out_rec,
+                                   ulint **offsets, mem_heap_t **offset_heap,
+                                   const dtuple_t **vrow, mtr_t *mtr,
+                                   lob::undo_vers_t *lob_undo);
 };
 
 /** Retrieve the clustered index record corresponding to a record in a
@@ -3395,7 +3420,7 @@ err_exit:
  Then we may have to move the cursor one step up or down.
  @return true if we may need to process the record the cursor is now
  positioned on (i.e. we should not go to the next record yet) */
-static bool sel_restore_position_for_mysql(
+static ALWAYS_INLINE bool sel_restore_position_for_mysql(
     bool *same_user_rec, /*!< out: true if we were able to restore
                           the cursor on a user record with the
                           same ordering prefix in in the
@@ -3558,7 +3583,7 @@ static Record_buffer *row_sel_get_record_buffer(
 }
 
 /** Pops a cached row for MySQL from the fetch cache. */
-static inline void row_sel_dequeue_cached_row_for_mysql(
+static ALWAYS_INLINE void row_sel_dequeue_cached_row_for_mysql(
     byte *buf,                /*!< in/out: buffer where to copy the
                               row */
     row_prebuilt_t *prebuilt) /*!< in: prebuilt struct */
@@ -3661,7 +3686,7 @@ static inline void row_sel_prefetch_cache_init(
 
 /** Get the last fetch cache buffer from the queue.
  @return pointer to buffer. */
-static inline byte *row_sel_fetch_last_buf(
+static ALWAYS_INLINE byte *row_sel_fetch_last_buf(
     row_prebuilt_t *prebuilt) /*!< in/out: prebuilt struct */
 {
   const auto record_buffer = row_sel_get_record_buffer(prebuilt);
@@ -3694,7 +3719,7 @@ static inline byte *row_sel_fetch_last_buf(
 }
 
 /** Pushes a row for MySQL to the fetch cache. */
-static inline void row_sel_enqueue_cache_row_for_mysql(
+static ALWAYS_INLINE void row_sel_enqueue_cache_row_for_mysql(
     byte *mysql_rec,          /*!< in/out: MySQL record */
     row_prebuilt_t *prebuilt) /*!< in/out: prebuilt struct */
 {
@@ -3770,15 +3795,15 @@ static ulint row_sel_try_search_shortcut_for_mysql(
 
 /** Check a pushed-down index condition.
  @return ICP_NO_MATCH, ICP_MATCH, or ICP_OUT_OF_RANGE */
-static ICP_RESULT row_search_idx_cond_check(
-    byte *mysql_rec,          /*!< out: record
-                              in MySQL format (invalid unless
-                              prebuilt->idx_cond == true and
-                              we return ICP_MATCH) */
-    row_prebuilt_t *prebuilt, /*!< in/out: prebuilt struct
-                              for the table handle */
-    const rec_t *rec,         /*!< in: InnoDB record */
-    const ulint *offsets)     /*!< in: rec_get_offsets() */
+static ALWAYS_INLINE ICP_RESULT
+row_search_idx_cond_check(byte *mysql_rec,          /*!< out: record
+                                                    in MySQL format (invalid unless
+                                                    prebuilt->idx_cond == true and
+                                                    we return ICP_MATCH) */
+                          row_prebuilt_t *prebuilt, /*!< in/out: prebuilt struct
+                                                    for the table handle */
+                          const rec_t *rec,         /*!< in: InnoDB record */
+                          const ulint *offsets) /*!< in: rec_get_offsets() */
 {
   ICP_RESULT result;
   ulint i;
@@ -5516,7 +5541,7 @@ rec_loop:
 
       next_buf = next_buf ? row_sel_fetch_last_buf(prebuilt) : buf;
 
-      if (!row_sel_store_mysql_rec(
+      if (!row_sel_store_mysql_rec_inline(
               next_buf, prebuilt, result_rec, vrow, result_rec != rec,
               result_rec != rec ? clust_index : index, prebuilt->index, offsets,
               false, nullptr, prebuilt->blob_heap)) {
@@ -5608,7 +5633,7 @@ rec_loop:
       mach_write_to_4(buf, rec_offs_extra_size(offsets) + 4);
     } else if (!prebuilt->idx_cond && !prebuilt->innodb_api) {
       /* The record was not yet converted to MySQL format. */
-      if (!row_sel_store_mysql_rec(
+      if (!row_sel_store_mysql_rec_inline(
               buf, prebuilt, result_rec, vrow, result_rec != rec,
               result_rec != rec ? clust_index : index, prebuilt->index, offsets,
               false, prebuilt->get_lob_undo(), prebuilt->blob_heap)) {

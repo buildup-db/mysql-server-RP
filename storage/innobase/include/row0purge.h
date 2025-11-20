@@ -1,6 +1,7 @@
 /*****************************************************************************
 
 Copyright (c) 1997, 2025, Oracle and/or its affiliates.
+Copyright (c) 2025, buildup-db.
 
 This program is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License, version 2.0, as published by the
@@ -173,10 +174,12 @@ struct purge_node_t {
   /** Undo recs to purge */
   Recs *recs;
 
-  void init() { new (&m_lob_pages) LOB_free_set(); }
+  void init() { m_lob_pages = nullptr; }
   void deinit() {
     mem_heap_free(heap);
-    m_lob_pages.~LOB_free_set();
+    if (m_lob_pages != nullptr) {
+      delete m_lob_pages;
+    }
   }
 
   /** Add an LOB page to the list of pages that will be freed at the end of a
@@ -217,7 +220,7 @@ struct purge_node_t {
                                 ut::allocator<Page_free_tuple>>;
 
   /** Set of LOB first pages that are to be freed. */
-  LOB_free_set m_lob_pages;
+  LOB_free_set *m_lob_pages;
 };
 
 #endif

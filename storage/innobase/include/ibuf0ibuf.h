@@ -1,6 +1,7 @@
 /*****************************************************************************
 
 Copyright (c) 1997, 2025, Oracle and/or its affiliates.
+Copyright (c) 2025, buildup-db.
 
 This program is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License, version 2.0, as published by the
@@ -145,9 +146,9 @@ not update the free bits here, because that would break crash recovery.
 @param[in]      increase        upper limit for the additional space used in
                                 the latest operation, if known, or
                                 ULINT_UNDEFINED */
-static inline void ibuf_update_free_bits_if_full(buf_block_t *block,
-                                                 ulint max_ins_size,
-                                                 ulint increase);
+static ALWAYS_INLINE void ibuf_update_free_bits_if_full(buf_block_t *block,
+                                                        ulint max_ins_size,
+                                                        ulint increase);
 
 /** Updates the free bits for an uncompressed page to reflect the present
  state.  Does this in the mtr given, which means that the latching

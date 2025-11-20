@@ -1,6 +1,7 @@
 /*****************************************************************************
 
 Copyright (c) 2013, 2025, Oracle and/or its affiliates.
+Copyright (c) 2025, buildup-db.
 
 Portions of this file contain modifications contributed and copyrighted by
 Google, Inc. Those modifications are gratefully acknowledged and are described
@@ -518,7 +519,7 @@ struct Log_file {
   /** Provides offset for the given LSN (from the beginning of the log file).
   @param[in]  lsn   lsn to locate (must exist in the file)
   @return offset from the beginning of the file for the given lsn */
-  os_offset_t offset(lsn_t lsn) const {
+  ALWAYS_INLINE os_offset_t offset(lsn_t lsn) const {
     lsn_validate();
     ut_a(contains(lsn) || lsn == m_end_lsn);
     return offset(lsn, m_start_lsn);

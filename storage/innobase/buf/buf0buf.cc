@@ -2,6 +2,7 @@
 
 Copyright (c) 1995, 2025, Oracle and/or its affiliates.
 Copyright (c) 2008, Google Inc.
+Copyright (c) 2025, buildup-db.
 
 Portions of this file contain modifications contributed and copyrighted by
 Google, Inc. Those modifications are gratefully acknowledged and are described
@@ -3162,7 +3163,7 @@ void buf_page_make_old(buf_page_t *bpage) {
 This high-level function can be used to prevent an important page from
 slipping out of the buffer pool. The page must be fixed to the buffer pool.
 @param[in,out]  bpage   buffer block of a file page */
-static void buf_page_make_young_if_needed(buf_page_t *bpage) {
+static ALWAYS_INLINE void buf_page_make_young_if_needed(buf_page_t *bpage) {
   ut_ad(!mutex_own(&buf_pool_from_bpage(bpage)->LRU_list_mutex));
   ut_ad(bpage->buf_fix_count > 0);
   ut_a(buf_page_in_file(bpage));
@@ -3392,7 +3393,7 @@ got_block:
 }
 
 /** Initialize some fields of a control block. */
-static inline void buf_block_init_low(
+static ALWAYS_INLINE void buf_block_init_low(
     buf_block_t *block) /*!< in: block to init */
 {
   /* No adaptive hash index entries may point to a previously
@@ -3546,7 +3547,7 @@ static bool buf_debug_execute_is_force_flush() {
 
 /** Wait for the block to be read in.
 @param[in]      block   The block to check */
-static void buf_wait_for_read(buf_block_t *block) {
+static ALWAYS_INLINE void buf_wait_for_read(buf_block_t *block) {
   /* Note:
   This unlocked read of IO fix is safe as we have the block buf-fixed. The page
   can only transition away from the IO_READ state, and once this is done, it
@@ -3580,12 +3581,12 @@ struct Buf_fetch {
 
   /** For fetching a single page.
   @return block from pool on success or nullptr on failure. */
-  buf_block_t *single_page();
+  ALWAYS_INLINE buf_block_t *single_page();
 
  private:
   /**  Lookup page in the hash table.
   @return block if found or nullptr if not found. */
-  buf_block_t *lookup();
+  ALWAYS_INLINE buf_block_t *lookup();
 
   /** Get page if it's in the buffer pool or set a watch on it.
   @return block that is being watched or nullptr. */
@@ -3603,11 +3604,11 @@ struct Buf_fetch {
   /** Temporary table pages have different latching rules because they are
   not redo logged.
   @param[in,out] block          Temporary tablespace to fetch. */
-  void temp_space_page_handler(buf_block_t *block);
+  ALWAYS_INLINE void temp_space_page_handler(buf_block_t *block);
 
   /** Add the page to the mini-transaction along with latching context.
   @param[in,out] block          Block for which to add the latching context. */
-  void mtr_add_page(buf_block_t *block);
+  ALWAYS_INLINE void mtr_add_page(buf_block_t *block);
 
   /** Check if fetch mode is an optimistic fetch.
   @return true if it's an optimistic fetch. */
@@ -3658,7 +3659,7 @@ struct Buf_fetch_normal : public Buf_fetch<Buf_fetch_normal> {
   /** Fetch a block from the hash table or read from disk if necessary.
   @param[out] block             Block to fetch.
   @return DB_SUCCESS or error code. */
-  dberr_t get(buf_block_t *&block) noexcept;
+  ALWAYS_INLINE dberr_t get(buf_block_t *&block) noexcept;
 };
 
 dberr_t Buf_fetch_normal::get(buf_block_t *&block) noexcept {
@@ -3709,7 +3710,7 @@ struct Buf_fetch_other : public Buf_fetch<Buf_fetch_other> {
   /** Fetch a block from the hash table or read from disk if necessary.
   @param[out] block             Block to fetch.
   @return DB_SUCCESS or error code. */
-  dberr_t get(buf_block_t *&block) noexcept;
+  ALWAYS_INLINE dberr_t get(buf_block_t *&block) noexcept;
 };
 
 dberr_t Buf_fetch_other::get(buf_block_t *&block) noexcept {

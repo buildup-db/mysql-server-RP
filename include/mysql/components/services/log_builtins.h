@@ -964,7 +964,7 @@ class LogEvent {
     (loadable) services that have no error messages registered with the
     server, and therefore need to submit them free-form.
   */
-  LogEvent() {
+  NO_INLINE LogEvent() {
     have_msg = false;
     if ((ll = log_line_init()) != nullptr) {
       if ((msg = (char *)log_malloc(LOG_BUFF_MAX)) == nullptr) {

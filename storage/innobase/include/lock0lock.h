@@ -1,6 +1,7 @@
 /*****************************************************************************
 
 Copyright (c) 1996, 2025, Oracle and/or its affiliates.
+Copyright (c) 2025, buildup-db.
 
 This program is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License, version 2.0, as published by the
@@ -1021,6 +1022,7 @@ struct Locks_hashtable {
       : ht(ut::make_unique<hash_table_t>(n_cells)),
         cells_in_use(ht->get_n_cells(),
                      ut::make_psi_memory_key(mem_key_lock_sys)) {}
+  ALWAYS_INLINE ~Locks_hashtable() {}
 
   void append(lock_t *lock, uint64_t hash_value);
   void prepend(lock_t *lock, uint64_t hash_value);

@@ -1,6 +1,7 @@
 /*****************************************************************************
 
 Copyright (c) 2020, 2025, Oracle and/or its affiliates.
+Copyright (c) 2025, buildup-db.
 
 This program is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License, version 2.0, as published by the
@@ -140,11 +141,11 @@ class Latches {
     }
     void x_lock(ut::Location location) { rw_lock.x_lock(location); }
     void x_unlock() { rw_lock.x_unlock(); }
-    void s_lock(ut::Location location) {
+    ALWAYS_INLINE void s_lock(ut::Location location) {
       ut_ad(m_shard_id == NOT_IN_USE);
       m_shard_id = rw_lock.s_lock(location);
     }
-    void s_unlock() {
+    ALWAYS_INLINE void s_unlock() {
       ut_ad(m_shard_id != NOT_IN_USE);
       rw_lock.s_unlock(m_shard_id);
       m_shard_id = NOT_IN_USE;
@@ -294,9 +295,9 @@ class Latches {
   So, this declaration is just to make clang 6.0.0 and 7.0.0 happy.
   */
 #if defined(__clang__) && (__clang_major__ < 8)
-  ~Latches() {}  // NOLINT(modernize-use-equals-default)
+  ALWAYS_INLINE ~Latches() {}  // NOLINT(modernize-use-equals-default)
 #else
-  ~Latches() = default;
+  ALWAYS_INLINE ~Latches() = default;
 #endif
 
 #ifdef UNIV_DEBUG

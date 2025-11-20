@@ -623,7 +623,7 @@ static inline void pfs_rw_lock_free_func(rw_lock_t *lock); /*!< in: rw-lock */
 /** NOTE! The following macros should be used in rw locking and
  unlocking, not the corresponding function. */
 
-static inline void rw_lock_s_lock(rw_lock_t *M, ut::Location L) {
+static ALWAYS_INLINE void rw_lock_s_lock(rw_lock_t *M, ut::Location L) {
   rw_lock_s_lock_func(M, 0, L);
 }
 
@@ -674,11 +674,12 @@ static inline void rw_lock_sx_unlock_gen(rw_lock_t *L, ulint P) {
 }
 #endif /* UNIV_DEBUG */
 
-static inline void rw_lock_x_lock(rw_lock_t *M, ut::Location L) {
+static ALWAYS_INLINE void rw_lock_x_lock(rw_lock_t *M, ut::Location L) {
   rw_lock_x_lock_func(M, 0, L);
 }
 
-static inline void rw_lock_x_lock_gen(rw_lock_t *M, ulint P, ut::Location L) {
+static ALWAYS_INLINE void rw_lock_x_lock_gen(rw_lock_t *M, ulint P,
+                                             ut::Location L) {
   rw_lock_x_lock_func(M, P, L);
 }
 
@@ -713,7 +714,7 @@ static inline void rw_lock_x_unlock_gen(rw_lock_t *L, ulint P) {
 NOTE! The following macros should be used in rw locking and
 unlocking, not the corresponding function. */
 
-static inline void rw_lock_s_lock(rw_lock_t *M, ut::Location L) {
+static ALWAYS_INLINE void rw_lock_s_lock(rw_lock_t *M, ut::Location L) {
   pfs_rw_lock_s_lock_func(M, 0, L);
 }
 
@@ -764,15 +765,16 @@ static inline void rw_lock_sx_unlock_gen(rw_lock_t *L, ulint P) {
 }
 #endif
 
-static inline void rw_lock_x_lock(rw_lock_t *M, ut::Location L) {
+static ALWAYS_INLINE void rw_lock_x_lock(rw_lock_t *M, ut::Location L) {
   pfs_rw_lock_x_lock_func(M, 0, L);
 }
 
-static inline void rw_lock_x_lock_gen(rw_lock_t *M, ulint P, ut::Location L) {
+static ALWAYS_INLINE void rw_lock_x_lock_gen(rw_lock_t *M, ulint P,
+                                             ut::Location L) {
   pfs_rw_lock_x_lock_func(M, P, L);
 }
 
-static inline bool rw_lock_x_lock_nowait(rw_lock_t *M, ut::Location L) {
+static ALWAYS_INLINE bool rw_lock_x_lock_nowait(rw_lock_t *M, ut::Location L) {
   return pfs_rw_lock_x_lock_func_nowait(M, L);
 }
 
@@ -790,10 +792,10 @@ static inline void rw_lock_free(rw_lock_t *M) { pfs_rw_lock_free_func(M); }
 
 #endif /* !UNIV_PFS_RWLOCK */
 
-static inline void rw_lock_s_unlock(rw_lock_t *L) {
+static ALWAYS_INLINE void rw_lock_s_unlock(rw_lock_t *L) {
   rw_lock_s_unlock_gen(L, 0);
 }
-static inline void rw_lock_x_unlock(rw_lock_t *L) {
+static ALWAYS_INLINE void rw_lock_x_unlock(rw_lock_t *L) {
   rw_lock_x_unlock_gen(L, 0);
 }
 

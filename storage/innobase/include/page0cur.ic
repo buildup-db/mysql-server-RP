@@ -1,6 +1,7 @@
 /*****************************************************************************
 
 Copyright (c) 1994, 2025, Oracle and/or its affiliates.
+Copyright (c) 2025, buildup-db.
 
 This program is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License, version 2.0, as published by the
@@ -184,14 +185,14 @@ static inline ulint page_cur_search(const buf_block_t *block,
   return (page_cur_search(block, index, tuple, PAGE_CUR_LE, cursor));
 }
 
-static inline rec_t *page_cur_tuple_insert(page_cur_t *cursor,
+static inline rec_t *page_cur_tuple_insert_inline(page_cur_t *cursor,
                                            const dtuple_t *tuple,
                                            dict_index_t *index, ulint **offsets,
                                            mem_heap_t **heap, mtr_t *mtr) {
   rec_t *rec;
   rec_t *insert_rec;
 
-  ulint size = rec_get_converted_size(index, tuple);
+  ulint size = rec_get_converted_size_inline(index, tuple);
 
   if (!*heap) {
     *heap = mem_heap_create(

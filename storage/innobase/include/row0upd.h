@@ -1,6 +1,7 @@
 /*****************************************************************************
 
 Copyright (c) 1996, 2025, Oracle and/or its affiliates.
+Copyright (c) 2025, buildup-db.
 
 This program is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License, version 2.0, as published by the
@@ -369,7 +370,7 @@ struct lob_index_diff_t {
   /** Print the current object into the given output stream.
   @param[in,out]        out     the output stream.
   @return the output stream. */
-  std::ostream &print(std::ostream &out) const {
+  NO_INLINE std::ostream &print(std::ostream &out) const {
     out << "[lob_index_diff_t: m_modifier_trxid=" << m_modifier_trxid
         << ", m_modifier_undo_no=" << m_modifier_undo_no << "]";
     return (out);
@@ -504,7 +505,7 @@ struct upd_field_t {
   /** If true, the field was stored externally in the old row. */
   bool ext_in_old;
 
-  void push_lob_diff(const Lob_diff &lob_diff) {
+  NO_INLINE void push_lob_diff(const Lob_diff &lob_diff) {
     if (lob_diffs == nullptr) {
       lob_diffs = static_cast<Lob_diff_vector *>(
           mem_heap_alloc(heap, sizeof(Lob_diff_vector)));
@@ -607,7 +608,7 @@ struct upd_t {
   }
 
   /** Reset the update fields. */
-  void reset() {
+  ALWAYS_INLINE void reset() {
     for (ulint i = 0; i < n_fields; ++i) {
       fields[i].reset();
     }

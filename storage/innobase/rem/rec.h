@@ -728,7 +728,7 @@ enum REC_INSERT_STATE {
   NONE
 };
 
-static inline enum REC_INSERT_STATE get_rec_insert_state(
+static ALWAYS_INLINE enum REC_INSERT_STATE get_rec_insert_state(
     const dict_index_t *index, const rec_t *rec, bool temp) {
   ut_ad(dict_table_is_comp(index->table) || temp);
 
@@ -1048,9 +1048,9 @@ rec_get_offsets().
 @param[in,out]  offsets array of offsets
 @note This long method is made inline because it is on performance sensitive hot
 path. One must run performance tests if they intend to improve this method. */
-inline void rec_init_offsets_comp_ordinary(const rec_t *rec, bool temp,
-                                           const dict_index_t *index,
-                                           ulint *offsets) {
+ALWAYS_INLINE void rec_init_offsets_comp_ordinary(const rec_t *rec, bool temp,
+                                                  const dict_index_t *index,
+                                                  ulint *offsets) {
 #ifdef UNIV_DEBUG
   /* We cannot invoke rec_offs_make_valid() here if temp=true.
   Similarly, rec_offs_validate() will fail in that case, because

@@ -1,6 +1,7 @@
 /*****************************************************************************
 
 Copyright (c) 2012, 2025, Oracle and/or its affiliates.
+Copyright (c) 2025, buildup-db.
 
 This program is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License, version 2.0, as published by the
@@ -238,8 +239,9 @@ struct GenericPolicy
   @param[in]    id              Mutex ID
   @param[in]    filename        File where mutex was created
   @param[in]    line            Line in filename */
-  void init(const MutexType &mutex [[maybe_unused]], latch_id_t id,
-            const char *filename, uint32_t line) UNIV_NOTHROW {
+  ALWAYS_INLINE void init(const MutexType &mutex [[maybe_unused]],
+                          latch_id_t id, const char *filename,
+                          uint32_t line) UNIV_NOTHROW {
     m_id = id;
 
     latch_meta_t &meta = sync_latch_get_meta(id);
@@ -254,7 +256,7 @@ struct GenericPolicy
   }
 
   /** Called when the mutex is destroyed. */
-  void destroy() UNIV_NOTHROW {
+  ALWAYS_INLINE void destroy() UNIV_NOTHROW {
     latch_meta_t &meta = sync_latch_get_meta(m_id);
 
     meta.get_counter()->single_deregister(&m_count);

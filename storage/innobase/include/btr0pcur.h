@@ -1,6 +1,7 @@
 /*****************************************************************************
 
 Copyright (c) 1996, 2025, Oracle and/or its affiliates.
+Copyright (c) 2025, buildup-db.
 
 This program is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License, version 2.0, as published by the
@@ -100,7 +101,7 @@ struct btr_pcur_t {
   /** Sets the old_rec_buf field to nullptr.
   @param[in]  read_level  read level where the cursor would be positioned or
   re-positioned. */
-  void init(size_t read_level = 0);
+  ALWAYS_INLINE void init(size_t read_level = 0);
 
   /** @return the index of this persistent cursor */
   dict_index_t *index() { return (m_btr_cur.index); }
@@ -112,8 +113,8 @@ struct btr_pcur_t {
   @param[in]        location      Location from where called.
   @return true if the index is available and we have put the cursor, false
           if the index is unavailable */
-  bool set_random_position(dict_index_t *index, ulint latch_mode, mtr_t *mtr,
-                           ut::Location location);
+  ALWAYS_INLINE bool set_random_position(dict_index_t *index, ulint latch_mode,
+                                         mtr_t *mtr, ut::Location location);
 
   /** Opens a persistent cursor at either end of an index.
   @param[in]        from_left   True if open to the low end, false
@@ -123,8 +124,9 @@ struct btr_pcur_t {
   @param[in]        init_pcur     Whether to initialize pcur.
   @param[in]        level                   Level to search for (0=leaf).
   @param[in,out]        mtr                   Mini-transaction */
-  void open_at_side(bool from_left, dict_index_t *index, ulint latch_mode,
-                    bool init_pcur, ulint level, mtr_t *mtr);
+  ALWAYS_INLINE void open_at_side(bool from_left, dict_index_t *index,
+                                  ulint latch_mode, bool init_pcur, ulint level,
+                                  mtr_t *mtr);
 
   /** Opens a persistent cursor at first leaf page (low end). It will not call
   init().
@@ -154,9 +156,10 @@ struct btr_pcur_t {
                               currently has on search system: RW_S_LATCH, or 0
   @param[in]        mtr         Mini-transaction
   @param[in]        location      Location where called */
-  void open_no_init(dict_index_t *index, const dtuple_t *tuple,
-                    page_cur_mode_t mode, ulint latch_mode,
-                    ulint has_search_latch, mtr_t *mtr, ut::Location location);
+  ALWAYS_INLINE void open_no_init(dict_index_t *index, const dtuple_t *tuple,
+                                  page_cur_mode_t mode, ulint latch_mode,
+                                  ulint has_search_latch, mtr_t *mtr,
+                                  ut::Location location);
 
   /** If mode is PAGE_CUR_G or PAGE_CUR_GE, opens a persistent cursor
   on the first user record satisfying the search condition, in the case
@@ -192,9 +195,9 @@ struct btr_pcur_t {
    @param[in]     latch_mode        BTR_SEARCH_LEAF, ...
    @param[in]     mtr                     Mini-transaction.
    @param[in]     location                  Location where called. */
-  void open(dict_index_t *index, ulint level, const dtuple_t *tuple,
-            page_cur_mode_t mode, ulint latch_mode, mtr_t *mtr,
-            ut::Location location);
+  ALWAYS_INLINE void open(dict_index_t *index, ulint level,
+                          const dtuple_t *tuple, page_cur_mode_t mode,
+                          ulint latch_mode, mtr_t *mtr, ut::Location location);
 
   /** Restores the stored position of a persistent cursor bufferfixing
   the page and obtaining the specified latches. If the cursor position
@@ -228,7 +231,7 @@ struct btr_pcur_t {
   or by committing the mini-transaction right after btr_pcur::close().
   A subsequent attempt to crawl the same page in the same mtr would
   cause an assertion failure. */
-  void close();
+  ALWAYS_INLINE void close();
 
   /** Free old_rec_buf. */
   void free_rec_buf() {
@@ -240,105 +243,105 @@ struct btr_pcur_t {
 
   /** Gets the rel_pos field for a cursor whose position has been stored.
   @return BTR_PCUR_ON, ... */
-  ulint get_rel_pos() const;
+  ALWAYS_INLINE ulint get_rel_pos() const;
 
 #endif /* !UNIV_HOTBACKUP */
 
   /** @return the btree cursor (const version). */
-  const btr_cur_t *get_btr_cur() const;
+  const ALWAYS_INLINE btr_cur_t *get_btr_cur() const;
 
   /** @return the btree cursor (non const version). */
-  btr_cur_t *get_btr_cur();
+  ALWAYS_INLINE btr_cur_t *get_btr_cur();
 
   /** @return the btree page cursor (non const version). */
-  page_cur_t *get_page_cur();
+  ALWAYS_INLINE page_cur_t *get_page_cur();
 
   /** @return the btree cursor (const version). */
-  const page_cur_t *get_page_cur() const;
+  const ALWAYS_INLINE page_cur_t *get_page_cur() const;
 
   /** Returns the page of a persistent pcur (non const version).
   @return pointer to the page */
-  page_t *get_page();
+  ALWAYS_INLINE page_t *get_page();
 
   /** Returns the page of a persistent pcur (const version).
   @return pointer to the page */
-  const page_t *get_page() const;
+  const ALWAYS_INLINE page_t *get_page() const;
 
   /** Returns the current buffer block (non const version).
   @return pointer to the block */
-  buf_block_t *get_block();
+  ALWAYS_INLINE buf_block_t *get_block();
 
   /** Returns the current buffer block (const version).
   @return pointer to the block */
-  const buf_block_t *get_block() const;
+  const ALWAYS_INLINE buf_block_t *get_block() const;
 
   /** Returns the current record (non const version).
   @return pointer to the record */
-  rec_t *get_rec();
+  ALWAYS_INLINE rec_t *get_rec();
 
   /** Returns the current record (const version).
   @return pointer to the record */
-  const rec_t *get_rec() const;
+  ALWAYS_INLINE const rec_t *get_rec() const;
 
 #ifndef UNIV_HOTBACKUP
   /** Gets the up_match value for a pcur after a search.
   @return number of matched fields at the cursor or to the right if
   search mode was PAGE_CUR_GE, otherwise undefined */
-  ulint get_up_match() const;
+  ALWAYS_INLINE ulint get_up_match() const;
 
   /** Gets the low_match value for a pcur after a search.
   @return number of matched fields at the cursor or to the right if
   search mode was PAGE_CUR_LE, otherwise undefined */
-  ulint get_low_match() const;
+  ALWAYS_INLINE ulint get_low_match() const;
 
   /** Checks if the persistent cursor is after the last user record
   on a page.
   @return true if after last on page. */
-  bool is_after_last_on_page() const;
+  ALWAYS_INLINE bool is_after_last_on_page() const;
 
   /** Checks if the persistent cursor is before the first user record
   on a page.
   @return true if before first on page. */
-  bool is_before_first_on_page() const;
+  ALWAYS_INLINE bool is_before_first_on_page() const;
 
   /** Checks if the persistent cursor is on a user record.
   @return true if on user record. */
-  bool is_on_user_rec() const;
+  ALWAYS_INLINE bool is_on_user_rec() const;
 
   /** Checks if the persistent cursor is before the first user record
   in the index tree.
   @param[in,out]        mtr                   Mini-transaction.
   @return true if is before first in tree. */
-  bool is_before_first_in_tree(mtr_t *mtr) const;
+  ALWAYS_INLINE bool is_before_first_in_tree(mtr_t *mtr) const;
 
   /** Checks if the persistent cursor is after the last user record in
   the index tree.
   @param[in,out]        mtr                   Mini-transaction.
   @return is after last in tree. */
-  bool is_after_last_in_tree(mtr_t *mtr) const;
+  ALWAYS_INLINE bool is_after_last_in_tree(mtr_t *mtr) const;
 
   /** Moves the persistent cursor to the next record on the same page. */
-  void move_to_next_on_page();
+  ALWAYS_INLINE void move_to_next_on_page();
 
   /** Moves the persistent cursor to the prev record on the same page. */
-  void move_to_prev_on_page();
+  ALWAYS_INLINE void move_to_prev_on_page();
 
   /** Moves the persistent cursor to the last record on the same page.
   @param[in,out]        mtr                   Mini-transaction. */
-  void move_to_last_on_page(mtr_t *mtr);
+  ALWAYS_INLINE void move_to_last_on_page(mtr_t *mtr);
 
   /** Moves the persistent cursor to the next user record in the tree.
   If no user records are left, the cursor ends up 'after last in tree'.
   @param[in,out]        mtr                   Mini-transaction.
   @return DB_SUCCESS or DB_END_OF_INDEX. */
-  dberr_t move_to_next_user_rec(mtr_t *mtr);
+  ALWAYS_INLINE dberr_t move_to_next_user_rec(mtr_t *mtr);
 
   /** Moves the persistent cursor to the next record in the tree. If no
   records are left, the cursor stays 'after last in tree'.
   Note: Function may release the page latch.
   @param[in,out]        mtr                   Mini-transaction.
   @return true if the cursor was not after last in tree */
-  bool move_to_next(mtr_t *mtr);
+  ALWAYS_INLINE bool move_to_next(mtr_t *mtr);
 
   /** Moves the persistent cursor to the previous record in the tree.
   If no records are left, the cursor stays 'before first in tree'.
@@ -359,10 +362,10 @@ struct btr_pcur_t {
   Function btr_pcur::store_position should be used before calling this,
   if restoration of cursor is wanted later.
   @param[in,out]        mtr                   Mini-transaction. */
-  void commit_specify_mtr(mtr_t *mtr);
+  ALWAYS_INLINE void commit_specify_mtr(mtr_t *mtr);
 
   /** Moves the persistent cursor to the infimum record on the same page. */
-  void move_before_first_on_page();
+  ALWAYS_INLINE void move_before_first_on_page();
 #endif /* !UNIV_HOTBACKUP */
 
   /** The position of the cursor is stored by taking an initial segment
@@ -375,17 +378,19 @@ struct btr_pcur_t {
   void store_position(mtr_t *mtr);
 
   /** @return true if the cursor is positioned. */
-  bool is_positioned() const {
+  ALWAYS_INLINE bool is_positioned() const {
     return (m_old_stored && (m_pos_state == BTR_PCUR_IS_POSITIONED ||
                              m_pos_state == BTR_PCUR_WAS_POSITIONED));
   }
 
   /** @return true if the cursor is for a clustered index. */
-  bool is_clustered() const { return (m_btr_cur.index->is_clustered()); }
+  ALWAYS_INLINE bool is_clustered() const {
+    return (m_btr_cur.index->is_clustered());
+  }
 
   /** Resets a persistent cursor object, freeing "::old_rec_buf" if it is
   allocated and resetting the other members to their initial values. */
-  void reset();
+  ALWAYS_INLINE void reset();
 
   /** Copies the stored position of a pcur to another pcur.
   @param[in,out]        dst                   Which will receive the position
@@ -396,7 +401,7 @@ struct btr_pcur_t {
   /** Allocates memory for a persistent cursor object and initializes
   the cursor.
   @return own: persistent cursor */
-  static btr_pcur_t *create_for_mysql() {
+  static ALWAYS_INLINE btr_pcur_t *create_for_mysql() {
     auto pcur = ut::new_withkey<btr_pcur_t>(UT_NEW_THIS_FILE_PSI_KEY);
 
     pcur->m_btr_cur.index = nullptr;
@@ -408,7 +413,7 @@ struct btr_pcur_t {
 
   /** Frees the memory for a persistent cursor object and the cursor itself.
   @param[in,out]  pcur      Cursor to free. */
-  static void free_for_mysql(btr_pcur_t *&pcur) {
+  static ALWAYS_INLINE void free_for_mysql(btr_pcur_t *&pcur) {
     pcur->free_rec_buf();
 
     ut::delete_(pcur);
@@ -419,7 +424,7 @@ struct btr_pcur_t {
   /** Set the cursor access type: Normal or Scan.
   @param[in]  fetch_mode      One of Page_fetch::NORMAL or Page_fetch::SCAN.
   @return the old fetch mode. */
-  Page_fetch set_fetch_type(Page_fetch fetch_mode) {
+  ALWAYS_INLINE Page_fetch set_fetch_type(Page_fetch fetch_mode) {
     ut_ad(fetch_mode == Page_fetch::NORMAL || fetch_mode == Page_fetch::SCAN);
 
     auto old_fetch_mode = m_btr_cur.m_fetch_mode;

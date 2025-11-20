@@ -1,6 +1,7 @@
 /*****************************************************************************
 
 Copyright (c) 1995, 2025, Oracle and/or its affiliates.
+Copyright (c) 2025, buildup-db.
 
 This program is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License, version 2.0, as published by the
@@ -46,6 +47,13 @@ this program; if not, write to the Free Software Foundation, Inc.,
 
 class IB_thread {
  public:
+  ALWAYS_INLINE IB_thread() = default;
+  ALWAYS_INLINE ~IB_thread() = default;
+  ALWAYS_INLINE IB_thread(const IB_thread &) = default;
+  ALWAYS_INLINE IB_thread(IB_thread &) = default;
+  ALWAYS_INLINE IB_thread &operator=(const IB_thread &) = default;
+  ALWAYS_INLINE IB_thread &operator=(IB_thread &&) = default;
+
   enum class State { INVALID, NOT_STARTED, ALLOWED_TO_START, STARTED, STOPPED };
 
   State state() const {

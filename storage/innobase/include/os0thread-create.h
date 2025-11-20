@@ -1,6 +1,7 @@
 /*****************************************************************************
 
 Copyright (c) 1995, 2025, Oracle and/or its affiliates.
+Copyright (c) 2025, buildup-db.
 
 This program is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License, version 2.0, as published by the
@@ -167,11 +168,13 @@ class Detached_thread : public MySQL_thread {
   /** Constructor for the detached thread.
   @param[in]    pfs_key         Performance schema key
   @param[in]    pfs_seqnum      Performance schema sequence number */
-  explicit Detached_thread(mysql_pfs_key_t pfs_key,
-                           PSI_thread_seqnum pfs_seqnum)
+  explicit ALWAYS_INLINE_ATTR Detached_thread(mysql_pfs_key_t pfs_key,
+                                              PSI_thread_seqnum pfs_seqnum)
       : MySQL_thread(pfs_key, pfs_seqnum) {
     init();
   }
+  ALWAYS_INLINE ~Detached_thread() = default;
+  ALWAYS_INLINE Detached_thread(Detached_thread &&) = default;
 
   /** Method to execute the callable
   @param[in]    f               Callable object
@@ -204,7 +207,7 @@ class Detached_thread : public MySQL_thread {
   void init() { m_thread.init(m_promise); }
 
   /** Register the thread with the server */
-  void preamble() {
+  ALWAYS_INLINE void preamble() {
     MySQL_thread::preamble();
 
     std::atomic_thread_fence(std::memory_order_release);

@@ -1,4 +1,5 @@
 /* Copyright (c) 2021, 2025, Oracle and/or its affiliates.
+   Copyright (c) 2025, buildup-db.
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License, version 2.0,
@@ -65,6 +66,14 @@ class logger {
 
 #endif /* !UNIV_NO_ERR_MSGS */
 
+  NO_INLINE logger &operator<<(char const *const &rhs) {
+    m_oss << rhs;
+    return (*this);
+  }
+  NO_INLINE logger &operator<<(char *const &rhs) {
+    m_oss << rhs;
+    return (*this);
+  }
   template <typename T>
   logger &operator<<(const T &rhs) {
     m_oss << rhs;

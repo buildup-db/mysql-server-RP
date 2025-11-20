@@ -1,6 +1,7 @@
 /*****************************************************************************
 
 Copyright (c) 1994, 2025, Oracle and/or its affiliates.
+Copyright (c) 2025, buildup-db.
 
 This program is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License, version 2.0, as published by the
@@ -117,8 +118,8 @@ is inserted.
 @param[in] f  hashed value of data
 @param[in] b  buffer block containing the data
 @param[in] d  data, must not be NULL */
-static inline void ha_insert_for_hash(hash_table_t *t, uint64_t f,
-                                      buf_block_t *b, const rec_t *d) {
+static ALWAYS_INLINE void ha_insert_for_hash(hash_table_t *t, uint64_t f,
+                                             buf_block_t *b, const rec_t *d) {
   ha_insert_for_hash_func(t, f, IF_AHI_DEBUG(b, ) d);
   MONITOR_INC(MONITOR_ADAPTIVE_HASH_ROW_ADDED);
 }

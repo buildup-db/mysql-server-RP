@@ -869,7 +869,7 @@ void btr_cur_search_to_nth_level(
           BTR_ALREADY_S_LATCHED */
           ut_ad(latch_mode != BTR_SEARCH_TREE);
 
-          mtr_s_lock(dict_index_get_lock(index), mtr, UT_LOCATION_HERE);
+          mtr_s_lock_inline(dict_index_get_lock(index), mtr, UT_LOCATION_HERE);
         } else {
           /* BTR_MODIFY_EXTERNAL needs to be excluded */
           mtr_sx_lock(dict_index_get_lock(index), mtr, UT_LOCATION_HERE);
@@ -1084,8 +1084,8 @@ retry_page_get:
     ut_ad(rw_latch == RW_S_LATCH || modify_external);
 
     ut_ad(n_blocks == 0);
-    mtr_release_block_at_savepoint(mtr, tree_savepoints[n_blocks],
-                                   tree_blocks[n_blocks]);
+    mtr_release_block_at_savepoint_inline(mtr, tree_savepoints[n_blocks],
+                                          tree_blocks[n_blocks]);
 
     upper_rw_latch = root_leaf_rw_latch;
     goto search_loop;
@@ -1175,8 +1175,8 @@ retry_page_get:
             continue;
           }
 
-          mtr_release_block_at_savepoint(mtr, tree_savepoints[n_releases],
-                                         tree_blocks[n_releases]);
+          mtr_release_block_at_savepoint_inline(
+              mtr, tree_savepoints[n_releases], tree_blocks[n_releases]);
         }
     }
 
@@ -2257,12 +2257,13 @@ void btr_cur_open_at_index_side_with_no_latch(bool from_left,
 /** Positions a cursor at a randomly chosen position within a B-tree.
  @return true if the index is available and we have put the cursor, false
  if the index is unavailable */
-bool btr_cur_open_at_rnd_pos(dict_index_t *index, /*!< in: index */
-                             ulint latch_mode,  /*!< in: BTR_SEARCH_LEAF, ... */
-                             btr_cur_t *cursor, /*!< in/out: B-tree cursor */
-                             const char *file,  /*!< in: file name */
-                             ulint line,        /*!< in: line where called */
-                             mtr_t *mtr)        /*!< in: mtr */
+static ALWAYS_INLINE bool btr_cur_open_at_rnd_pos_inline(
+    dict_index_t *index, /*!< in: index */
+    ulint latch_mode,    /*!< in: BTR_SEARCH_LEAF, ... */
+    btr_cur_t *cursor,   /*!< in/out: B-tree cursor */
+    const char *file,    /*!< in: file name */
+    ulint line,          /*!< in: line where called */
+    mtr_t *mtr)          /*!< in: mtr */
 {
   page_cur_t *page_cursor;
   ulint node_ptr_max_size = UNIV_PAGE_SIZE / 2;
@@ -2314,7 +2315,7 @@ bool btr_cur_open_at_rnd_pos(dict_index_t *index, /*!< in: index */
       [[fallthrough]];
     default:
       if (!srv_read_only_mode) {
-        mtr_s_lock(dict_index_get_lock(index), mtr, UT_LOCATION_HERE);
+        mtr_s_lock_inline(dict_index_get_lock(index), mtr, UT_LOCATION_HERE);
         upper_rw_latch = RW_S_LATCH;
       } else {
         upper_rw_latch = RW_NO_LATCH;
@@ -2413,8 +2414,8 @@ bool btr_cur_open_at_rnd_pos(dict_index_t *index, /*!< in: index */
 
           /* release upper blocks */
           for (; n_releases < n_blocks; n_releases++) {
-            mtr_release_block_at_savepoint(mtr, tree_savepoints[n_releases],
-                                           tree_blocks[n_releases]);
+            mtr_release_block_at_savepoint_inline(
+                mtr, tree_savepoints[n_releases], tree_blocks[n_releases]);
           }
       }
     }
@@ -2505,6 +2506,12 @@ bool btr_cur_open_at_rnd_pos(dict_index_t *index, /*!< in: index */
 
   return (true);
 }
+bool btr_cur_open_at_rnd_pos(dict_index_t *index, ulint latch_mode,
+                             btr_cur_t *cursor, const char *file, ulint line,
+                             mtr_t *mtr) {
+  return btr_cur_open_at_rnd_pos_inline(index, latch_mode, cursor, file, line,
+                                        mtr);
+}
 
 /*==================== B-TREE INSERT =========================*/
 
@@ -2519,7 +2526,7 @@ bool btr_cur_open_at_rnd_pos(dict_index_t *index, /*!< in: index */
  or by invoking ibuf_reset_free_bits() before mtr_commit().
 
  @return pointer to inserted record if succeed, else NULL */
-[[nodiscard]] static rec_t *btr_cur_insert_if_possible(
+[[nodiscard]] static ALWAYS_INLINE rec_t *btr_cur_insert_if_possible(
     btr_cur_t *cursor,     /*!< in: cursor on page after which to insert;
                            cursor stays valid */
     const dtuple_t *tuple, /*!< in: tuple to insert; the size info need not
@@ -2556,7 +2563,7 @@ bool btr_cur_open_at_rnd_pos(dict_index_t *index, /*!< in: index */
 
 /** For an insert, checks the locks and does the undo logging if desired.
  @return DB_SUCCESS, DB_WAIT_LOCK, DB_FAIL, or error number */
-[[nodiscard]] static inline dberr_t btr_cur_ins_lock_and_undo(
+[[nodiscard]] static ALWAYS_INLINE dberr_t btr_cur_ins_lock_and_undo(
     ulint flags,       /*!< in: undo logging and locking flags: if
                        not zero, the parameters index and thr
                        should be specified */
@@ -2722,7 +2729,7 @@ dberr_t btr_cur_optimistic_insert(
   auto leaf = page_is_leaf(page);
 
   /* Calculate the record size when entry is converted to a record */
-  rec_size = rec_get_converted_size(index, entry);
+  rec_size = rec_get_converted_size_inline(index, entry);
 
   if (page_zip_rec_needs_ext(rec_size, page_is_comp(page),
                              dtuple_get_n_fields(entry), page_size)) {
@@ -2839,8 +2846,8 @@ dberr_t btr_cur_optimistic_insert(
                                            "WAIT_FOR btr_ins_resume "
                                            "NO_CLEAR_EVENT"))););
 
-      *rec =
-          page_cur_tuple_insert(page_cursor, entry, index, offsets, heap, mtr);
+      *rec = page_cur_tuple_insert_inline(page_cursor, entry, index, offsets,
+                                          heap, mtr);
     }
 
     reorg = page_cursor_rec != page_cur_get_rec(page_cursor);
@@ -5488,8 +5495,8 @@ bool btr_estimate_number_of_different_key_vals(
 
     bool available;
 
-    available = btr_cur_open_at_rnd_pos(index, BTR_SEARCH_LEAF, &cursor,
-                                        __FILE__, __LINE__, &mtr);
+    available = btr_cur_open_at_rnd_pos_inline(index, BTR_SEARCH_LEAF, &cursor,
+                                               __FILE__, __LINE__, &mtr);
 
     if (!available) {
       mtr_commit(&mtr);

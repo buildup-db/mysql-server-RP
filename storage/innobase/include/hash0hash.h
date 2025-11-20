@@ -1,6 +1,7 @@
 /*****************************************************************************
 
 Copyright (c) 1997, 2025, Oracle and/or its affiliates.
+Copyright (c) 2025, buildup-db.
 
 This program is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License, version 2.0, as published by the
@@ -76,8 +77,8 @@ void hash_create_sync_obj(hash_table_t *table, latch_id_t id,
 @param[in]      hash_value      hashed value
 @param[in]      table           hash table
 @return cell index for specified hash table*/
-static inline uint64_t hash_calc_cell_id(uint64_t hash_value,
-                                         hash_table_t const *table);
+static ALWAYS_INLINE uint64_t hash_calc_cell_id(uint64_t hash_value,
+                                                hash_table_t const *table);
 
 /** Gets the nth cell in a hash table.
 @param[in]      table   hash table
@@ -331,9 +332,9 @@ relock S-lock the another rw_lock until appropriate for a hash value.
 @param[in]      table           hash table
 @param[in]      hash_value      hash value
 @return latched rw_lock */
-static inline rw_lock_t *hash_lock_s_confirm(rw_lock_t *hash_lock,
-                                             hash_table_t *table,
-                                             uint64_t hash_value);
+static ALWAYS_INLINE rw_lock_t *hash_lock_s_confirm(rw_lock_t *hash_lock,
+                                                    hash_table_t *table,
+                                                    uint64_t hash_value);
 
 /** If not appropriate rw_lock for a hash value in a hash table,
 relock X-lock the another rw_lock until appropriate for a hash value.

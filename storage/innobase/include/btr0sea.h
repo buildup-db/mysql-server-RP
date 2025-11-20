@@ -1,6 +1,7 @@
 /*****************************************************************************
 
 Copyright (c) 1996, 2025, Oracle and/or its affiliates.
+Copyright (c) 2025, buildup-db.
 
 This program is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License, version 2.0, as published by the
@@ -79,8 +80,8 @@ ulint btr_search_info_get_ref_count(const btr_search_t *info,
 /** Updates the search info.
 @param[in]      index   index of the cursor
 @param[in]      cursor  cursor which was just positioned */
-static inline void btr_search_info_update(dict_index_t *index,
-                                          btr_cur_t *cursor);
+static ALWAYS_INLINE void btr_search_info_update(dict_index_t *index,
+                                                 btr_cur_t *cursor);
 
 /** Tries to guess the right search position based on the hash search info
 of the index. Note that if mode is PAGE_CUR_LE, which is used in inserts,
@@ -167,25 +168,32 @@ bool btr_search_validate();
 /** X-Lock the search latch (corresponding to given index)
 @param[in] index          index handler
 @param[in] location source location */
-static inline void btr_search_x_lock(const dict_index_t *index,
-                                     ut::Location location);
+static ALWAYS_INLINE void btr_search_x_lock(const dict_index_t *index,
+                                            ut::Location location);
 
 /** X-Unlock the search latch (corresponding to given index)
 @param[in]      index   index handler */
-static inline void btr_search_x_unlock(const dict_index_t *index);
+static ALWAYS_INLINE void btr_search_x_unlock_inline(const dict_index_t *index);
+static inline void btr_search_x_unlock(const dict_index_t *index) {
+  btr_search_x_unlock_inline(index);
+}
 
 /** Lock all search latches in exclusive mode.
 @param[in] location source location */
 static inline void btr_search_x_lock_all(ut::Location location);
 
 /** Unlock all search latches from exclusive mode. */
-static inline void btr_search_x_unlock_all();
+static ALWAYS_INLINE void btr_search_x_unlock_all();
 
 /** S-Lock the search latch (corresponding to given index)
 @param[in] index          index handler
 @param[in] location source location */
+static ALWAYS_INLINE void btr_search_s_lock_inline(const dict_index_t *index,
+                                                   ut::Location location);
 static inline void btr_search_s_lock(const dict_index_t *index,
-                                     ut::Location location);
+                                     ut::Location location) {
+  btr_search_s_lock_inline(index, location);
+}
 
 /** S-Unlock the search latch (corresponding to given index)
 @param[in]      index   index handler */
@@ -218,20 +226,21 @@ of index and space.
 @param[in] space_id Index of the tablespace the index is in.
 @return Index of the slot for btr_search_sys->hash_tables and btr_search_latches
 arrays. */
-static inline size_t btr_get_search_slot(const space_index_t index_id,
-                                         const space_id_t space_id);
+static ALWAYS_INLINE size_t btr_get_search_slot(const space_index_t index_id,
+                                                const space_id_t space_id);
 
 /** Get the latch based on index attributes.
 A latch is selected from an array of latches using pair of index-id, space-id.
 @param[in]      index   index handler
 @return latch */
-static inline rw_lock_t *btr_get_search_latch(const dict_index_t *index);
+static ALWAYS_INLINE rw_lock_t *btr_get_search_latch(const dict_index_t *index);
 
 /** Get the hash-table based on index attributes.
 A table is selected from an array of tables using pair of index-id, space-id.
 @param[in]      index   index handler
 @return hash table */
-static inline hash_table_t *btr_get_search_table(const dict_index_t *index);
+static ALWAYS_INLINE hash_table_t *btr_get_search_table(
+    const dict_index_t *index);
 
 /** The search info struct in an index */
 struct btr_search_t {

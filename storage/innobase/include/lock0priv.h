@@ -1,6 +1,7 @@
 /*****************************************************************************
 
 Copyright (c) 2007, 2025, Oracle and/or its affiliates.
+Copyright (c) 2025, buildup-db.
 
 This program is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License, version 2.0, as published by the
@@ -993,8 +994,9 @@ parallel modifications turns out wrong.
 @param[in]      table   table
 @param[in]      mode    lock mode
 @return lock or NULL */
-static inline bool lock_table_has(const trx_t *trx, const dict_table_t *table,
-                                  enum lock_mode mode);
+static ALWAYS_INLINE bool lock_table_has(const trx_t *trx,
+                                         const dict_table_t *table,
+                                         enum lock_mode mode);
 
 /** Handles writing the information about found deadlock to the log files
 and caches it for future lock_latest_err_file() calls (for example used by

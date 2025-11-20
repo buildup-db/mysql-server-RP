@@ -1,5 +1,6 @@
 /*****************************************************************************
 Copyright (c) 2021, 2025, Oracle and/or its affiliates.
+Copyright (c) 2025, buildup-db.
 
 This program is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License, version 2.0, as published by the
@@ -64,8 +65,9 @@ record.
 @note This long method is made inline because it is on performance sensitive hot
 path. One must run performance tests if they intend to improve this method.
 @return offset from the origin of rec */
-inline ulint rec_get_nth_field_offs(const dict_index_t *index,
-                                    const ulint *offsets, ulint n, ulint *len) {
+ALWAYS_INLINE ulint rec_get_nth_field_offs(const dict_index_t *index,
+                                           const ulint *offsets, ulint n,
+                                           ulint *len) {
   if (index && index->has_row_versions()) {
     n = index->get_field_off_pos(n);
   }
@@ -105,9 +107,10 @@ inline ulint rec_get_nth_field_offs(const dict_index_t *index,
 @param[in]      n       index of the field
 @param[out]     len     length of the field, UNIV_SQL_NULL if SQL null
 @return value of the field */
-inline const byte *rec_get_nth_field(const dict_index_t *index,
-                                     const rec_t *rec, const ulint *offsets,
-                                     ulint n, ulint *len) {
+ALWAYS_INLINE const byte *rec_get_nth_field(const dict_index_t *index,
+                                            const rec_t *rec,
+                                            const ulint *offsets, ulint n,
+                                            ulint *len) {
   return rec + rec_get_nth_field_offs(index, offsets, n, len);
 }
 

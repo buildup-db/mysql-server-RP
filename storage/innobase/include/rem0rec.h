@@ -1,6 +1,7 @@
 /*****************************************************************************
 
 Copyright (c) 1994, 2025, Oracle and/or its affiliates.
+Copyright (c) 2025, buildup-db.
 
 This program is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License, version 2.0, as published by the
@@ -440,11 +441,15 @@ rec_t *rec_copy_prefix_to_buf(const rec_t *rec, const dict_index_t *index,
 @param[in]      hashed_value    hash value of the index identifier
 @param[in]      index           index where the record resides
 @return the hashed value */
-[[nodiscard]] static inline uint64_t rec_hash(const rec_t *rec,
-                                              const ulint *offsets,
-                                              ulint n_fields, ulint n_bytes,
-                                              uint64_t hashed_value,
-                                              const dict_index_t *index);
+[[nodiscard]] static ALWAYS_INLINE uint64_t rec_hash_inline(
+    const rec_t *rec, const ulint *offsets, ulint n_fields, ulint n_bytes,
+    uint64_t hashed_value, const dict_index_t *index);
+static inline uint64_t rec_hash(const rec_t *rec, const ulint *offsets,
+                                ulint n_fields, ulint n_bytes,
+                                uint64_t hashed_value,
+                                const dict_index_t *index) {
+  return rec_hash_inline(rec, offsets, n_fields, n_bytes, hashed_value, index);
+}
 #endif /* !UNIV_HOTBACKUP */
 
 /** Builds a physical record out of a data tuple and stores it into the given
@@ -493,8 +498,12 @@ a physical record.
 @param[in] index        record descriptor
 @param[in] dtuple       data tuple
 @return size */
-[[nodiscard]] static inline ulint rec_get_converted_size(
+[[nodiscard]] static ALWAYS_INLINE ulint rec_get_converted_size_inline(
     const dict_index_t *index, const dtuple_t *dtuple);
+static inline ulint rec_get_converted_size(const dict_index_t *index,
+                                           const dtuple_t *dtuple) {
+  return rec_get_converted_size_inline(index, dtuple);
+}
 
 #ifndef UNIV_HOTBACKUP
 /** Copies the first n fields of a physical record to a data tuple.

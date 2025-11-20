@@ -1,6 +1,7 @@
 /*****************************************************************************
 
 Copyright (c) 1995, 2025, Oracle and/or its affiliates.
+Copyright (c) 2025, buildup-db.
 
 This program is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License, version 2.0, as published by the
@@ -612,6 +613,11 @@ class Fil_path {
 
   /** Default constructor. Defaults to MySQL_datadir_path.  */
   Fil_path();
+  ALWAYS_INLINE ~Fil_path() = default;
+  ALWAYS_INLINE Fil_path(const Fil_path &) = default;
+  ALWAYS_INLINE Fil_path(Fil_path &) = default;
+  ALWAYS_INLINE Fil_path &operator=(const Fil_path &) = default;
+  ALWAYS_INLINE Fil_path &operator=(Fil_path &&) = default;
 
   /** Constructor
   @param[in]  path            Path, not necessarily NUL terminated

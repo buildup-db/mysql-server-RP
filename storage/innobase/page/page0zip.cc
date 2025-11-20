@@ -2,6 +2,7 @@
 
 Copyright (c) 2005, 2025, Oracle and/or its affiliates.
 Copyright (c) 2012, Facebook Inc.
+Copyright (c) 2025, buildup-db.
 
 This program is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License, version 2.0, as published by the
@@ -170,7 +171,7 @@ bool page_zip_is_too_big(const dict_index_t *index, const dtuple_t *entry) {
 
 /** Find the slot of the given non-free record in the dense page directory.
  @return dense directory slot, or NULL if record not found */
-static inline byte *page_zip_dir_find(
+static ALWAYS_INLINE byte *page_zip_dir_find(
     page_zip_des_t *page_zip, /*!< in: compressed page */
     ulint offset)             /*!< in: offset of user record */
 {

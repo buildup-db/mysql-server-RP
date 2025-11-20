@@ -101,8 +101,10 @@ constexpr bool unlikely(bool expr) { return expr; }
 
 #if defined(_MSC_VER)
 #define ALWAYS_INLINE __forceinline
+#define ALWAYS_INLINE_ATTR
 #else
 #define ALWAYS_INLINE __attribute__((always_inline)) inline
+#define ALWAYS_INLINE_ATTR __attribute__((always_inline))
 #endif
 
 #if defined(_MSC_VER)

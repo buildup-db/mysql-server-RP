@@ -2,6 +2,7 @@
 
 Copyright (c) 1994, 2025, Oracle and/or its affiliates.
 Copyright (c) 2012, Facebook Inc.
+Copyright (c) 2025, buildup-db.
 
 This program is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License, version 2.0, as published by the
@@ -851,7 +852,7 @@ void page_cur_open_on_rnd_user_rec(buf_block_t *block, /*!< in: page */
 }
 
 /** Writes the log record of a record insert on a page. */
-static void page_cur_insert_rec_write_log(
+static ALWAYS_INLINE void page_cur_insert_rec_write_log(
     rec_t *insert_rec,   /*!< in: inserted physical record */
     ulint rec_size,      /*!< in: insert_rec size */
     rec_t *cursor_rec,   /*!< in: record the

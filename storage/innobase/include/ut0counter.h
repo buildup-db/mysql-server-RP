@@ -71,7 +71,7 @@ struct counter_indexer_t : public generic_indexer_t<Type, N> {
   enum { fast = 1 };
 
   /** @return result from RDTSC or similar functions. */
-  static size_t get_rnd_index() UNIV_NOTHROW {
+  static ALWAYS_INLINE size_t get_rnd_index() UNIV_NOTHROW {
     size_t c = static_cast<size_t>(my_timer_cycles());
 
     if (c != 0) {

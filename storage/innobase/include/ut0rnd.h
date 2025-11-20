@@ -1,6 +1,7 @@
 /*****************************************************************************
 
 Copyright (c) 1994, 2025, Oracle and/or its affiliates.
+Copyright (c) 2025, buildup-db.
 
 This program is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License, version 2.0, as published by the
@@ -75,8 +76,8 @@ This is used for the cases which need performance more than the true randomness.
 @param[in]      high    high limit; can generate also this value
 @return the pseudo-random number within the [low, high] two-side inclusive range
 */
-[[nodiscard]] static inline uint64_t random_from_interval_fast(uint64_t low,
-                                                               uint64_t high);
+[[nodiscard]] static ALWAYS_INLINE uint64_t
+random_from_interval_fast(uint64_t low, uint64_t high);
 
 /** Hashes a 64-bit integer.
 @param[in]	value	64-bit integer
@@ -98,8 +99,8 @@ This is used for the cases which need performance more than the true randomness.
 @param[in]  seed  seed to be used in calculation. Can be previous value. A
                   default value is just a randomly chosen number.
 @return hashed value */
-[[nodiscard]] static inline uint64_t hash_binary(
-    const byte *buf, size_t len, uint64_t seed = 0xacb1f3526e25dd39);
+[[nodiscard]] static ALWAYS_INLINE uint64_t
+hash_binary(const byte *buf, size_t len, uint64_t seed = 0xacb1f3526e25dd39);
 
 /** Hashes a binary buffer of given length in the old innobase way. This is
 highly inefficient, don't use outside areas that require backward compatibility
@@ -215,7 +216,7 @@ static inline uint64_t hash_uint64(uint64_t value) {
   return res;
 }
 
-static inline uint64_t hash_uint64_pair(uint64_t n1, uint64_t n2) {
+static ALWAYS_INLINE uint64_t hash_uint64_pair(uint64_t n1, uint64_t n2) {
   return hash_uint64(hash_uint64(n1) ^ n2);
 }
 

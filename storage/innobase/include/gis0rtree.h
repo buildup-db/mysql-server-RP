@@ -1,6 +1,7 @@
 /*****************************************************************************
 
 Copyright (c) 2014, 2025, Oracle and/or its affiliates.
+Copyright (c) 2025, buildup-db.
 
 This program is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License, version 2.0, as published by the
@@ -190,8 +191,8 @@ static inline node_seq_t rtr_get_new_ssn_id(
 
 /** Get the current Split Sequence Number.
  @return current SSN id */
-static inline node_seq_t rtr_get_current_ssn_id(
-    dict_index_t *index); /*!< in/out: the index struct */
+static ALWAYS_INLINE node_seq_t
+rtr_get_current_ssn_id(dict_index_t *index); /*!< in/out: the index struct */
 
 /** Create a RTree search info structure
 @param[in] need_prdt Whether predicate lock is needed
@@ -421,9 +422,9 @@ void rtr_check_discard_page(dict_index_t *index, btr_cur_t *cursor,
 @param[in,out]  cursor          tree cursor
 @param[in]      index           index struct
 @param[in]      need_prdt       Whether predicate lock is needed */
-static inline void rtr_info_reinit_in_cursor(btr_cur_t *cursor,
-                                             dict_index_t *index,
-                                             bool need_prdt);
+static ALWAYS_INLINE void rtr_info_reinit_in_cursor(btr_cur_t *cursor,
+                                                    dict_index_t *index,
+                                                    bool need_prdt);
 
 /** Estimates the number of rows in a given area.
 @param[in]      index   index

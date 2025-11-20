@@ -1,6 +1,7 @@
 /*****************************************************************************
 
 Copyright (c) 2017, 2025, Oracle and/or its affiliates.
+Copyright (c) 2025, buildup-db.
 
 This program is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License, version 2.0,
@@ -110,7 +111,7 @@ struct undo_seq_t {
 
   /** Append the given undo log record to the end of container.
   @param[in]    u1      the undo log record information. */
-  void push_back(undo_data_t &u1) {
+  NO_INLINE void push_back(undo_data_t &u1) {
     if (m_undo_list == nullptr) {
       m_undo_list =
           ut::new_withkey<std::list<undo_data_t>>(UT_NEW_THIS_FILE_PSI_KEY);

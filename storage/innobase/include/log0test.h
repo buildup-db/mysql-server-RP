@@ -1,6 +1,7 @@
 /*****************************************************************************
 
 Copyright (c) 2017, 2025, Oracle and/or its affiliates.
+Copyright (c) 2025, buildup-db.
 
 This program is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License, version 2.0,
@@ -166,7 +167,7 @@ extern std::unique_ptr<Log_test> log_test;
 
 @param[in]  sync_point_name  name of syncpoint, must be a string literal */
 template <size_t N>
-static void log_sync_point(const char (&sync_point_name)[N]) {
+static ALWAYS_INLINE void log_sync_point(const char (&sync_point_name)[N]) {
 #ifdef UNIV_DEBUG
   CONDITIONAL_SYNC_POINT(sync_point_name);
   const std::string crash_var_name = std::string{"crash_"} + sync_point_name;

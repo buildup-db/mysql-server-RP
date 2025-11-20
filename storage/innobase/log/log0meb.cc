@@ -1,6 +1,7 @@
 /*****************************************************************************
 
 Copyright (c) 2018, 2025, Oracle and/or its affiliates.
+Copyright (c) 2025, buildup-db.
 
 This program is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License, version 2.0,
@@ -815,7 +816,7 @@ int validate_redo_log_archive_dirs(THD *thd [[maybe_unused]],
     @retval       false         privilege is granted
     @retval       true          privilege is denied
 */
-static bool verify_privilege(THD *thd, const char *priv_name) {
+NO_INLINE static bool verify_privilege(THD *thd, const char *priv_name) {
   DBUG_TRACE;
   if (thd == nullptr) {
     /* service interface does not allow this. */

@@ -1,6 +1,7 @@
 /*****************************************************************************
 
 Copyright (c) 1996, 2025, Oracle and/or its affiliates.
+Copyright (c) 2025, buildup-db.
 
 This program is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License, version 2.0, as published by the
@@ -66,7 +67,7 @@ class Spatial_reference_system;
 
 /** Writes the mtr log entry of the inserted undo log record on the undo log
  page. */
-static inline void trx_undof_page_add_undo_rec_log(
+static ALWAYS_INLINE void trx_undof_page_add_undo_rec_log(
     page_t *undo_page, /*!< in: undo log page */
     ulint old_free,    /*!< in: start offset of the inserted entry */
     ulint new_free,    /*!< in: end offset of the entry */
@@ -2081,7 +2082,7 @@ byte *trx_undo_rec_get_partial_row(
 
 /** Erases the unused undo log page end.
  @return true if the page contained something, false if it was empty */
-static bool trx_undo_erase_page_end(
+static ALWAYS_INLINE bool trx_undo_erase_page_end(
     page_t *undo_page, /*!< in/out: undo page whose end to erase */
     mtr_t *mtr)        /*!< in/out: mini-transaction */
 {

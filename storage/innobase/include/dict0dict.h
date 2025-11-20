@@ -597,8 +597,8 @@ page_no_t dict_table_extent_size(const dict_table_t *table);
 /** Get the table page size.
 @param[in]      table   table
 @return compressed page size, or 0 if not compressed */
-[[nodiscard]] static inline const page_size_t dict_table_page_size(
-    const dict_table_t *table);
+[[nodiscard]] static ALWAYS_INLINE const page_size_t
+dict_table_page_size(const dict_table_t *table);
 
 #ifndef UNIV_HOTBACKUP
 /** Obtain exclusive locks on all index trees of the table. This is to prevent
@@ -730,8 +730,8 @@ index, if we also take multiversioning into account. Note, it doesn't
 include page no field.
 @param[in]      index   index
 @return number of fields */
-[[nodiscard]] static inline uint16_t dict_index_get_n_unique_in_tree_nonleaf(
-    const dict_index_t *index);
+[[nodiscard]] static ALWAYS_INLINE uint16_t
+dict_index_get_n_unique_in_tree_nonleaf(const dict_index_t *index);
 /** Gets the number of user-defined ordering fields in the index. In the
  internal representation we add the row id to the ordering fields to make all
  indexes unique, but this function returns the number of fields the user defined

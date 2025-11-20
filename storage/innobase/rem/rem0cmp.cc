@@ -1,6 +1,7 @@
 /*****************************************************************************
 
 Copyright (c) 1994, 2025, Oracle and/or its affiliates.
+Copyright (c) 2025, buildup-db.
 
 This program is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License, version 2.0, as published by the
@@ -227,13 +228,14 @@ static UNIV_COLD int cmp_decimal(const byte *a, unsigned int a_length,
 
 /** Innobase uses this function to compare two geometry data fields
 @return 1, 0, -1, if a is greater, equal, less than b, respectively */
-static int cmp_geometry_field(ulint prtype,          /*!< in: precise type */
-                              const byte *a,         /*!< in: data field */
-                              unsigned int a_length, /*!< in: data field length,
-                                                     not UNIV_SQL_NULL */
-                              const byte *b,         /*!< in: data field */
-                              unsigned int b_length) /*!< in: data field length,
-                                                     not UNIV_SQL_NULL */
+static NO_INLINE int cmp_geometry_field(
+    ulint prtype,          /*!< in: precise type */
+    const byte *a,         /*!< in: data field */
+    unsigned int a_length, /*!< in: data field length,
+                           not UNIV_SQL_NULL */
+    const byte *b,         /*!< in: data field */
+    unsigned int b_length) /*!< in: data field length,
+                           not UNIV_SQL_NULL */
 {
   double x1, x2;
   double y1, y2;
@@ -316,9 +318,9 @@ static int cmp_gis_field(
 @param[in]      b_length        length of b, in bytes (not UNIV_SQL_NULL)
 @return positive, 0, negative, if a is greater, equal, less than b,
 respectively */
-static int cmp_whole_field(ulint mtype, ulint prtype, bool is_asc,
-                           const byte *a, unsigned int a_length, const byte *b,
-                           unsigned int b_length) {
+static NO_INLINE int cmp_whole_field(ulint mtype, ulint prtype, bool is_asc,
+                                     const byte *a, unsigned int a_length,
+                                     const byte *b, unsigned int b_length) {
   float f_1;
   float f_2;
   double d_1;
@@ -394,8 +396,9 @@ static int cmp_whole_field(ulint mtype, ulint prtype, bool is_asc,
 @retval 0 if data1 is equal to data2
 @retval negative if data1 is less than data2
 @retval positive if data1 is greater than data2 */
-inline int cmp_data(ulint mtype, ulint prtype, bool is_asc, const byte *data1,
-                    ulint len1, const byte *data2, ulint len2) {
+ALWAYS_INLINE int cmp_data(ulint mtype, ulint prtype, bool is_asc,
+                           const byte *data1, ulint len1, const byte *data2,
+                           ulint len2) {
   ut_ad(!(prtype & DATA_MULTI_VALUE) ||
         (len1 != UNIV_MULTI_VALUE_ARRAY_MARKER && len1 != UNIV_NO_INDEX_VALUE &&
          len2 != UNIV_MULTI_VALUE_ARRAY_MARKER && len2 != UNIV_NO_INDEX_VALUE));
@@ -434,8 +437,7 @@ inline int cmp_data(ulint mtype, ulint prtype, bool is_asc, const byte *data1,
       ut_ad(prtype & DATA_BINARY_TYPE);
       pad = ULINT_UNDEFINED;
       if (prtype & DATA_GIS_MBR) {
-        return (cmp_whole_field(mtype, prtype, is_asc, data1, (unsigned)len1,
-                                data2, (unsigned)len2));
+        goto return_default;
       }
       break;
     case DATA_BLOB:
@@ -445,6 +447,7 @@ inline int cmp_data(ulint mtype, ulint prtype, bool is_asc, const byte *data1,
       }
       [[fallthrough]];
     default:
+    return_default:
       return (cmp_whole_field(mtype, prtype, is_asc, data1, (unsigned)len1,
                               data2, (unsigned)len2));
   }

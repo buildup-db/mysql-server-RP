@@ -2,6 +2,7 @@
 
 Copyright (c) 1995, 2025, Oracle and/or its affiliates.
 Copyright (c) 2009, Google Inc.
+Copyright (c) 2025, buildup-db.
 
 This program is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License, version 2.0,
@@ -1852,9 +1853,9 @@ static void log_writer_exit_extra_margin(log_t &log) {
   log_sync_point("log_writer_exited_extra_margin");
 }
 
-static inline bool log_writer_extra_margin_check(log_t &log,
-                                                 lsn_t checkpoint_lsn,
-                                                 lsn_t next_write_lsn) {
+static ALWAYS_INLINE bool log_writer_extra_margin_check(log_t &log,
+                                                        lsn_t checkpoint_lsn,
+                                                        lsn_t next_write_lsn) {
   ut_ad(log_writer_mutex_own(log));
 
   const lsn_t soft_limited_lsn =
@@ -1893,8 +1894,9 @@ void log_writer_check_if_exited_extra_margin(log_t &log) {
   log_writer_extra_margin_check(log, checkpoint_lsn, log_get_lsn(log));
 }
 
-static inline std::pair<lsn_t, bool> log_writer_wait_on_checkpoint_optimistic(
-    log_t &log, lsn_t last_write_lsn, lsn_t next_write_lsn) {
+static ALWAYS_INLINE std::pair<lsn_t, bool>
+log_writer_wait_on_checkpoint_optimistic(log_t &log, lsn_t last_write_lsn,
+                                         lsn_t next_write_lsn) {
   ut_ad(log_writer_mutex_own(log));
 
   const lsn_t checkpoint_lsn = log.last_checkpoint_lsn.load();
@@ -2424,7 +2426,7 @@ uint64_t log_total_flushes() { return Log_file_handle::total_fsyncs(); }
 
 uint64_t log_pending_flushes() { return Log_file_handle::fsyncs_in_progress(); }
 
-static void log_flush_low(log_t &log) {
+static ALWAYS_INLINE void log_flush_low(log_t &log) {
   ut_ad(log_flusher_mutex_own(log));
 
 #ifndef _WIN32

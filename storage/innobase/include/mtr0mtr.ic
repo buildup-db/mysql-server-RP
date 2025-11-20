@@ -1,6 +1,7 @@
 /*****************************************************************************
 
 Copyright (c) 1995, 2025, Oracle and/or its affiliates.
+Copyright (c) 2025, buildup-db.
 
 This program is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License, version 2.0, as published by the
@@ -129,7 +130,7 @@ void mtr_t::x_latch_at_savepoint(ulint savepoint, buf_block_t *block) {
 /**
 Releases the block in an mtr memo after a savepoint. */
 
-void mtr_t::release_block_at_savepoint(ulint savepoint, buf_block_t *block) {
+void mtr_t::release_block_at_savepoint_inline(ulint savepoint, buf_block_t *block) {
   ut_ad(is_active());
   ut_ad(m_impl.m_magic_n == MTR_MAGIC_N);
 
