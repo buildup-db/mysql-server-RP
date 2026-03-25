@@ -1,6 +1,7 @@
 /*****************************************************************************
 
 Copyright (c) 2006, 2025, Oracle and/or its affiliates.
+Copyright (c) 2026, buildup-db.
 
 This program is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License, version 2.0, as published by the
@@ -85,9 +86,6 @@ static inline ib_alloc_t *ib_heap_allocator_create(
   heap_alloc = (ib_alloc_t *)mem_heap_alloc(heap, sizeof(*heap_alloc));
 
   heap_alloc->arg = heap;
-  heap_alloc->mem_release = ib_heap_free;
-  heap_alloc->mem_malloc = ib_heap_malloc;
-  heap_alloc->mem_resize = ib_heap_resize;
 
   return (heap_alloc);
 }

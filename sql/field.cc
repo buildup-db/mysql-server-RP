@@ -1,5 +1,6 @@
 /*
    Copyright (c) 2000, 2025, Oracle and/or its affiliates.
+   Copyright (c) 2026, buildup-db.
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License, version 2.0,
@@ -1505,8 +1506,8 @@ Field_num::Field_num(uchar *ptr_arg, uint32 len_arg, uchar *null_ptr_arg,
     : Field(ptr_arg, len_arg, null_ptr_arg, null_bit_arg, auto_flags_arg,
             field_name_arg),
       unsigned_flag(unsigned_arg),
-      dec(dec_arg),
       zerofill(zero_arg) {
+  dec = dec_arg;
   if (zerofill) set_flag(ZEROFILL_FLAG);
   if (unsigned_flag) set_flag(UNSIGNED_FLAG);
 }
@@ -2734,11 +2735,12 @@ Field_new_decimal::Field_new_decimal(uchar *ptr_arg, uint32 len_arg,
                                      bool zero_arg, bool unsigned_arg)
     : Field_num(ptr_arg, len_arg, null_ptr_arg, null_bit_arg, auto_flags_arg,
                 field_name_arg, dec_arg, zero_arg, unsigned_arg) {
+  m_real_type = m_type = MYSQL_TYPE_NEWDECIMAL;
   precision =
       std::min(my_decimal_length_to_precision(len_arg, dec_arg, unsigned_arg),
                uint(DECIMAL_MAX_PRECISION));
   assert((precision <= DECIMAL_MAX_PRECISION) && (dec <= DECIMAL_MAX_SCALE));
-  bin_size = my_decimal_get_binary_size(precision, dec);
+  packlength = my_decimal_get_binary_size(precision, dec);
 }
 
 Field_new_decimal::Field_new_decimal(uint32 len_arg, bool is_nullable_arg,
@@ -2747,11 +2749,12 @@ Field_new_decimal::Field_new_decimal(uint32 len_arg, bool is_nullable_arg,
     : Field_num(nullptr, len_arg,
                 is_nullable_arg ? &dummy_null_buffer : nullptr, 0, NONE, name,
                 dec_arg, false, unsigned_arg) {
+  m_real_type = m_type = MYSQL_TYPE_NEWDECIMAL;
   precision =
       std::min(my_decimal_length_to_precision(len_arg, dec_arg, unsigned_arg),
                uint(DECIMAL_MAX_PRECISION));
   assert((precision <= DECIMAL_MAX_PRECISION) && (dec <= DECIMAL_MAX_SCALE));
-  bin_size = my_decimal_get_binary_size(precision, dec);
+  packlength = my_decimal_get_binary_size(precision, dec);
 }
 
 Field *Field_new_decimal::create_from_item(const Item *item) {
@@ -2870,7 +2873,7 @@ type_conversion_status Field_new_decimal::store_value(
     set_value_on_overflow(&buff, decimal_value->sign());
     my_decimal2binary(E_DEC_FATAL_ERROR, &buff, ptr, precision, dec);
   }
-  DBUG_EXECUTE("info", print_decimal_buff(decimal_value, ptr, bin_size););
+  DBUG_EXECUTE("info", print_decimal_buff(decimal_value, ptr, packlength););
   return (err != E_DEC_OK) ? decimal_err_to_type_conv_status(err) : error;
 }
 
@@ -2997,7 +3000,7 @@ my_decimal *Field_new_decimal::val_decimal(my_decimal *decimal_value) const {
   DBUG_TRACE;
   binary2my_decimal(E_DEC_FATAL_ERROR, ptr, decimal_value, precision, dec,
                     m_keep_precision);
-  DBUG_EXECUTE("info", print_decimal_buff(decimal_value, ptr, bin_size););
+  DBUG_EXECUTE("info", print_decimal_buff(decimal_value, ptr, packlength););
   return decimal_value;
 }
 
@@ -3031,11 +3034,11 @@ bool Field_new_decimal::get_time(MYSQL_TIME *ltime) const {
 }
 
 int Field_new_decimal::cmp(const uchar *a, const uchar *b) const {
-  return memcmp(a, b, bin_size);
+  return memcmp(a, b, packlength);
 }
 
 size_t Field_new_decimal::make_sort_key(uchar *buff, size_t length) const {
-  memcpy(buff, ptr, min(length, static_cast<size_t>(bin_size)));
+  memcpy(buff, ptr, min(length, static_cast<size_t>(packlength)));
   return length;
 }
 
@@ -4989,6 +4992,7 @@ Field_timestamp::Field_timestamp(uchar *ptr_arg, uint32, uchar *null_ptr_arg,
                                  const char *field_name_arg)
     : Field_temporal_with_date_and_time(ptr_arg, null_ptr_arg, null_bit_arg,
                                         auto_flags_arg, field_name_arg, 0) {
+  m_real_type = m_type = MYSQL_TYPE_TIMESTAMP;
   init_timestamp_flags();
   /* For 4.0 MYD and 4.0 InnoDB compatibility */
   set_flag(ZEROFILL_FLAG);
@@ -5000,6 +5004,7 @@ Field_timestamp::Field_timestamp(bool is_nullable_arg,
     : Field_temporal_with_date_and_time(
           nullptr, is_nullable_arg ? &dummy_null_buffer : nullptr, 0, NONE,
           field_name_arg, 0) {
+  m_real_type = m_type = MYSQL_TYPE_TIMESTAMP;
   init_timestamp_flags();
   /* For 4.0 MYD and 4.0 InnoDB compatibility */
   set_flag(ZEROFILL_FLAG);
@@ -5150,6 +5155,8 @@ Field_timestampf::Field_timestampf(uchar *ptr_arg, uchar *null_ptr_arg,
     : Field_temporal_with_date_and_timef(ptr_arg, null_ptr_arg, null_bit_arg,
                                          auto_flags_arg, field_name_arg,
                                          dec_arg) {
+  m_type = MYSQL_TYPE_TIMESTAMP;
+  m_real_type = MYSQL_TYPE_TIMESTAMP2;
   init_timestamp_flags();
 }
 
@@ -5158,6 +5165,8 @@ Field_timestampf::Field_timestampf(bool is_nullable_arg,
     : Field_temporal_with_date_and_timef(
           nullptr, is_nullable_arg ? &dummy_null_buffer : nullptr, 0, NONE,
           field_name_arg, dec_arg) {
+  m_type = MYSQL_TYPE_TIMESTAMP;
+  m_real_type = MYSQL_TYPE_TIMESTAMP2;
   if (auto_flags & ON_UPDATE_NOW) set_flag(ON_UPDATE_NOW_FLAG);
 }
 
@@ -6927,8 +6936,10 @@ void Field_varstring::hash(ulong *nr, ulong *nr2) const {
 Field_blob::Field_blob(uint32 packlength_arg)
     : Field_longstr(nullptr, 0, &dummy_null_buffer, 0, NONE, "temp",
                     system_charset_info),
-      packlength(packlength_arg),
-      m_keep_old_value(false) {}
+      m_keep_old_value(false) {
+  m_real_type = m_type = MYSQL_TYPE_BLOB;
+  packlength = packlength_arg;
+}
 
 Field_blob::Field_blob(uchar *ptr_arg, uchar *null_ptr_arg, uchar null_bit_arg,
                        uchar auto_flags_arg, const char *field_name_arg,
@@ -6937,8 +6948,9 @@ Field_blob::Field_blob(uchar *ptr_arg, uchar *null_ptr_arg, uchar null_bit_arg,
     : Field_longstr(ptr_arg, BLOB_PACK_LENGTH_TO_MAX_LENGH(blob_pack_length),
                     null_ptr_arg, null_bit_arg, auto_flags_arg, field_name_arg,
                     cs),
-      packlength(blob_pack_length),
       m_keep_old_value(false) {
+  m_real_type = m_type = MYSQL_TYPE_BLOB;
+  packlength = blob_pack_length;
   assert(blob_pack_length <= 4);  // Only pack lengths 1-4 supported currently
   set_flag(BLOB_FLAG);
   share->blob_fields++;
@@ -7589,6 +7601,7 @@ void Field_json::sql_type(String &str) const {
 /// Create a shallow clone of this field in the specified MEM_ROOT.
 Field_json *Field_json::clone(MEM_ROOT *mem_root) const {
   assert(type() == MYSQL_TYPE_JSON);
+  assert(m_type == MYSQL_TYPE_JSON);
   return new (mem_root) Field_json(*this);
 }
 
@@ -8646,6 +8659,7 @@ Field_bit::Field_bit(uchar *ptr_arg, uint32 len_arg, uchar *null_ptr_arg,
       bit_ofs(bit_ofs_arg),
       bit_len(len_arg & 7),
       bytes_in_rec(len_arg / 8) {
+  m_real_type = m_type = MYSQL_TYPE_BIT;
   DBUG_TRACE;
   DBUG_PRINT("enter", ("ptr_arg: %p, null_ptr_arg: %p, len_arg: %u, bit_len: "
                        "%u, bytes_in_rec: %u",
@@ -9765,7 +9779,11 @@ Field_typed_array::Field_typed_array(const Field_typed_array &other)
       m_elt_type(other.m_elt_type),
       m_elt_decimals(other.m_elt_decimals),
       m_elt_charset(other.m_elt_charset),
-      unsigned_flag(other.is_unsigned()) {}
+      unsigned_flag(other.is_unsigned()) {
+  m_type = real_type_to_type(m_elt_type);
+  m_real_type = m_elt_type;
+  m_is_array = true;
+}
 
 Field_typed_array::Field_typed_array(
     enum_field_types elt_type, bool elt_is_unsigned, size_t elt_length,
@@ -9778,6 +9796,9 @@ Field_typed_array::Field_typed_array(
       m_elt_decimals(elt_decimals),
       m_elt_charset(cs),
       unsigned_flag(elt_is_unsigned) {
+  m_type = real_type_to_type(m_elt_type);
+  m_real_type = m_elt_type;
+  m_is_array = true;
   if (elt_is_unsigned) set_flag(UNSIGNED_FLAG);
   if (Field_typed_array::binary()) set_flag(BINARY_FLAG);
   field_length = elt_length;
@@ -10352,8 +10373,9 @@ Field_varstring::Field_varstring(uchar *ptr_arg, uint32 len_arg,
                                  const char *field_name_arg, TABLE_SHARE *share,
                                  const CHARSET_INFO *cs)
     : Field_longstr(ptr_arg, len_arg, null_ptr_arg, null_bit_arg,
-                    auto_flags_arg, field_name_arg, cs),
-      length_bytes(length_bytes_arg) {
+                    auto_flags_arg, field_name_arg, cs) {
+  length_bytes = length_bytes_arg;
+  m_real_type = m_type = MYSQL_TYPE_VARCHAR;
   if (share != nullptr) {
     share->varchar_fields++;
   }
@@ -10364,8 +10386,9 @@ Field_varstring::Field_varstring(uint32 len_arg, bool is_nullable_arg,
                                  const CHARSET_INFO *cs)
     : Field_longstr(nullptr, len_arg,
                     is_nullable_arg ? &dummy_null_buffer : nullptr, 0, NONE,
-                    field_name_arg, cs),
-      length_bytes(len_arg < 256 ? 1 : 2) {
+                    field_name_arg, cs) {
+  length_bytes = len_arg < 256 ? 1 : 2;
+  m_real_type = m_type = MYSQL_TYPE_VARCHAR;
   if (share != nullptr) {
     share->varchar_fields++;
   }
@@ -10402,11 +10425,20 @@ void Field_blob::restore_blob_backup() {
 
 Create_field_wrapper::Create_field_wrapper(const Create_field *fld)
     : Field(nullptr, fld->max_display_width_in_codepoints(), nullptr, 0,
-            fld->auto_flags, fld->field_name),
-      m_field(fld) {
+            fld->auto_flags, fld->field_name) {
+  m_is_wrapper_field = true;
+  m_real_type = m_type = fld->sql_type;
+  m_field = fld;
   if (fld->is_unsigned) {
     set_flag(UNSIGNED_FLAG);
   }
+}
+
+Create_field_wrapper::Create_field_wrapper(const Create_field_wrapper &field)
+    : Field(field) {
+  m_is_wrapper_field = true;
+  m_field = field.m_field;
+  m_real_type = m_type = m_field->sql_type;
 }
 
 Item_result Create_field_wrapper::result_type() const {

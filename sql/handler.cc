@@ -1,4 +1,5 @@
 /* Copyright (c) 2000, 2025, Oracle and/or its affiliates.
+   Copyright (c) 2026, buildup-db.
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License, version 2.0,
@@ -131,6 +132,9 @@
 #include "sql_tmp_table.h"  // free_tmp_table
 #include "template_utils.h"
 #include "uniques.h"  // Unique_on_insert
+
+/** InnoDB direct calls to avoid indirect calls for virtual functions */
+int innobase_extra(handler *file, enum ha_extra_function operation);
 
 /**
   @def MYSQL_TABLE_IO_WAIT
@@ -7985,8 +7989,13 @@ int handler::ha_reset() {
   /* reset the bitmaps to point to defaults */
   table->default_column_bitmaps();
   /* Reset the handler flags used for dupilcate record handling */
-  table->file->extra(HA_EXTRA_NO_IGNORE_DUP_KEY);
-  table->file->extra(HA_EXTRA_WRITE_CANNOT_REPLACE);
+  if (likely(table->file->ht && table->file->ht->db_type == DB_TYPE_INNODB)) {
+    innobase_extra(table->file, HA_EXTRA_NO_IGNORE_DUP_KEY);
+    innobase_extra(table->file, HA_EXTRA_WRITE_CANNOT_REPLACE);
+  } else {
+    table->file->extra(HA_EXTRA_NO_IGNORE_DUP_KEY);
+    table->file->extra(HA_EXTRA_WRITE_CANNOT_REPLACE);
+  }
   /* Reset information about pushed engine conditions */
   pushed_cond = nullptr;
   /* Reset information about pushed index conditions */
@@ -8509,6 +8518,8 @@ int handler::ha_extra(enum ha_extra_function operation) {
       m_unique = nullptr;
     }
   }
+  if (likely(ht && ht->db_type == DB_TYPE_INNODB))
+    return innobase_extra(this, operation);
   return extra(operation);
 }
 

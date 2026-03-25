@@ -5520,8 +5520,8 @@ static int my_strnncoll_utf8mb3(const CHARSET_INFO *cs, const uchar *s,
     > 0  a > b
 */
 
-static int my_strnncollsp_utf8mb3(const CHARSET_INFO *cs, const uchar *s,
-                                  size_t slen, const uchar *t, size_t tlen) {
+int my_strnncollsp_utf8mb3(const CHARSET_INFO *cs, const uchar *s, size_t slen,
+                           const uchar *t, size_t tlen) {
   int s_res, t_res, res;
   my_wc_t s_wc = 0, t_wc = 0;
   const uchar *se = s + slen, *te = t + tlen;
@@ -5594,8 +5594,8 @@ static int my_strnncollsp_utf8mb3(const CHARSET_INFO *cs, const uchar *s,
     - 0 is the strings are equal
 */
 
-static int my_strcasecmp_utf8mb3(const CHARSET_INFO *cs, const char *s,
-                                 const char *t) {
+int my_strcasecmp_utf8mb3(const CHARSET_INFO *cs, const char *s,
+                          const char *t) {
   const MY_UNICASE_INFO *uni_plane = cs->caseinfo;
   while (s[0] && t[0]) {
     my_wc_t s_wc, t_wc;
@@ -5698,8 +5698,7 @@ static size_t my_well_formed_len_utf8mb3(const CHARSET_INFO *, const char *b,
   return (size_t)(b - b_start);
 }
 
-static uint my_ismbchar_utf8mb3(const CHARSET_INFO *, const char *b,
-                                const char *e) {
+uint my_ismbchar_utf8mb3(const CHARSET_INFO *, const char *b, const char *e) {
   int res = my_valid_mbcharlen_utf8mb3((const uchar *)b, (const uchar *)e);
   return (res > 1) ? res : 0;
 }
@@ -7659,8 +7658,7 @@ static uint ALWAYS_INLINE my_ismbchar_utf8mb4_inl(const CHARSET_INFO *cs,
   return (res > 1) ? res : 0;
 }
 
-static uint my_ismbchar_utf8mb4(const CHARSET_INFO *cs, const char *b,
-                                const char *e) {
+uint my_ismbchar_utf8mb4(const CHARSET_INFO *cs, const char *b, const char *e) {
   return my_ismbchar_utf8mb4_inl(cs, b, e);
 }
 

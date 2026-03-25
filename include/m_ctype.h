@@ -1,4 +1,5 @@
 /* Copyright (c) 2000, 2025, Oracle and/or its affiliates.
+   Copyright (c) 2026, buildup-db.
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License, version 2.0,
@@ -668,6 +669,21 @@ uint my_mbcharlen_ptr(const CHARSET_INFO *cs, const char *s, const char *e);
 bool my_is_prefixidx_cand(const CHARSET_INFO *cs, const char *wildstr,
                           const char *wildend, int escape, int w_many,
                           size_t *prefix_len);
+
+/* Allowing direct call */
+extern "C" {
+int my_strnncollsp_utf8mb3(const CHARSET_INFO *cs, const uchar *s, size_t slen,
+                           const uchar *t, size_t tlen);
+
+int my_strcasecmp_utf8mb3(const CHARSET_INFO *cs, const char *s, const char *t);
+
+int my_strnncollsp_uca_900(const CHARSET_INFO *cs, const uchar *s, size_t slen,
+                           const uchar *t, size_t tlen);
+
+uint my_ismbchar_utf8mb3(const CHARSET_INFO *, const char *b, const char *e);
+
+uint my_ismbchar_utf8mb4(const CHARSET_INFO *cs, const char *b, const char *e);
+}
 
 #define _MY_U 01    /* Upper case */
 #define _MY_L 02    /* Lower case */

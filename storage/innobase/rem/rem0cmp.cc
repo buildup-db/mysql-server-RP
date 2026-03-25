@@ -1,7 +1,7 @@
 /*****************************************************************************
 
 Copyright (c) 1994, 2025, Oracle and/or its affiliates.
-Copyright (c) 2025, buildup-db.
+Copyright (c) 2026, buildup-db.
 
 This program is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License, version 2.0, as published by the
@@ -108,6 +108,15 @@ static inline int innobase_mysql_cmp(ulint prtype, const byte *a,
       b_length = cs->cset->lengthsp(cs, (const char *)b, b_length);
     }
 
+    if (UNIV_LIKELY(cs->coll->strnncollsp == my_strnncollsp_utf8mb3)) {
+      return (my_strnncollsp_utf8mb3(cs, a, a_length, b, b_length));
+    } else if (UNIV_LIKELY(cs->coll->strnncollsp == my_strnncollsp_mb_bin)) {
+      return (my_strnncollsp_mb_bin(cs, a, a_length, b, b_length));
+    } else if (cs->coll->strnncollsp == my_strnncollsp_uca_900) {
+      return (my_strnncollsp_uca_900(cs, a, a_length, b, b_length));
+    } else if (cs->coll->strnncollsp == my_strnncollsp_simple) {
+      return (my_strnncollsp_simple(cs, a, a_length, b, b_length));
+    }
     return (cs->coll->strnncollsp(cs, a, a_length, b, b_length));
   }
 
@@ -364,9 +373,6 @@ static NO_INLINE int cmp_whole_field(ulint mtype, ulint prtype, bool is_asc,
                                     " using a character set collation!";
         ut_d(ut_error);
       }
-      [[fallthrough]];
-    case DATA_VARMYSQL:
-    case DATA_MYSQL:
       cmp = innobase_mysql_cmp(prtype, a, a_length, b, b_length);
       break;
     case DATA_POINT:
@@ -414,8 +420,9 @@ ALWAYS_INLINE int cmp_data(ulint mtype, ulint prtype, bool is_asc,
   }
 
   ulint pad;
+  int cmp;
 
-  switch (mtype) {
+  switch (UNIV_EXPECT(mtype, DATA_INT)) {
     case DATA_FIXBINARY:
     case DATA_BINARY:
       if (dtype_get_charset_coll(prtype) != DATA_MYSQL_BINARY_CHARSET_COLL) {
@@ -428,6 +435,11 @@ ALWAYS_INLINE int cmp_data(ulint mtype, ulint prtype, bool is_asc,
     case DATA_SYS:
       pad = ULINT_UNDEFINED;
       break;
+    case DATA_VARMYSQL:
+    case DATA_MYSQL:
+      cmp = innobase_mysql_cmp(prtype, data1, (unsigned)len1, data2,
+                               (unsigned)len2);
+      return (is_asc ? cmp : -cmp);
     case DATA_POINT:
     case DATA_VAR_POINT:
       /* Since DATA_POINT has a fixed length of DATA_POINT_LEN,
@@ -463,8 +475,6 @@ ALWAYS_INLINE int cmp_data(ulint mtype, ulint prtype, bool is_asc,
     len1 -= len;
     len2 = 0;
   }
-
-  int cmp;
 
   if (len > 0) {
 #if defined __i386__ || defined __x86_64__ || defined _M_IX86 || defined _M_X64

@@ -2,6 +2,7 @@
 #define SQL_CREATE_FIELD_INCLUDED
 
 /* Copyright (c) 2018, 2025, Oracle and/or its affiliates.
+   Copyright (c) 2026, buildup-db.
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License, version 2.0,
@@ -278,4 +279,64 @@ bool is_hidden_by_system(const Create_field *create_field);
   @retval false otherwise.
 */
 bool is_hidden_by_user(const Create_field *create_field);
+
+/* Field::pack_length() needs field.h, create_field.h and inlined. */
+/*
+  pack_length() returns size (in bytes) used to store field data in memory
+  (i.e. it returns the maximum size of the field in a row of the table,
+  which is located in RAM).
+*/
+inline uint32 Field::pack_length() const {
+  if (unlikely(m_is_wrapper_field)) {
+    return m_field->pack_length();
+  } else if (unlikely(m_is_array)) {
+    return (uint32)(packlength + portable_sizeof_char_ptr);
+  }
+  switch (m_real_type) {
+    case MYSQL_TYPE_TINY:
+    case MYSQL_TYPE_YEAR:
+      return 1;
+    case MYSQL_TYPE_SHORT:
+      return 2;
+    case MYSQL_TYPE_INT24:
+    case MYSQL_TYPE_TIME:
+      return 3;
+    case MYSQL_TYPE_NULL:
+      return 0;
+    case MYSQL_TYPE_LONG:
+      return Field_long::PACK_LENGTH;
+    case MYSQL_TYPE_LONGLONG:
+      return Field_longlong::PACK_LENGTH;
+    case MYSQL_TYPE_FLOAT:
+      return sizeof(float);
+    case MYSQL_TYPE_DOUBLE:
+      return sizeof(double);
+    case MYSQL_TYPE_VARCHAR:
+      return (uint32)field_length + length_bytes;
+    case MYSQL_TYPE_NEWDECIMAL:
+    case MYSQL_TYPE_ENUM:
+    case MYSQL_TYPE_SET:
+      return (uint32)packlength;
+    case MYSQL_TYPE_BLOB:
+    case MYSQL_TYPE_JSON:
+    case MYSQL_TYPE_GEOMETRY:
+      return (uint32)(packlength + portable_sizeof_char_ptr);
+    case MYSQL_TYPE_BIT:
+      return (uint32)(field_length + 7) / 8;
+    case MYSQL_TYPE_NEWDATE:
+      return Field_newdate::PACK_LENGTH;
+    case MYSQL_TYPE_TIME2:
+      return my_time_binary_length(dec);
+    case MYSQL_TYPE_TIMESTAMP2:
+      return my_timestamp_binary_length(dec);
+    case MYSQL_TYPE_DATETIME2:
+      return my_datetime_binary_length(dec);
+    case MYSQL_TYPE_TIMESTAMP:
+      return Field_timestamp::PACK_LENGTH;
+    case MYSQL_TYPE_DATETIME:
+      return Field_datetime::PACK_LENGTH;
+    default:
+      return (uint32)field_length;
+  }
+}
 #endif

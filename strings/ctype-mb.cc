@@ -1,4 +1,5 @@
 /* Copyright (c) 2002, 2025, Oracle and/or its affiliates.
+   Copyright (c) 2026, buildup-db.
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License, version 2.0,
@@ -320,10 +321,24 @@ int my_wildcmp_mb(const CHARSET_INFO *cs, const char *str, const char *str_end,
 size_t my_numchars_mb(const CHARSET_INFO *cs, const char *pos,
                       const char *end) {
   size_t count = 0;
-  while (pos < end) {
-    uint mb_len;
-    pos += (mb_len = my_ismbchar(cs, pos, end)) ? mb_len : 1;
-    count++;
+  if (likely(cs->cset->ismbchar == my_ismbchar_utf8mb4)) {
+    while (pos < end) {
+      uint mb_len;
+      pos += (mb_len = my_ismbchar_utf8mb4(cs, pos, end)) ? mb_len : 1;
+      count++;
+    }
+  } else if (likely(cs->cset->ismbchar == my_ismbchar_utf8mb3)) {
+    while (pos < end) {
+      uint mb_len;
+      pos += (mb_len = my_ismbchar_utf8mb3(cs, pos, end)) ? mb_len : 1;
+      count++;
+    }
+  } else {
+    while (pos < end) {
+      uint mb_len;
+      pos += (mb_len = my_ismbchar(cs, pos, end)) ? mb_len : 1;
+      count++;
+    }
   }
   return count;
 }
@@ -332,10 +347,18 @@ size_t my_charpos_mb3(const CHARSET_INFO *cs, const char *pos, const char *end,
                       size_t length) {
   const char *start = pos;
 
-  while (length && pos < end) {
-    uint mb_len;
-    pos += (mb_len = my_ismbchar(cs, pos, end)) ? mb_len : 1;
-    length--;
+  if (likely(cs->cset->ismbchar == my_ismbchar_utf8mb3)) {
+    while (length && pos < end) {
+      uint mb_len;
+      pos += (mb_len = my_ismbchar_utf8mb3(cs, pos, end)) ? mb_len : 1;
+      length--;
+    }
+  } else {
+    while (length && pos < end) {
+      uint mb_len;
+      pos += (mb_len = my_ismbchar(cs, pos, end)) ? mb_len : 1;
+      length--;
+    }
   }
   return (size_t)(length ? end + 2 - start : pos - start);
 }

@@ -2,6 +2,7 @@
 
 Copyright (c) 1995, 2025, Oracle and/or its affiliates.
 Copyright (c) 2009, Google Inc.
+Copyright (c) 2026, buildup-db.
 
 Portions of this file contain modifications contributed and copyrighted by
 Google, Inc. Those modifications are gratefully acknowledged and are described
@@ -1680,36 +1681,8 @@ dberr_t log_sys_init(bool expect_no_files, lsn_t flushed_lsn,
     return err;
   }
 
-  Log_file_handle::s_on_before_read = [](Log_file_id, Log_file_type file_type,
-                                         os_offset_t, os_offset_t read_size) {
-    ut_a(file_type == Log_file_type::NORMAL);
-    ut_a(srv_is_being_started);
-#ifndef UNIV_HOTBACKUP
-    srv_stats.data_read.add(read_size);
-#endif /* !UNIV_HOTBACKUP */
-  };
-
-  Log_file_handle::s_on_before_write =
-      [](Log_file_id file_id, Log_file_type file_type, os_offset_t write_offset,
-         os_offset_t write_size) {
-        ut_a(!srv_read_only_mode);
-        if (!srv_is_being_started) {
-          ut_a(log_sys != nullptr);
-          auto file = log_sys->m_files.file(file_id);
-          if (file_type == Log_file_type::NORMAL) {
-            ut_a(file != log_sys->m_files.end());
-            ut_a((file_id == log_sys->m_current_file.m_id &&
-                  write_offset + write_size <= file->m_size_in_bytes) ||
-                 write_offset + write_size <= LOG_FILE_HDR_SIZE);
-          } else {
-            ut_a(file == log_sys->m_files.end());
-            ut_a(file_id == log_sys->m_current_file.next_id());
-          }
-        }
-#ifndef UNIV_HOTBACKUP
-        srv_stats.data_written.add(write_size);
-#endif
-      };
+  Log_file_handle::s_on_before_read = log_on_before_read_basic;
+  Log_file_handle::s_on_before_write = log_on_before_write_basic;
 
 #ifndef _WIN32
   Log_file_handle::s_skip_fsyncs =

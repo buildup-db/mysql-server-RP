@@ -4,6 +4,7 @@ Copyright (c) 2000, 2025, Oracle and/or its affiliates.
 Copyright (c) 2008, 2009 Google Inc.
 Copyright (c) 2009, Percona Inc.
 Copyright (c) 2012, Facebook Inc.
+Copyright (c) 2026, buildup-db.
 
 Portions of this file contain modifications contributed and copyrighted by
 Google, Inc. Those modifications are gratefully acknowledged and are described
@@ -2391,7 +2392,11 @@ int innobase_strcasecmp(const char *a, /*!< in: first string to compare */
     return (1);
   }
 
-  return (my_strcasecmp(system_charset_info, a, b));
+  if (UNIV_LIKELY(system_charset_info->coll->strcasecmp ==
+                  my_strcasecmp_utf8mb3)) {
+    return my_strcasecmp_utf8mb3(system_charset_info, a, b);
+  }
+  return system_charset_info->coll->strcasecmp(system_charset_info, a, b);
 }
 
 #ifndef UNIV_HOTBACKUP
@@ -4504,7 +4509,7 @@ static uint innobase_partition_flags() {
 }
 #endif /* !UNIV_HOTBACKUP */
 
-/** Update log_checksum_algorithm_ptr with a pointer to the function
+/** Update log_checksum_algorithm
 corresponding to whether checksums are enabled.
 @param[in]      check   whether redo log block checksums are enabled */
 #ifndef UNIV_HOTBACKUP
@@ -4512,8 +4517,7 @@ static
 #endif /* !UNIV_HOTBACKUP */
     void
     innodb_log_checksums_func_update(bool check) {
-  log_checksum_algorithm_ptr.store(check ? log_block_calc_checksum_crc32
-                                         : log_block_calc_checksum_none);
+  log_checksum_algorithm.store(check);
 }
 
 #ifndef UNIV_HOTBACKUP
@@ -18403,6 +18407,12 @@ int ha_innobase::extra(enum ha_extra_function operation)
   }
 
   return (0);
+}
+
+/** Direct call wrapper for ha_innobase::extra() */
+int innobase_extra(handler *file, enum ha_extra_function operation) {
+  ut_a(file->ht->db_type == DB_TYPE_INNODB);
+  return static_cast<ha_innobase *>(file)->extra(operation);
 }
 
 /**

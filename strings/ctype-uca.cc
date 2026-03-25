@@ -4932,8 +4932,8 @@ static int my_strnncoll_uca_900(const CHARSET_INFO *cs, const uchar *s,
   }
 }
 
-static int my_strnncollsp_uca_900(const CHARSET_INFO *cs, const uchar *s,
-                                  size_t slen, const uchar *t, size_t tlen) {
+int my_strnncollsp_uca_900(const CHARSET_INFO *cs, const uchar *s, size_t slen,
+                           const uchar *t, size_t tlen) {
   // We are a NO PAD collation, so this is identical to strnncoll.
   return my_strnncoll_uca_900(cs, s, slen, t, tlen, false);
 }
