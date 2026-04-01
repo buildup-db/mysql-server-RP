@@ -57,9 +57,9 @@ void Log_user_consumer::consumption_requested() {}
 
 Log_checkpoint_consumer::Log_checkpoint_consumer(log_t &log) : m_log{log} {}
 
+static const std::string log_checkpoint_name{"log_checkpointer"};
 const std::string &Log_checkpoint_consumer::get_name() const {
-  static std::string name{"log_checkpointer"};
-  return name;
+  return log_checkpoint_name;
 }
 
 lsn_t Log_checkpoint_consumer::get_consumed_lsn() const {

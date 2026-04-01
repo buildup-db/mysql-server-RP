@@ -617,8 +617,8 @@ static void buf_load() {
 
     /* Update the progress every 32 MiB, which is every Nth page,
     where N = 32*1024^2 / page_size. */
-    static const ulint update_status_every_n_mb = 32;
-    static const ulint update_status_every_n_pages =
+    const ulint update_status_every_n_mb = 32;
+    const ulint update_status_every_n_pages =
         update_status_every_n_mb * 1024 * 1024 / page_size.physical();
 
     if (i % update_status_every_n_pages == 0) {

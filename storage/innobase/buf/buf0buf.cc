@@ -2,7 +2,7 @@
 
 Copyright (c) 1995, 2025, Oracle and/or its affiliates.
 Copyright (c) 2008, Google Inc.
-Copyright (c) 2025, buildup-db.
+Copyright (c) 2026, buildup-db.
 
 Portions of this file contain modifications contributed and copyrighted by
 Google, Inc. Those modifications are gratefully acknowledged and are described
@@ -4106,30 +4106,31 @@ void Buf_fetch<T>::mtr_add_page(buf_block_t *block) {
   mtr_memo_type_t fix_type;
 
   ut::Location loc{m_file, m_line};
+  constexpr bool is_fetch_other = std::is_same<T, Buf_fetch_other>::value;
 
-  switch (m_rw_latch) {
-    case RW_NO_LATCH:
+  /* FIXME: The builtin expect control support only 1 possibility. for several
+  targetting, need to separate as "if()" from "switch()". */
+  if (m_rw_latch == RW_X_LATCH) {
+    rw_lock_x_lock_gen(&block->lock, 0, loc);
+    fix_type = MTR_MEMO_PAGE_X_FIX;
+  } else {
+    switch (
+        UNIV_EXPECT(m_rw_latch, (is_fetch_other ? RW_SX_LATCH : RW_S_LATCH))) {
+      case RW_S_LATCH:
+        rw_lock_s_lock_gen(&block->lock, 0, loc);
+        fix_type = MTR_MEMO_PAGE_S_FIX;
+        break;
 
-      fix_type = MTR_MEMO_BUF_FIX;
-      break;
+      case RW_SX_LATCH:
+        rw_lock_sx_lock_gen(&block->lock, 0, loc);
+        fix_type = MTR_MEMO_PAGE_SX_FIX;
+        break;
 
-    case RW_S_LATCH:
-      rw_lock_s_lock_gen(&block->lock, 0, loc);
-      fix_type = MTR_MEMO_PAGE_S_FIX;
-      break;
-
-    case RW_SX_LATCH:
-      rw_lock_sx_lock_gen(&block->lock, 0, loc);
-
-      fix_type = MTR_MEMO_PAGE_SX_FIX;
-      break;
-
-    default:
-      ut_ad(m_rw_latch == RW_X_LATCH);
-      rw_lock_x_lock_gen(&block->lock, 0, loc);
-
-      fix_type = MTR_MEMO_PAGE_X_FIX;
-      break;
+      default:
+        ut_ad(m_rw_latch == RW_NO_LATCH);
+        fix_type = MTR_MEMO_BUF_FIX;
+        break;
+    }
   }
 
   mtr_memo_push(m_mtr, block, fix_type);

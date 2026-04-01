@@ -4366,22 +4366,22 @@ static void dict_persist_update_log_margin() {
 
   /* Every table will generate less than 80 bytes without
   considering page split */
-  static constexpr uint32_t log_margin_per_table_no_split = 80;
+  constexpr uint32_t log_margin_per_table_no_split = 80;
 
   /* Every table metadata log may roughly consume such many bytes. */
-  static constexpr uint32_t record_size_per_table = 50;
+  constexpr uint32_t record_size_per_table = 50;
 
   /* How many tables may generate one page split */
-  static const uint32_t tables_per_split =
+  const uint32_t tables_per_split =
       (univ_page_size.physical() - PAGE_NEW_SUPREMUM_END) /
       record_size_per_table / 2;
 
   /* Every page split needs at most this log margin, if not root split. */
-  static const uint32_t log_margin_per_split_no_root = 500;
+  constexpr uint32_t log_margin_per_split_no_root = 500;
 
   /* Extra margin for root split, we always leave this margin,
   since we don't know exactly it will split root or not */
-  static const uint32_t log_margin_per_split_root =
+  const uint32_t log_margin_per_split_root =
       univ_page_size.physical() / 2 * 3; /* Add 50% margin. */
 
   /* Read without holding the dict_persist_t::mutex */
