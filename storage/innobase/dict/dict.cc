@@ -53,7 +53,7 @@ void dict_index_add_col(dict_index_t *index, const dict_table_t *table,
   const char *col_name = nullptr;
 
 #ifndef UNIV_LIBRARY
-  if (col->is_virtual()) {
+  if (UNIV_UNLIKELY(col->is_virtual())) {
 #ifndef UNIV_HOTBACKUP
     dict_v_col_t *v_col = reinterpret_cast<dict_v_col_t *>(col);
 

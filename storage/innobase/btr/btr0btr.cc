@@ -2,6 +2,7 @@
 
 Copyright (c) 1994, 2025, Oracle and/or its affiliates.
 Copyright (c) 2012, Facebook Inc.
+Copyright (c) 2026, buildup-db.
 
 This program is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License, version 2.0, as published by the
@@ -233,7 +234,7 @@ static bool btr_root_fseg_adjust_on_import(
   if (offset < FIL_PAGE_DATA || offset > UNIV_PAGE_SIZE - FIL_PAGE_DATA_END) {
     return false;
 
-  } else if (page_zip) {
+  } else if (UNIV_UNLIKELY(page_zip)) {
     mach_write_to_4(seg_header + FSEG_HDR_SPACE, space);
     page_zip_write_header(page_zip, seg_header + FSEG_HDR_SPACE, 4, mtr);
   } else {
@@ -337,7 +338,7 @@ void btr_page_create(
     page_create_type = FIL_PAGE_INDEX;
   }
 
-  if (page_zip) {
+  if (UNIV_UNLIKELY(page_zip)) {
     page_create_zip(block, index, level, 0, mtr, page_create_type);
   } else {
     page_create(block, mtr, dict_table_is_comp(index->table), page_create_type);
@@ -605,7 +606,7 @@ static inline void btr_node_ptr_set_child_page_no(
 
   ut_ad(len == REC_NODE_PTR_SIZE);
 
-  if (page_zip) {
+  if (UNIV_UNLIKELY(page_zip)) {
     page_zip_write_node_ptr(page_zip, rec, rec_offs_data_size(offsets), page_no,
                             mtr);
   } else {
@@ -914,7 +915,7 @@ ulint btr_create(ulint type, space_id_t space, space_index_t index_id,
   /* Create a new index page on the allocated segment page */
   page_zip = buf_block_get_page_zip(block);
 
-  if (page_zip) {
+  if (UNIV_UNLIKELY(page_zip)) {
     page = page_create_zip(block, index, 0, 0, mtr, page_create_type);
   } else {
     page = page_create(block, mtr, dict_table_is_comp(index->table),
@@ -1223,11 +1224,12 @@ bool btr_page_reorganize_low(bool recovery, ulint z_level, page_cur_t *cursor,
   compressed page image.*/
   log_compressed = page_zip && page_zip_log_pages;
 
-  if (log_compressed) {
+  if (UNIV_UNLIKELY(log_compressed)) {
     mtr_set_log_mode(mtr, log_mode);
   }
 
-  if (page_zip && !page_zip_compress(page_zip, page, index, z_level, mtr)) {
+  if (UNIV_UNLIKELY(page_zip) &&
+      !page_zip_compress(page_zip, page, index, z_level, mtr)) {
     /* Restore the old page and exit. */
 #if defined UNIV_DEBUG || defined UNIV_ZIP_DEBUG
     /* Check that the bytes that we skip are identical. */
@@ -1299,7 +1301,7 @@ func_exit:
     byte *log_ptr = nullptr;
 
     /* Write the log record */
-    if (page_zip) {
+    if (UNIV_UNLIKELY(page_zip)) {
       ut_ad(page_is_comp(page));
       type = MLOG_ZIP_PAGE_REORGANIZE;
     } else {
@@ -1308,13 +1310,13 @@ func_exit:
 
     bool opened = false;
 
-    if (!log_compressed) {
+    if (UNIV_LIKELY(!log_compressed)) {
       opened = mlog_open_and_write_index(mtr, page, index, type,
                                          page_zip ? 1 : 0, log_ptr);
     }
 
     /* For compressed pages write the compression level. */
-    if (opened && page_zip) {
+    if (opened && UNIV_UNLIKELY(page_zip)) {
       mach_write_to_1(log_ptr, z_level);
       mlog_close(mtr, log_ptr + 1);
     }
@@ -1439,7 +1441,7 @@ static void btr_page_empty(
   /* Recreate the page: note that global data on page (possible
   segment headers, next page-field, etc.) is preserved intact */
 
-  if (page_zip) {
+  if (UNIV_UNLIKELY(page_zip)) {
     page_create_zip(block, index, level, 0, mtr, page_type);
   } else {
     page_create(block, mtr, dict_table_is_comp(index->table), page_type);
@@ -1530,12 +1532,16 @@ rec_t *btr_root_raise_and_insert(
 
   /* Copy the records from root to the new page one by one. */
 
+  bool zip_copy = false;
   if (false
 #ifdef UNIV_ZIP_COPY
       || new_page_zip
 #endif /* UNIV_ZIP_COPY */
       || !page_copy_rec_list_end(new_block, root_block,
                                  page_get_infimum_rec(root), index, mtr)) {
+    zip_copy = true;
+  }
+  if (UNIV_UNLIKELY(zip_copy)) {
     ut_a(new_page_zip);
 
     /* Copy the page byte for byte. */
@@ -1752,7 +1758,7 @@ static rec_t *btr_page_get_split_rec(
   free_space = page_get_free_space_of_empty(page_is_comp(page));
 
   page_zip = btr_cur_get_page_zip(cursor);
-  if (page_zip) {
+  if (UNIV_UNLIKELY(page_zip)) {
     /* Estimate the free space of an empty compressed page. */
     ulint free_space_zip = page_zip_empty_size(cursor->index->n_fields,
                                                page_zip_get_size(page_zip));
@@ -2213,7 +2219,7 @@ static rec_t *btr_insert_into_right_sibling(uint32_t flags, btr_cur_t *cursor,
                               &heap, mtr);
 
   if (rec == nullptr) {
-    if (is_leaf && next_block->page.size.is_compressed() &&
+    if (is_leaf && UNIV_UNLIKELY(next_block->page.size.is_compressed()) &&
         !cursor->index->is_clustered() &&
         !cursor->index->table->is_temporary()) {
       /* Reset the IBUF_BITMAP_FREE bits, because
@@ -2258,7 +2264,7 @@ static rec_t *btr_insert_into_right_sibling(uint32_t flags, btr_cur_t *cursor,
     /* Update the free bits of the B-tree page in the
     insert buffer bitmap. */
 
-    if (next_block->page.size.is_compressed()) {
+    if (UNIV_UNLIKELY(next_block->page.size.is_compressed())) {
       ibuf_update_free_bits_zip(next_block, mtr);
     } else {
       ibuf_update_free_bits_if_full(
@@ -2420,7 +2426,7 @@ func_start:
 
     insert_left = cmp_dtuple_rec(tuple, split_rec, cursor->index, *offsets) < 0;
 
-    if (!insert_left && new_page_zip && n_iterations > 0) {
+    if (!insert_left && UNIV_UNLIKELY(new_page_zip) && n_iterations > 0) {
       /* If a compressed page has already been split,
       avoid further splits by inserting the record
       to an empty page. */
@@ -2455,7 +2461,7 @@ func_start:
 
   if (split_rec) {
     insert_will_fit =
-        !new_page_zip &&
+        UNIV_LIKELY(!new_page_zip) &&
         btr_page_insert_fits(cursor, split_rec, offsets, tuple, heap);
   } else {
     if (!insert_left) {
@@ -2464,7 +2470,7 @@ func_start:
     }
 
     insert_will_fit =
-        !new_page_zip &&
+        UNIV_LIKELY(!new_page_zip) &&
         btr_page_insert_fits(cursor, nullptr, offsets, tuple, heap);
   }
 
@@ -2482,12 +2488,16 @@ func_start:
   if (direction == FSP_DOWN) {
     /*          fputs("Split left\n", stderr); */
 
+    bool zip_copy = false;
     if (false
 #ifdef UNIV_ZIP_COPY
         || page_zip
 #endif /* UNIV_ZIP_COPY */
         || !page_move_rec_list_start(new_block, block, move_limit,
                                      cursor->index, mtr)) {
+      zip_copy = true;
+    }
+    if (UNIV_UNLIKELY(zip_copy)) {
       /* For some reason, compressing new_page failed,
       even though it should contain fewer records than
       the original page.  Copy the page byte for byte
@@ -2524,12 +2534,16 @@ func_start:
   } else {
     /*          fputs("Split right\n", stderr); */
 
+    bool zip_copy = false;
     if (false
 #ifdef UNIV_ZIP_COPY
         || page_zip
 #endif /* UNIV_ZIP_COPY */
         || !page_move_rec_list_end(new_block, block, move_limit, cursor->index,
                                    mtr)) {
+      zip_copy = true;
+    }
+    if (UNIV_UNLIKELY(zip_copy)) {
       /* For some reason, compressing new_page failed,
       even though it should contain fewer records than
       the original page.  Copy the page byte for byte
@@ -2611,7 +2625,7 @@ func_start:
   For compressed pages, page_cur_tuple_insert() will have
   attempted this already. */
 
-  if (page_cur_get_page_zip(page_cursor) ||
+  if (UNIV_UNLIKELY(page_cur_get_page_zip(page_cursor)) ||
       !btr_page_reorganize(page_cursor, cursor->index, mtr)) {
     goto insert_failed;
   }
@@ -2911,12 +2925,16 @@ static buf_block_t *btr_lift_page_up(
   page_level++;
 
   /* Copy the records to the father page one by one. */
+  bool zip_copy = false;
   if (false
 #ifdef UNIV_ZIP_COPY
       || father_page_zip
 #endif /* UNIV_ZIP_COPY */
       || !page_copy_rec_list_end(father_block, block,
                                  page_get_infimum_rec(page), index, mtr)) {
+    zip_copy = true;
+  }
+  if (UNIV_UNLIKELY(zip_copy)) {
     const page_zip_des_t *page_zip = buf_block_get_page_zip(block);
     ut_a(father_page_zip);
     ut_a(page_zip);
@@ -3238,7 +3256,7 @@ retry:
       btr_page_get_father(index, merge_block, mtr, &cursor2);
     }
 
-    if (merge_page_zip && left_page_no == FIL_NULL) {
+    if (UNIV_UNLIKELY(merge_page_zip) && left_page_no == FIL_NULL) {
       /* The function page_zip_compress(), which will be
       invoked by page_copy_rec_list_end() below,
       requires that FIL_PAGE_PREV be FIL_NULL.
@@ -3268,7 +3286,7 @@ retry:
     btr_search_drop_page_hash_index(block);
 
 #ifdef UNIV_BTR_DEBUG
-    if (merge_page_zip && left_page_no == FIL_NULL) {
+    if (UNIV_UNLIKELY(merge_page_zip) && left_page_no == FIL_NULL) {
       /* Restore FIL_PAGE_PREV in order to avoid an assertion
       failure in btr_level_list_remove(), which will set
       the field again to FIL_NULL.  Even though this makes
@@ -3370,7 +3388,7 @@ retry:
     committed mini-transaction, because in crash recovery,
     the free bits could momentarily be set too high. */
 
-    if (page_size.is_compressed()) {
+    if (UNIV_UNLIKELY(page_size.is_compressed())) {
       /* Because the free bits may be incremented
       and we cannot update the insert buffer bitmap
       in the same mini-transaction, the only safe
@@ -3427,8 +3445,8 @@ func_exit:
 
 err_exit:
   /* We play it safe and reset the free bits. */
-  if (page_size.is_compressed() && merge_page && page_is_leaf(merge_page) &&
-      !index->is_clustered()) {
+  if (UNIV_UNLIKELY(page_size.is_compressed()) && merge_page &&
+      page_is_leaf(merge_page) && !index->is_clustered()) {
     ibuf_reset_free_bits(merge_block);
   }
 
@@ -4523,7 +4541,8 @@ bool btr_validate_index(
 {
   /* Full Text index are implemented by auxiliary tables,
   not the B-tree */
-  if (dict_index_is_online_ddl(index) || (index->type & DICT_FTS)) {
+  if (dict_index_is_online_ddl(index) ||
+      UNIV_UNLIKELY(index->type & DICT_FTS)) {
     return (true);
   }
 
@@ -4635,7 +4654,7 @@ static bool btr_can_merge_with_page(
   /* If compression padding tells us that merging will result in
   too packed up page i.e.: which is likely to cause compression
   failure then don't merge the pages. */
-  if (page_size.is_compressed() && page_is_leaf(mpage) &&
+  if (UNIV_UNLIKELY(page_size.is_compressed()) && page_is_leaf(mpage) &&
       (page_get_data_size(mpage) + data_size >=
        dict_index_zip_pad_optimal_page_size(index))) {
     goto error;

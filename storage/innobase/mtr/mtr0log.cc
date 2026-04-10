@@ -1,7 +1,7 @@
 /*****************************************************************************
 
 Copyright (c) 1995, 2025, Oracle and/or its affiliates.
-Copyright (c) 2025, buildup-db.
+Copyright (c) 2026, buildup-db.
 
 This program is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License, version 2.0, as published by the
@@ -202,7 +202,7 @@ byte *mlog_parse_nbytes(
     }
 
     if (page) {
-      if (page_zip) {
+      if (UNIV_UNLIKELY(page_zip)) {
         mach_write_to_8(((page_zip_des_t *)page_zip)->data + offset, dval);
       }
       mach_write_to_8(page + offset, dval);
@@ -223,7 +223,7 @@ byte *mlog_parse_nbytes(
         goto corrupt;
       }
       if (page) {
-        if (page_zip) {
+        if (UNIV_UNLIKELY(page_zip)) {
           mach_write_to_1(((page_zip_des_t *)page_zip)->data + offset, val);
         }
         mach_write_to_1(page + offset, val);
@@ -234,7 +234,7 @@ byte *mlog_parse_nbytes(
         goto corrupt;
       }
       if (page) {
-        if (page_zip) {
+        if (UNIV_UNLIKELY(page_zip)) {
           mach_write_to_2(((page_zip_des_t *)page_zip)->data + offset, val);
         }
         mach_write_to_2(page + offset, val);
@@ -242,7 +242,7 @@ byte *mlog_parse_nbytes(
       break;
     case MLOG_4BYTES:
       if (page) {
-        if (page_zip) {
+        if (UNIV_UNLIKELY(page_zip)) {
           mach_write_to_4(((page_zip_des_t *)page_zip)->data + offset, val);
         }
         mach_write_to_4(page + offset, val);
@@ -408,7 +408,7 @@ byte *mlog_parse_string(
   }
 
   if (page) {
-    if (page_zip) {
+    if (UNIV_UNLIKELY(page_zip)) {
       memcpy(((page_zip_des_t *)page_zip)->data + offset, ptr, len);
     }
     memcpy(page + offset, ptr, len);
@@ -562,20 +562,20 @@ static void log_index_get_size_needed(const dict_index_t *index, size_t size,
   /* 1 byte to log flag */
   size_needed += 1;
 
-  if (!is_versioned && !is_comp) {
+  if (UNIV_LIKELY(!is_versioned) && UNIV_UNLIKELY(!is_comp)) {
     return;
   }
 
   /* 2 bytes to log n */
   size_needed += 2;
 
-  if (!is_comp) {
+  if (UNIV_UNLIKELY(!is_comp)) {
     ut_ad(is_versioned);
     size_needed += size_for_versioned_fields(index);
     return;
   }
 
-  if (is_instant) {
+  if (UNIV_UNLIKELY(is_instant)) {
     /* 2 bytes to log n_instant_cols */
     size_needed += 2;
   }
@@ -586,7 +586,7 @@ static void log_index_get_size_needed(const dict_index_t *index, size_t size,
   /* 2 bytes needed for each (n) field to store it's len */
   size_needed += n * 2;
 
-  if (is_versioned) {
+  if (UNIV_UNLIKELY(is_versioned)) {
     size_needed += size_for_versioned_fields(index);
   }
 }
@@ -622,7 +622,7 @@ static void log_index_column_counts(const dict_index_t *index, uint16_t n,
   /* Only clustered index can have versions */
   ut_ad(!is_versioned || index->is_clustered());
 
-  if (!is_versioned && !is_comp) {
+  if (UNIV_LIKELY(!is_versioned) && UNIV_UNLIKELY(!is_comp)) {
     return;
   }
 
@@ -630,12 +630,12 @@ static void log_index_column_counts(const dict_index_t *index, uint16_t n,
   mach_write_to_2(log_ptr, n);
   log_ptr += 2;
 
-  if (!is_comp) {
+  if (UNIV_UNLIKELY(!is_comp)) {
     ut_ad(is_versioned);
     return;
   }
 
-  if (is_instant) {
+  if (UNIV_UNLIKELY(is_instant)) {
     mach_write_to_2(log_ptr, index->get_instant_fields());
     log_ptr += 2;
   }
@@ -716,7 +716,7 @@ static bool log_index_fields(const dict_index_t *index, uint16_t n,
     mach_write_to_2(log_ptr, len);
     log_ptr += 2;
 
-    if (is_versioned) {
+    if (UNIV_UNLIKELY(is_versioned)) {
       if (col->is_instant_added() || col->is_instant_dropped() ||
           changed_order[i]) {
         f.push_back(field);
@@ -810,8 +810,8 @@ bool mlog_open_and_write_index(mtr_t *mtr, const byte *rec,
   const byte *log_start;
   const byte *log_end;
 
-  uint16_t n = is_versioned ? index->get_n_total_fields()
-                            : dict_index_get_n_fields(index);
+  uint16_t n = UNIV_UNLIKELY(is_versioned) ? index->get_n_total_fields()
+                                           : dict_index_get_n_fields(index);
   /* For spatial index, on non-leaf page, we just keep
   2 fields, MBR and page no. */
   if (dict_index_is_spatial(index) && !page_is_leaf(page_align(rec))) {
@@ -823,7 +823,7 @@ bool mlog_open_and_write_index(mtr_t *mtr, const byte *rec,
   of a filed can be changed. This bool array of size #fields in index,
   represents if ordinal position of an existing filed is changed. */
   bool *fields_with_changed_order = nullptr;
-  if (is_versioned) {
+  if (UNIV_UNLIKELY(is_versioned)) {
     fields_with_changed_order = new bool[n];
     memset(fields_with_changed_order, false, (sizeof(bool) * n));
 
@@ -852,7 +852,7 @@ bool mlog_open_and_write_index(mtr_t *mtr, const byte *rec,
   }
 
   if (!mlog_open(mtr, alloc, log_ptr)) {
-    if (is_versioned) {
+    if (UNIV_UNLIKELY(is_versioned)) {
       delete[] fields_with_changed_order;
     }
     /* logging is disabled */
@@ -870,9 +870,9 @@ bool mlog_open_and_write_index(mtr_t *mtr, const byte *rec,
   log_index_log_version(index_log_version, log_ptr);
 
   uint8_t flag = 0;
-  if (is_instant) SET_INSTANT(flag);
-  if (is_versioned) SET_VERSIONED(flag);
-  if (is_comp) SET_COMPACT(flag);
+  if (UNIV_UNLIKELY(is_instant)) SET_INSTANT(flag);
+  if (UNIV_UNLIKELY(is_versioned)) SET_VERSIONED(flag);
+  if (UNIV_LIKELY(is_comp)) SET_COMPACT(flag);
   log_index_flag(flag, log_ptr);
 
   log_index_column_counts(index, n, rec, is_comp, is_versioned, is_instant,
@@ -892,16 +892,16 @@ bool mlog_open_and_write_index(mtr_t *mtr, const byte *rec,
     return true;
   };
 
-  if (is_comp) {
+  if (UNIV_LIKELY(is_comp)) {
     /* Write fields info. */
     if (!log_index_fields(index, n, is_versioned, instant_fields_to_log,
                           fields_with_changed_order, log_ptr, f)) {
-      if (is_versioned) {
+      if (UNIV_UNLIKELY(is_versioned)) {
         delete[] fields_with_changed_order;
       }
       return false;
     }
-  } else if (is_versioned) {
+  } else if (UNIV_UNLIKELY(is_versioned)) {
     for (size_t i = 0; i < n; i++) {
       dict_field_t *field = index->get_field(i);
       const dict_col_t *col = field->col;
@@ -912,7 +912,7 @@ bool mlog_open_and_write_index(mtr_t *mtr, const byte *rec,
     }
   }
 
-  if (is_versioned) {
+  if (UNIV_UNLIKELY(is_versioned)) {
     delete[] fields_with_changed_order;
   }
 
@@ -979,7 +979,7 @@ static byte *parse_index_column_counts(byte *ptr, const byte *end_ptr,
                                        bool is_comp, bool is_versioned,
                                        bool is_instant, uint16_t &n,
                                        uint16_t &n_uniq, uint16_t &inst_cols) {
-  if (!is_versioned && !is_comp) {
+  if (UNIV_LIKELY(!is_versioned) && UNIV_UNLIKELY(!is_comp)) {
     n = n_uniq = 1;
     inst_cols = 0;
     return ptr;
@@ -991,12 +991,12 @@ static byte *parse_index_column_counts(byte *ptr, const byte *end_ptr,
     return ptr;
   }
 
-  if (!is_comp) {
+  if (UNIV_UNLIKELY(!is_comp)) {
     ut_ad(is_versioned);
     return ptr;
   }
 
-  if (is_instant) {
+  if (UNIV_UNLIKELY(is_instant)) {
     ptr = read_2_bytes(ptr, end_ptr, inst_cols);
     if (ptr == nullptr) {
       return ptr;
@@ -1055,7 +1055,7 @@ static byte *parse_index_fields(byte *ptr, const byte *end_ptr, uint16_t n,
   dict_table_add_system_columns(table, table->heap);
 
   /* Identify DB_TRX_ID and DB_ROLL_PTR in the index. */
-  if (is_versioned || (n_uniq != n)) {
+  if (UNIV_UNLIKELY(is_versioned) || (n_uniq != n)) {
     size_t i = 0;
     i = DATA_TRX_ID - 1 + n_uniq;
     ut_a(DATA_TRX_ID_LEN == ind->get_col(i)->len);
@@ -1268,7 +1268,7 @@ static byte *mlog_parse_index_v1(byte *ptr, const byte *end_ptr,
   /* Create a dummy dict_table_t */
   dict_table_t *table =
       dict_mem_table_create(RECOVERY_INDEX_TABLE_NAME, DICT_HDR_SPACE, n, 0, 0,
-                            is_comp ? DICT_TF_COMPACT : 0, 0);
+                            UNIV_LIKELY(is_comp) ? DICT_TF_COMPACT : 0, 0);
 
   if (inst_cols > 0) {
     table->set_instant_cols(inst_cols);
@@ -1285,20 +1285,20 @@ static byte *mlog_parse_index_v1(byte *ptr, const byte *end_ptr,
     ind->type = DICT_CLUSTERED;
   }
 
-  if (is_comp) {
+  if (UNIV_LIKELY(is_comp)) {
     /* Read each index field info */
     ptr = parse_index_fields(ptr, end_ptr, n, n_uniq, is_versioned, ind, table);
     if (ptr == nullptr) {
       *index = ind;
       return ptr;
     }
-  } else if (is_versioned) {
+  } else if (UNIV_UNLIKELY(is_versioned)) {
     /* Populate dummy cols/fields and link them */
     populate_dummy_fields(ind, table, n IF_DEBUG(, is_comp));
   }
 
   size_t n_dropped = 0;
-  if (is_versioned) {
+  if (UNIV_UNLIKELY(is_versioned)) {
     /* Read the fields with version added/dropped */
     instant_fields_list_t f;
     uint16_t current_row_version = 0;
@@ -1357,7 +1357,7 @@ static byte *mlog_parse_index_v1(byte *ptr, const byte *end_ptr,
 
   table->is_system_table = false;
 
-  if (is_instant || is_versioned) {
+  if (UNIV_UNLIKELY(is_instant) || UNIV_UNLIKELY(is_versioned)) {
     if (is_versioned) {
       ut_ad(ind->has_row_versions());
       ind->create_fields_array();

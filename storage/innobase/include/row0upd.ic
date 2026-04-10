@@ -1,6 +1,7 @@
 /*****************************************************************************
 
 Copyright (c) 1996, 2025, Oracle and/or its affiliates.
+Copyright (c) 2026, buildup-db.
 
 This program is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License, version 2.0, as published by the
@@ -164,7 +165,7 @@ static inline void row_upd_rec_sys_fields(
   ut_ad(index->is_clustered());
   ut_ad(rec_offs_validate(rec, index, offsets));
 
-  if (page_zip) {
+  if (UNIV_UNLIKELY(page_zip)) {
     ulint pos = index->get_sys_col_pos(DATA_TRX_ID);
     page_zip_write_trx_id_and_roll_ptr(page_zip, rec, offsets, pos, trx->id,
                                        roll_ptr);

@@ -1,6 +1,7 @@
 /*****************************************************************************
 
 Copyright (c) 2006, 2025, Oracle and/or its affiliates.
+Copyright (c) 2026, buildup-db.
 
 This program is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License, version 2.0, as published by the
@@ -452,7 +453,8 @@ ulong thd_parallel_read_threads(THD *thd);
 [[nodiscard]] ulong thd_ddl_buffer_size(THD *thd);
 
 /** Whether this is a computed virtual column */
-#define innobase_is_v_fld(field) ((field)->gcol_info && !(field)->stored_in_db)
+#define innobase_is_v_fld(field) \
+  (UNIV_UNLIKELY((field)->gcol_info) && !(field)->stored_in_db)
 
 /** @return the number of DDL threads to use (global/session). */
 [[nodiscard]] size_t thd_ddl_threads(THD *thd) noexcept;

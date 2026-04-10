@@ -2,7 +2,7 @@
 
 Copyright (c) 1996, 2025, Oracle and/or its affiliates.
 Copyright (c) 2012, Facebook Inc.
-Copyright (c) 2025, buildup-db.
+Copyright (c) 2026, buildup-db.
 
 This program is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License, version 2.0, as published by the
@@ -817,7 +817,7 @@ ulint dict_table_get_all_fts_indexes(dict_table_t *table,
   ut_a(ib_vector_size(indexes) == 0);
 
   for (index = table->first_index(); index; index = index->next()) {
-    if (index->type == DICT_FTS) {
+    if (UNIV_UNLIKELY(index->type == DICT_FTS)) {
       ib_vector_push(indexes, &index);
     }
   }
@@ -867,7 +867,7 @@ bool dict_index_contains_col_or_prefix(const dict_index_t *index, ulint n,
     return true;
   }
 
-  if (is_virtual) {
+  if (UNIV_UNLIKELY(is_virtual)) {
     col = &dict_table_get_nth_v_col(index->table, n)->m_col;
   } else {
     col = index->table->get_col(n);
@@ -951,7 +951,7 @@ its original MySQL table position n
 ulint dict_table_mysql_pos_to_innodb(const dict_table_t *table, ulint n) {
   ut_ad(n < table->n_t_cols);
 
-  if (table->n_v_def == 0) {
+  if (UNIV_LIKELY(table->n_v_def == 0)) {
     /* No virtual columns, the MySQL position is the same
     as InnoDB position */
     return (n);
@@ -2074,10 +2074,11 @@ ulint dict_index_node_ptr_max_size(const dict_index_t *index) /*!< in: index */
   comp = dict_table_is_comp(index->table);
 
   /* Each record has page_no, length of page_no and header. */
-  rec_max_size = comp ? REC_NODE_PTR_SIZE + 1 + REC_N_NEW_EXTRA_BYTES
-                      : REC_NODE_PTR_SIZE + 2 + REC_N_OLD_EXTRA_BYTES;
+  rec_max_size = UNIV_LIKELY(comp)
+                     ? REC_NODE_PTR_SIZE + 1 + REC_N_NEW_EXTRA_BYTES
+                     : REC_NODE_PTR_SIZE + 2 + REC_N_OLD_EXTRA_BYTES;
 
-  if (comp) {
+  if (UNIV_LIKELY(comp)) {
     /* Include the "null" flags in the
     maximum possible record size. */
     rec_max_size += UT_BITS_IN_BYTES(index->n_nullable);
@@ -2113,7 +2114,7 @@ ulint dict_index_node_ptr_max_size(const dict_index_t *index) /*!< in: index */
       field_max_size = field->prefix_len;
     }
 
-    if (comp) {
+    if (UNIV_LIKELY(comp)) {
       /* Add the extra size for ROW_FORMAT=COMPACT.
       For ROW_FORMAT=REDUNDANT, these bytes were
       added to rec_max_size before this loop. */
@@ -2218,7 +2219,7 @@ void get_field_max_size(const dict_table_t *table, const dict_index_t *index,
     }
   }
 
-  if (comp) {
+  if (UNIV_LIKELY(comp)) {
     /* Add the extra size for ROW_FORMAT=COMPACT.
     For ROW_FORMAT=REDUNDANT, these bytes were
     added to rec_max_size before this loop. */
@@ -2240,7 +2241,7 @@ static bool dict_index_too_big_for_tree(const dict_table_t *table,
                                         bool strict) {
   /* FTS index consists of auxiliary tables, they shall be excluded from index
   row size check */
-  if (new_index->type & DICT_FTS) {
+  if (UNIV_UNLIKELY(new_index->type & DICT_FTS)) {
     return (false);
   }
 
@@ -2274,10 +2275,11 @@ bool dict_index_validate_max_rec_size(const dict_table_t *table,
     rec_max_size = 2;
   } else {
     /* Each record has a header. */
-    rec_max_size = comp ? REC_N_NEW_EXTRA_BYTES : REC_N_OLD_EXTRA_BYTES;
+    rec_max_size =
+        UNIV_LIKELY(comp) ? REC_N_NEW_EXTRA_BYTES : REC_N_OLD_EXTRA_BYTES;
   }
 
-  if (comp) {
+  if (UNIV_LIKELY(comp)) {
     /* Include the "null" flags in the maximum possible record size. */
     rec_max_size += UT_BITS_IN_BYTES(index->n_nullable);
   } else {
@@ -2289,7 +2291,7 @@ bool dict_index_validate_max_rec_size(const dict_table_t *table,
   }
 
   /* Each record would have version stored in 1 byte */
-  if (index->has_row_versions()) {
+  if (UNIV_UNLIKELY(index->has_row_versions())) {
     rec_max_size += 1;
   }
 
@@ -2475,7 +2477,7 @@ dberr_t dict_index_add_to_cache_w_vcol(dict_table_t *table, dict_index_t *index,
   /* Build the cache internal representation of the index,
   containing also the added system fields */
 
-  if (index->type == DICT_FTS) {
+  if (UNIV_UNLIKELY(index->type == DICT_FTS)) {
     new_index = dict_index_build_internal_fts(table, index);
   } else if (index->is_clustered()) {
     new_index = dict_index_build_internal_clust(table, index);
@@ -2488,7 +2490,7 @@ dberr_t dict_index_add_to_cache_w_vcol(dict_table_t *table, dict_index_t *index,
 
   new_index->n_fields = new_index->n_def;
 
-  if (index->is_clustered() && table->has_row_versions()) {
+  if (index->is_clustered() && UNIV_UNLIKELY(table->has_row_versions())) {
     new_index->n_fields = new_index->n_def - table->get_n_instant_drop_cols();
   }
   new_index->n_total_fields = new_index->n_def;
@@ -2571,7 +2573,8 @@ dberr_t dict_index_add_to_cache_w_vcol(dict_table_t *table, dict_index_t *index,
   cache as long they are met. We assert before using the rec_cache that they are
   still met, and clear the rec_cache.offsets when they change. */
   if (dict_table_is_comp(table) && !dict_index_has_virtual(index) &&
-      (!table->has_instant_cols() && !table->has_row_versions()) &&
+      (UNIV_LIKELY(!table->has_instant_cols()) &&
+       UNIV_LIKELY(!table->has_row_versions())) &&
       !dict_index_is_spatial(index)) {
     dict_index_try_cache_rec_offsets(new_index);
   } else {
@@ -2627,11 +2630,11 @@ dberr_t dict_index_add_to_cache_w_vcol(dict_table_t *table, dict_index_t *index,
   new_index->set_instant_nullable(new_index->n_nullable);
 
   if (new_index->is_clustered()) {
-    if (new_index->table->has_row_versions()) {
+    if (UNIV_UNLIKELY(new_index->table->has_row_versions())) {
       new_index->row_versions = true;
     }
 
-    if (new_index->table->has_instant_cols()) {
+    if (UNIV_UNLIKELY(new_index->table->has_instant_cols())) {
       ut_ad(new_index->table->is_upgraded_instant());
       new_index->instant_cols = true;
       const size_t n_instant_fields = new_index->get_instant_fields();
@@ -2849,7 +2852,7 @@ static bool dict_index_find_and_set_cols(const dict_table_t *table,
     }
 
     /* Let's check if it is a virtual column */
-    for (j = 0; j < table->n_v_cols; j++) {
+    for (j = 0; UNIV_UNLIKELY(j < table->n_v_cols); j++) {
       if (!strcmp(dict_table_get_v_col_name(table, j), field->name)) {
         /* Check if same column is being assigned again
         which suggest that column has duplicate name. */
@@ -2996,7 +2999,9 @@ void dict_table_copy_types(dtuple_t *tuple,           /*!< in/out: data tuple */
     table->get_col(i)->copy_type(dtype);
   }
 
-  dict_table_copy_v_types(tuple, table);
+  if (UNIV_UNLIKELY(dtuple_get_n_v_fields(tuple) > 0)) {
+    dict_table_copy_v_types(tuple, table);
+  }
 }
 
 void dict_table_wait_for_bg_threads_to_exit(dict_table_t *table,
@@ -3064,7 +3069,7 @@ static dict_index_t *dict_index_build_internal_clust(
   while (n_fields_processed < new_index->n_def) {
     dict_field_t *field = new_index->get_field(n_fields_processed);
     dict_col_t *col = field->col;
-    if (!table->has_row_versions()) {
+    if (UNIV_LIKELY(!table->has_row_versions())) {
       if (field->prefix_len != 0) {
         /* This column prefix is used in PK */
         col->set_prefix_phy_pos(n_fields_processed);
@@ -3082,7 +3087,7 @@ static dict_index_t *dict_index_build_internal_clust(
         const_cast<dict_col_t *>(new_index->get_col(n_fields_processed));
     ut_a(col == cmp_col);
 
-    if (!table->has_row_versions()) {
+    if (UNIV_LIKELY(!table->has_row_versions())) {
       if (col->get_phy_pos() != UINT32_UNDEFINED && col->has_prefix_phy_pos()) {
         /* This column prefix is used in PK */
         ut_ad(new_index->get_col(col->get_prefix_phy_pos()) == col);
@@ -3203,7 +3208,7 @@ static dict_index_t *dict_index_build_internal_clust(
 
   new_index->create_nullables(table->current_row_version);
 
-  if (table->has_row_versions()) {
+  if (UNIV_UNLIKELY(table->has_row_versions())) {
     new_index->create_fields_array();
   } else {
     /* Table with no row version are considered of version 0 */
@@ -3267,7 +3272,7 @@ static dict_index_t *dict_index_build_internal_non_clust(
   for (i = 0; i < new_index->n_def; i++) {
     field = new_index->get_field(i);
 
-    if (field->col->is_virtual()) {
+    if (UNIV_UNLIKELY(field->col->is_virtual())) {
       continue;
     }
 
@@ -3442,7 +3447,7 @@ NOT NULL */
   index = table->first_index();
 
   while (index != nullptr) {
-    if (types_idx != index && !(index->type & DICT_FTS) &&
+    if (types_idx != index && UNIV_LIKELY(!(index->type & DICT_FTS)) &&
         !dict_index_is_spatial(index) && !index->to_be_dropped &&
         (!(index->uncommitted &&
            ((index->online_status == ONLINE_INDEX_ABORTED_DROPPED) ||
@@ -3828,7 +3833,7 @@ ulint dict_index_calc_min_rec_len(const dict_index_t *index) /*!< in: index */
   ulint i;
   ulint comp = dict_table_is_comp(index->table);
 
-  if (comp) {
+  if (UNIV_LIKELY(comp)) {
     ulint nullable = 0;
     sum = REC_N_NEW_EXTRA_BYTES;
     for (i = 0; i < dict_index_get_n_fields(index); i++) {
@@ -4870,7 +4875,7 @@ NOT NULL */
     }
 
     col_name = col_names ? col_names[col_no]
-                         : (field->col->is_virtual()
+                         : (UNIV_UNLIKELY(field->col->is_virtual())
                                 ? dict_table_get_v_col_name_mysql(table, col_no)
                                 : table->get_col_name(col_no));
 

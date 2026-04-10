@@ -1,6 +1,7 @@
 /*****************************************************************************
 
 Copyright (c) 2011, 2025, Oracle and/or its affiliates.
+Copyright (c) 2026, buildup-db.
 
 This program is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License, version 2.0, as published by the
@@ -746,7 +747,7 @@ dberr_t fts_drop_index(dict_table_t *table, dict_index_t *index, trx_t *trx,
 
       return (err);
     } else {
-      if (!(index->type & DICT_CORRUPT) && !dict_table_is_discarded(table)) {
+      if (!index->is_corrupted() && !dict_table_is_discarded(table)) {
         err = fts_empty_common_tables(trx, table);
         ut_ad(err == DB_SUCCESS);
       }

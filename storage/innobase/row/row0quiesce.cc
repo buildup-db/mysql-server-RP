@@ -1,6 +1,7 @@
 /*****************************************************************************
 
 Copyright (c) 2012, 2025, Oracle and/or its affiliates.
+Copyright (c) 2026, buildup-db.
 
 This program is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License, version 2.0, as published by the
@@ -916,7 +917,7 @@ static bool row_quiesce_table_has_fts_index(
   dict_mutex_enter_for_mysql();
 
   for (const dict_index_t *index : table->indexes) {
-    if (index->type & DICT_FTS) {
+    if (UNIV_UNLIKELY(index->type & DICT_FTS)) {
       exists = true;
       break;
     }
@@ -1072,7 +1073,7 @@ dberr_t row_quiesce_set_state(
 
     return (DB_UNSUPPORTED);
 
-  } else if (DICT_TF_HAS_SHARED_SPACE(table->flags)) {
+  } else if (UNIV_UNLIKELY(DICT_TF_HAS_SHARED_SPACE(table->flags))) {
     std::ostringstream err_msg;
     err_msg << "FLUSH TABLES FOR EXPORT on table " << table->name
             << " in a general tablespace.";
@@ -1080,12 +1081,13 @@ dberr_t row_quiesce_set_state(
                 err_msg.str().c_str());
 
     return (DB_UNSUPPORTED);
-  } else if (row_quiesce_table_has_fts_index(table)) {
+  } else if (UNIV_UNLIKELY(row_quiesce_table_has_fts_index(table))) {
     ib_senderrf(trx->mysql_thd, IB_LOG_LEVEL_WARN, ER_NOT_SUPPORTED_YET,
                 "FLUSH TABLES on tables that have an FTS index."
                 " FTS auxiliary tables will not be flushed.");
 
-  } else if (DICT_TF2_FLAG_IS_SET(table, DICT_TF2_FTS_HAS_DOC_ID)) {
+  } else if (UNIV_UNLIKELY(
+                 DICT_TF2_FLAG_IS_SET(table, DICT_TF2_FTS_HAS_DOC_ID))) {
     /* If this flag is set then the table may not have any active
     FTS indexes but it will still have the auxiliary tables. */
 

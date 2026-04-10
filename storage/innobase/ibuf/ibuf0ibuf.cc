@@ -1,6 +1,7 @@
 /*****************************************************************************
 
 Copyright (c) 1997, 2025, Oracle and/or its affiliates.
+Copyright (c) 2026, buildup-db.
 
 This program is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License, version 2.0, as published by the
@@ -3587,7 +3588,7 @@ static void ibuf_insert_to_index_page(
     because we do not have a btr_cur_t or que_thr_t,
     as the insert buffer merge occurs at a very low level. */
     if (!row_upd_changes_field_size_or_external(index, offsets, update) &&
-        (!page_zip ||
+        (UNIV_LIKELY(!page_zip) ||
          btr_cur_update_alloc_zip(page_zip, &page_cur, index, offsets,
                                   rec_offs_size(offsets), false, mtr))) {
       /* This is the easy case. Do something similar
@@ -3766,7 +3767,7 @@ static void ibuf_delete(const dtuple_t *entry, /*!< in: entry */
 
     lock_update_delete(block, rec);
 
-    if (!page_zip) {
+    if (UNIV_LIKELY(!page_zip)) {
       max_ins_size = page_get_max_insert_size_after_reorganize(page, 1);
     }
 #ifdef UNIV_ZIP_DEBUG
@@ -3777,7 +3778,7 @@ static void ibuf_delete(const dtuple_t *entry, /*!< in: entry */
     ut_a(!page_zip || page_zip_validate(page_zip, page, index));
 #endif /* UNIV_ZIP_DEBUG */
 
-    if (page_zip) {
+    if (UNIV_UNLIKELY(page_zip)) {
       ibuf_update_free_bits_zip(block, mtr);
     } else {
       ibuf_update_free_bits_low(block, max_ins_size, mtr);

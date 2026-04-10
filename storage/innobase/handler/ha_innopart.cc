@@ -1,6 +1,7 @@
 /*****************************************************************************
 
 Copyright (c) 2014, 2025, Oracle and/or its affiliates.
+Copyright (c) 2026, buildup-db.
 
 This program is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License, version 2.0, as published by the
@@ -934,7 +935,7 @@ int ha_innopart::open(const char *name, int, uint, const dd::Table *table_def) {
   m_prebuilt->m_mysql_table = table;
   m_prebuilt->m_mysql_handler = this;
 
-  if (ib_table->n_v_cols > 0) {
+  if (UNIV_UNLIKELY(ib_table->n_v_cols > 0)) {
     dict_sys_mutex_enter();
     m_part_share->set_v_templ(table, ib_table, name);
     dict_sys_mutex_exit();

@@ -1,6 +1,7 @@
 /*****************************************************************************
 
 Copyright (c) 1995, 2025, Oracle and/or its affiliates.
+Copyright (c) 2026, buildup-db.
 
 This program is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License, version 2.0, as published by the
@@ -794,7 +795,7 @@ void buf_flush_remove(buf_page_t *bpage) {
   buf_pool->flush_hp.adjust(bpage);
   buf_pool->oldest_hp.adjust(bpage);
 
-  switch (buf_page_get_state(bpage)) {
+  switch (UNIV_EXPECT(buf_page_get_state(bpage), BUF_BLOCK_FILE_PAGE)) {
     case BUF_BLOCK_POOL_WATCH:
     case BUF_BLOCK_ZIP_PAGE:
       /* Clean compressed pages should not be on the flush list */
@@ -1214,7 +1215,7 @@ static void buf_flush_write_block_low(buf_page_t *bpage, buf_flush_t flush_type,
     }
   }
 
-  switch (buf_page_get_state(bpage)) {
+  switch (UNIV_EXPECT(buf_page_get_state(bpage), BUF_BLOCK_FILE_PAGE)) {
     case BUF_BLOCK_POOL_WATCH:
     case BUF_BLOCK_ZIP_PAGE: /* The page should be dirty. */
     case BUF_BLOCK_NOT_USED:
@@ -1236,7 +1237,7 @@ static void buf_flush_write_block_low(buf_page_t *bpage, buf_flush_t flush_type,
     }
     case BUF_BLOCK_FILE_PAGE:
       frame = bpage->zip.data;
-      if (!frame) {
+      if (UNIV_LIKELY(!frame)) {
         frame = ((buf_block_t *)bpage)->frame;
       }
 
@@ -1345,7 +1346,7 @@ bool buf_flush_page(buf_pool_t *buf_pool, buf_page_t *bpage,
         buf_pool->track_page_lsn != LSN_MAX) {
       auto frame = bpage->zip.data;
 
-      if (frame == nullptr) {
+      if (UNIV_LIKELY(frame == nullptr)) {
         frame = ((buf_block_t *)bpage)->frame;
       }
       lsn_t frame_lsn = mach_read_from_8(frame + FIL_PAGE_LSN);

@@ -1,5 +1,6 @@
 /*****************************************************************************
 Copyright (c) 2021, 2025, Oracle and/or its affiliates.
+Copyright (c) 2026, buildup-db.
 
 This program is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License, version 2.0, as published by the
@@ -83,7 +84,7 @@ ulint rec_get_nth_field_size(const dict_index_t *index, const rec_t *rec,
                              ulint n) {
   if (index) {
     ut_ad(!dict_table_is_comp(index->table));
-    if (index->has_row_versions()) {
+    if (UNIV_UNLIKELY(index->has_row_versions())) {
       uint8_t version = UINT8_UNDEFINED;
       if (rec_old_is_versioned(rec)) {
         version = rec_get_instant_row_version_old(rec);
@@ -100,7 +101,7 @@ ulint rec_get_nth_field_offs_old(const dict_index_t *index, const rec_t *rec,
                                  ulint n, ulint *len) {
   if (index) {
     ut_ad(!dict_table_is_comp(index->table));
-    if (index->has_row_versions()) {
+    if (UNIV_UNLIKELY(index->has_row_versions())) {
       uint8_t version = UINT8_UNDEFINED;
       if (rec_old_is_versioned(rec)) {
         version = rec_get_instant_row_version_old(rec);
@@ -114,7 +115,7 @@ ulint rec_get_nth_field_offs_old(const dict_index_t *index, const rec_t *rec,
 }
 
 void rec_offs_make_nth_extern(dict_index_t *index, ulint *offsets, ulint n) {
-  if (index && index->has_row_versions()) {
+  if (index && UNIV_UNLIKELY(index->has_row_versions())) {
     n = index->get_field_off_pos(n);
   }
 
@@ -123,7 +124,7 @@ void rec_offs_make_nth_extern(dict_index_t *index, ulint *offsets, ulint n) {
 
 ulint rec_offs_nth_sql_null(const dict_index_t *index, const ulint *offsets,
                             ulint n) {
-  if (index && index->has_row_versions()) {
+  if (index && UNIV_UNLIKELY(index->has_row_versions())) {
     n = index->get_field_off_pos(n);
   }
 
@@ -133,7 +134,7 @@ ulint rec_offs_nth_sql_null(const dict_index_t *index, const ulint *offsets,
 
 ulint rec_offs_nth_default(const dict_index_t *index, const ulint *offsets,
                            ulint n) {
-  if (index && index->has_row_versions()) {
+  if (index && UNIV_UNLIKELY(index->has_row_versions())) {
     n = index->get_field_off_pos(n);
   }
 
@@ -143,7 +144,7 @@ ulint rec_offs_nth_default(const dict_index_t *index, const ulint *offsets,
 
 ulint rec_offs_nth_size(const dict_index_t *index, const ulint *offsets,
                         ulint n) {
-  if (index && index->has_row_versions()) {
+  if (index && UNIV_UNLIKELY(index->has_row_versions())) {
     n = index->get_field_off_pos(n);
   }
 
@@ -154,7 +155,7 @@ ulint rec_offs_nth_size(const dict_index_t *index, const ulint *offsets,
 void rec_set_nth_field(const dict_index_t *index, rec_t *rec,
                        const ulint *offsets, ulint n, const void *data,
                        ulint len) {
-  if (index && index->has_row_versions()) {
+  if (index && UNIV_UNLIKELY(index->has_row_versions())) {
     n = index->get_field_off_pos(n);
   }
 
@@ -165,7 +166,7 @@ ulint rec_2_is_field_extern(const dict_index_t *index, const rec_t *rec,
                             ulint n) {
   if (index) {
     ut_ad(!dict_table_is_comp(index->table));
-    if (index->has_row_versions()) {
+    if (UNIV_UNLIKELY(index->has_row_versions())) {
       uint8_t version = UINT8_UNDEFINED;
       if (rec_old_is_versioned(rec)) {
         version = rec_get_instant_row_version_old(rec);

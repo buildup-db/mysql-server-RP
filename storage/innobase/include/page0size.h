@@ -1,6 +1,7 @@
 /*****************************************************************************
 
 Copyright (c) 2013, 2025, Oracle and/or its affiliates.
+Copyright (c) 2026, buildup-db.
 
 This program is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License, version 2.0, as published by the
@@ -99,7 +100,7 @@ class page_size_t {
     it means that the tablespace does not have compressed pages
     and the physical page size is the same as the logical page
     size. */
-    if (ssize == 0) {
+    if (UNIV_LIKELY(ssize == 0)) {
       m_is_compressed = false;
       m_physical = m_logical;
     } else {

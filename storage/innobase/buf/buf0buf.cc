@@ -4019,7 +4019,7 @@ dberr_t Buf_fetch<T>::zip_page_handler(buf_block_t *&fix_block) {
 
 template <typename T>
 dberr_t Buf_fetch<T>::check_state(buf_block_t *&block) {
-  switch (buf_block_get_state(block)) {
+  switch (UNIV_EXPECT(buf_block_get_state(block), BUF_BLOCK_FILE_PAGE)) {
     case BUF_BLOCK_FILE_PAGE:
       ut_ad(buf_page_get_mutex(&block->page) != &m_buf_pool->zip_mutex);
 
@@ -4818,7 +4818,7 @@ static void buf_page_init(buf_pool_t *buf_pool, const page_id_t &page_id,
   HASH_INSERT(buf_page_t, hash, buf_pool->page_hash, page_id.hash(),
               &block->page);
 
-  if (page_size.is_compressed()) {
+  if (UNIV_UNLIKELY(page_size.is_compressed())) {
     page_zip_set_size(&block->page.zip, page_size.physical());
   }
 }
@@ -4850,7 +4850,8 @@ buf_page_t *buf_page_init_for_read(ulint mode, const page_id_t &page_id,
     ut_ad(mode == BUF_READ_ANY_PAGE);
   }
 
-  if (page_size.is_compressed() && !unzip && !recv_recovery_is_on()) {
+  if (UNIV_UNLIKELY(page_size.is_compressed()) && !unzip &&
+      !recv_recovery_is_on()) {
     block = nullptr;
   } else {
     block = buf_LRU_get_free_block(buf_pool);
@@ -4864,7 +4865,8 @@ buf_page_t *buf_page_init_for_read(ulint mode, const page_id_t &page_id,
     bpage = buf_page_alloc_descriptor();
   }
 
-  if ((block != nullptr && page_size.is_compressed()) || block == nullptr) {
+  if ((block != nullptr && UNIV_UNLIKELY(page_size.is_compressed())) ||
+      block == nullptr) {
     data = buf_buddy_alloc(buf_pool, page_size.physical());
   }
 
@@ -4923,7 +4925,7 @@ buf_page_t *buf_page_init_for_read(ulint mode, const page_id_t &page_id,
     /* The block must be put to the LRU list, to the old blocks */
     buf_LRU_add_block(bpage, true /* to old blocks */);
 
-    if (page_size.is_compressed()) {
+    if (UNIV_UNLIKELY(page_size.is_compressed())) {
       block->page.zip.data = (page_zip_t *)data;
 
       /* To maintain the invariant
@@ -5128,7 +5130,7 @@ buf_block_t *buf_page_create(const page_id_t &page_id,
 
   buf_pool->stat.n_pages_created.fetch_add(1);
 
-  if (page_size.is_compressed()) {
+  if (UNIV_UNLIKELY(page_size.is_compressed())) {
     mutex_exit(&buf_pool->LRU_list_mutex);
 
     auto data = buf_buddy_alloc(buf_pool, page_size.physical());
@@ -5641,7 +5643,7 @@ bool buf_page_io_complete(buf_page_t *bpage, bool evict) {
     space_id_t read_space_id;
     bool is_wrong_page_id [[maybe_unused]] = false;
 
-    if (bpage->size.is_compressed()) {
+    if (UNIV_UNLIKELY(bpage->size.is_compressed())) {
       frame = bpage->zip.data;
       buf_pool->n_pend_unzip.fetch_add(1);
       if (uncompressed && !buf_zip_decompress((buf_block_t *)bpage, false)) {

@@ -2,6 +2,7 @@
 
 Copyright (c) 1996, 2025, Oracle and/or its affiliates.
 Copyright (c) 2012, Facebook Inc.
+Copyright (c) 2026, buildup-db.
 
 This program is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License, version 2.0, as published by the
@@ -181,9 +182,9 @@ static void dict_mem_table_col_rename_low(
     bool is_virtual)
 /*!< in: if this is a virtual column */
 {
-  char *t_col_names =
-      const_cast<char *>(is_virtual ? table->v_col_names : table->col_names);
-  ulint n_col = is_virtual ? table->n_v_def : table->n_def;
+  char *t_col_names = const_cast<char *>(
+      UNIV_UNLIKELY(is_virtual) ? table->v_col_names : table->col_names);
+  ulint n_col = UNIV_UNLIKELY(is_virtual) ? table->n_v_def : table->n_def;
 
   size_t from_len = strlen(s), to_len = strlen(to);
 
@@ -253,7 +254,7 @@ static void dict_mem_table_col_rename_low(
       }
     }
 
-    if (is_virtual) {
+    if (UNIV_UNLIKELY(is_virtual)) {
       table->v_col_names = col_names;
     } else {
       table->col_names = col_names;
@@ -261,7 +262,7 @@ static void dict_mem_table_col_rename_low(
   }
 
   /* Virtual columns are not allowed for foreign key */
-  if (is_virtual) {
+  if (UNIV_UNLIKELY(is_virtual)) {
     return;
   }
 
@@ -318,7 +319,8 @@ static void dict_mem_table_col_rename_low(
 void dict_mem_table_col_rename(dict_table_t *table, ulint nth_col,
                                const char *from, const char *to,
                                bool is_virtual) {
-  const char *s = is_virtual ? table->v_col_names : table->col_names;
+  const char *s =
+      UNIV_UNLIKELY(is_virtual) ? table->v_col_names : table->col_names;
 
   ut_ad((!is_virtual && nth_col < table->n_def) ||
         (is_virtual && nth_col < table->n_v_def));
@@ -471,7 +473,7 @@ as the given col_name
 static void dict_mem_fill_vcol_set_for_base_col(const char *col_name,
                                                 const dict_table_t *table,
                                                 dict_vcol_set **v_cols) {
-  for (ulint i = 0; i < table->n_v_cols; i++) {
+  for (ulint i = 0; UNIV_UNLIKELY(i < table->n_v_cols); i++) {
     dict_v_col_t *v_col = dict_table_get_nth_v_col(table, i);
 
     if (!v_col->m_col.ord_part) {
@@ -538,7 +540,7 @@ void dict_mem_table_free_foreign_vcol_set(dict_table_t *table) {
   for (auto it = fk_set.begin(); it != fk_set.end(); ++it) {
     foreign = *it;
 
-    if (foreign->v_cols != nullptr) {
+    if (UNIV_UNLIKELY(foreign->v_cols != nullptr)) {
       ut::delete_(foreign->v_cols);
       foreign->v_cols = nullptr;
     }
@@ -671,14 +673,14 @@ void dict_index_t::create_nullables(uint32_t current_row_version) {
 
 bool dict_index_t::is_tuple_instant_format(
     const uint16_t n_fields_in_tuple) const {
-  if (!has_instant_cols_or_row_versions()) {
+  if (UNIV_LIKELY(!has_instant_cols_or_row_versions())) {
     return false;
   }
 
   ut_ad(n_fields_in_tuple <= n_total_fields);
 
   /* In versioned rows, always materialize INSTANT cols even in from ROLLBACK */
-  if (has_row_versions()) {
+  if (UNIV_UNLIKELY(has_row_versions())) {
     return true;
   }
 
@@ -739,7 +741,7 @@ ulint dict_index_t::get_col_pos(ulint n, bool inc_prefix,
 
   ut_ad(magic_n == DICT_INDEX_MAGIC_N);
 
-  if (is_virtual) {
+  if (UNIV_UNLIKELY(is_virtual)) {
     col = &(dict_table_get_nth_v_col(table, n)->m_col);
   } else {
     col = table->get_col(n);
@@ -880,7 +882,7 @@ bool dict_foreign_t::is_fts_col_affected() const {
        in the context of cascading DML operation, only the referenced
        table is relevant for the validation even if the current table
        has FTS index.*/
-  if (!foreign_table->fts || foreign_table == referenced_table) {
+  if (UNIV_LIKELY(!foreign_table->fts) || foreign_table == referenced_table) {
     return false;
   }
 

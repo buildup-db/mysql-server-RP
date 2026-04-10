@@ -1,6 +1,7 @@
 /*****************************************************************************
 
 Copyright (c) 1996, 2025, Oracle and/or its affiliates.
+Copyright (c) 2026, buildup-db.
 
 This program is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License, version 2.0, as published by the
@@ -308,7 +309,7 @@ void row_upd_rec_sys_fields_in_recovery(rec_t *rec, page_zip_des_t *page_zip,
                                         trx_id_t trx_id, roll_ptr_t roll_ptr) {
   ut_ad(rec_offs_validate(rec, nullptr, offsets));
 
-  if (page_zip) {
+  if (UNIV_UNLIKELY(page_zip)) {
     page_zip_write_trx_id_and_roll_ptr(page_zip, rec, offsets, pos, trx_id,
                                        roll_ptr);
   } else {
@@ -377,8 +378,7 @@ bool row_upd_changes_field_size_or_external(
 
     /* We should ignore virtual field if the index is not
     a virtual index */
-    if (upd_fld_is_virtual_col(upd_field) &&
-        dict_index_has_virtual(index) != DICT_VIRTUAL) {
+    if (upd_fld_is_virtual_col(upd_field) && !dict_index_has_virtual(index)) {
       continue;
     }
 
@@ -496,9 +496,9 @@ void row_upd_rec_in_place(
     rec_set_info_bits_new(rec, update->info_bits);
 
     /* Set the INSTANT/VERSION bit from the values kept */
-    if (is_versioned) {
+    if (UNIV_UNLIKELY(is_versioned)) {
       rec_new_set_versioned(rec);
-    } else if (is_instant) {
+    } else if (UNIV_UNLIKELY(is_instant)) {
       ut_ad(index->table->has_instant_cols());
       ut_ad(!rec_new_is_versioned(rec));
       rec_new_set_instant(rec);
@@ -507,12 +507,12 @@ void row_upd_rec_in_place(
     }
 
     /* Only one of the bit (INSTANT or VERSION) could be set */
-    ut_a(!(rec_get_instant_flag_new(rec) && rec_new_is_versioned(rec)));
+    ut_ad(!(rec_get_instant_flag_new(rec) && rec_new_is_versioned(rec)));
   } else {
     /* INSTANT bit is irrelevant for the record in Redundant format */
     bool is_versioned = rec_old_is_versioned(rec);
     rec_set_info_bits_old(rec, update->info_bits);
-    if (is_versioned) {
+    if (UNIV_UNLIKELY(is_versioned)) {
       rec_old_set_versioned(rec, true);
     } else {
       rec_old_set_versioned(rec, false);
@@ -541,7 +541,7 @@ void row_upd_rec_in_place(
                       dfield_get_len(new_val));
   }
 
-  if (page_zip) {
+  if (UNIV_UNLIKELY(page_zip)) {
     page_zip_write_rec(page_zip, rec, index, offsets, 0);
   }
 }
@@ -719,7 +719,7 @@ byte *row_upd_index_parse(const byte *ptr,     /*!< in: buffer */
 
     /* Check if this is a virtual column, mark the prtype
     if that is the case */
-    if (field_no >= REC_MAX_N_FIELDS) {
+    if (UNIV_UNLIKELY(field_no >= REC_MAX_N_FIELDS)) {
       new_val->type.prtype |= DATA_VIRTUAL;
       field_no -= REC_MAX_N_FIELDS;
     }
@@ -907,7 +907,7 @@ upd_t *row_upd_build_difference_binary(dict_index_t *index,
   column (base columns) change, we will still need to build the
   indexed virtual column value so that undo log would log them (
   for purge/mvcc purpose) */
-  if (n_v_fld > 0) {
+  if (UNIV_UNLIKELY(n_v_fld > 0)) {
     row_ext_t *ext;
     mem_heap_t *v_heap = nullptr;
     THD *thd;
@@ -1139,7 +1139,7 @@ void row_upd_index_replace_new_col_vals_index_pos(dtuple_t *entry,
       continue;
     }
 
-    if (col->is_virtual()) {
+    if (UNIV_UNLIKELY(col->is_virtual())) {
       is_virtual = true;
       field_no = reinterpret_cast<const dict_v_col_t *>(col)->v_pos;
     } else {
@@ -1186,7 +1186,7 @@ void row_upd_index_replace_new_col_vals(dtuple_t *entry,
 
     field = index->get_field(i);
     col = field->col;
-    if (col->is_virtual()) {
+    if (UNIV_UNLIKELY(col->is_virtual())) {
       const dict_v_col_t *vcol = reinterpret_cast<const dict_v_col_t *>(col);
 
       uf = upd_get_field_by_field_no(update, vcol->v_pos, true);
@@ -1283,7 +1283,7 @@ void row_upd_replace_vcol(dtuple_t *row, const dict_table_t *table,
   bool is_undo_log = true;
 
   /* We will read those unchanged (but indexed) virtual columns in */
-  if (ptr != nullptr) {
+  if (UNIV_UNLIKELY(ptr != nullptr)) {
     const byte *end_ptr;
 
     end_ptr = ptr + mach_read_from_2(ptr);
@@ -1314,8 +1314,9 @@ void row_upd_replace_vcol(dtuple_t *row, const dict_table_t *table,
         }
       }
 
-      if ((is_v && vcol != nullptr && vcol->m_col.is_multi_value()) ||
-          trx_undo_rec_is_multi_value(ptr)) {
+      if ((is_v && vcol != nullptr &&
+           UNIV_UNLIKELY(vcol->m_col.is_multi_value())) ||
+          UNIV_UNLIKELY(trx_undo_rec_is_multi_value(ptr))) {
         ut_ad(is_v);
         ut_ad(vcol != nullptr || field_no == ULINT_UNDEFINED);
         ptr = trx_undo_rec_get_multi_value(ptr, &read_field, update->heap);
@@ -1420,7 +1421,9 @@ void row_upd_replace(dtuple_t *row, row_ext_t **ext, const dict_index_t *index,
     *ext = nullptr;
   }
 
-  row_upd_replace_vcol(row, table, update, true, nullptr, nullptr);
+  if (UNIV_UNLIKELY(dtuple_get_n_v_fields(row) > 0)) {
+    row_upd_replace_vcol(row, table, update, true, nullptr, nullptr);
+  }
 }
 
 bool row_upd_changes_ord_field_binary_func(dict_index_t *index,
@@ -1463,7 +1466,7 @@ bool row_upd_changes_ord_field_binary_func(dict_index_t *index,
     col = ind_field->col;
     col_no = dict_col_get_no(col);
 
-    if (col->is_virtual()) {
+    if (UNIV_UNLIKELY(col->is_virtual())) {
       vcol = reinterpret_cast<const dict_v_col_t *>(col);
 
       upd_field = upd_get_field_by_field_no(update, vcol->v_pos, true);
@@ -1481,7 +1484,7 @@ bool row_upd_changes_ord_field_binary_func(dict_index_t *index,
       return (true);
     }
 
-    if (col->is_virtual()) {
+    if (UNIV_UNLIKELY(col->is_virtual())) {
       dfield = dtuple_get_nth_v_field(row, vcol->v_pos);
     } else {
       dfield = dtuple_get_nth_field(row, col_no);
@@ -1957,7 +1960,7 @@ void row_upd_store_row(upd_node_t *node, THD *thd, TABLE *mysql_table) {
   node->row = row_build(ROW_COPY_DATA, clust_index, rec, offsets, nullptr,
                         nullptr, nullptr, ext, node->heap);
 
-  if (node->table->n_v_cols) {
+  if (UNIV_UNLIKELY(node->table->n_v_cols)) {
     row_upd_store_v_row(node, node->is_delete ? nullptr : node->update, thd,
                         mysql_table);
   }
@@ -2239,7 +2242,7 @@ code or DB_LOCK_WAIT */
     }
   }
 
-  if (!index->is_committed()) {
+  if (UNIV_UNLIKELY(!index->is_committed())) {
     /* The index->online_status may change if the index is
     or was being created online, but not committed yet. It
     is protected by index->lock. */
@@ -2308,7 +2311,7 @@ code or DB_LOCK_WAIT */
 
   rec = btr_cur_get_rec(btr_cur);
 
-  switch (search_result) {
+  switch (UNIV_EXPECT(search_result, ROW_FOUND)) {
     case ROW_NOT_DELETED_REF: /* should only occur for BTR_DELETE */
       ut_error;
       break;
@@ -2473,8 +2476,9 @@ func_exit:
   if (node->state == UPD_NODE_UPDATE_ALL_SEC ||
       row_upd_changes_ord_field_binary(
           node->index, node->update, thr, node->row, node->ext,
-          (node->index->is_multi_value() ? &non_mv_upd : nullptr))) {
-    if (node->index->is_multi_value()) {
+          (UNIV_UNLIKELY(node->index->is_multi_value()) ? &non_mv_upd
+                                                        : nullptr))) {
+    if (UNIV_UNLIKELY(node->index->is_multi_value())) {
       if (node->is_delete) {
         return (row_upd_del_multi_sec_index_entry(node, thr));
       } else {
@@ -3223,7 +3227,7 @@ static dberr_t row_upd(upd_node_t *node, /*!< in: row update node */
       break;
     }
 
-    if (node->index->type != DICT_FTS) {
+    if (UNIV_LIKELY(node->index->type != DICT_FTS)) {
       err = row_upd_sec_step(node, thr);
 
       if (err != DB_SUCCESS) {
@@ -3442,7 +3446,7 @@ upd_field_t *upd_t::get_field_by_field_no(ulint field_no,
   dict_field_t *field = index->get_field(field_no);
   dict_col_t *col = field->col;
 
-  if (col->is_virtual()) {
+  if (UNIV_UNLIKELY(col->is_virtual())) {
     const dict_v_col_t *vcol = reinterpret_cast<const dict_v_col_t *>(col);
 
     uf = upd_get_field_by_field_no(this, vcol->v_pos, true);

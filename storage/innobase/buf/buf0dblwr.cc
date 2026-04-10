@@ -1,6 +1,7 @@
 /*****************************************************************************
 
 Copyright (c) 1995, 2025, Oracle and/or its affiliates.
+Copyright (c) 2026, buildup-db.
 
 This program is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License, version 2.0, as published by the
@@ -1314,7 +1315,7 @@ void Double_write::prepare(const buf_page_t *bpage, void **ptr,
     check_block(block);
   }
 
-  if (bpage->size.is_compressed()) {
+  if (UNIV_UNLIKELY(bpage->size.is_compressed())) {
     UNIV_MEM_ASSERT_RW(bpage->zip.data, bpage->size.physical());
 
     *ptr = bpage->zip.data;

@@ -1,6 +1,7 @@
 /*****************************************************************************
 
 Copyright (c) 1995, 2025, Oracle and/or its affiliates.
+Copyright (c) 2026, buildup-db.
 
 This program is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License, version 2.0, as published by the
@@ -689,7 +690,7 @@ static void fsp_init_file_page_low(
   tracking dirty pages. */
   memset(page + FIL_PAGE_LSN, 0, 8);
 
-  if (page_zip) {
+  if (UNIV_UNLIKELY(page_zip)) {
     memset(page_zip->data, 0, page_zip_get_size(page_zip));
     memcpy(page_zip->data + FIL_PAGE_OFFSET, page + FIL_PAGE_OFFSET, 4);
     memcpy(page_zip->data + FIL_PAGE_ARCH_LOG_NO_OR_SPACE_ID,
@@ -4107,7 +4108,7 @@ static void mark_all_page_dirty_in_tablespace(THD *thd, space_id_t space_id,
         continue;
       }
 
-      if (page_zip != nullptr &&
+      if (UNIV_UNLIKELY(page_zip != nullptr) &&
           fil_page_type_is_index(fil_page_get_type(page))) {
         mach_write_to_4(page + FIL_PAGE_SPACE_ID, space_id);
         page_zip_write_header(page_zip, page + FIL_PAGE_SPACE_ID, 4, &mtr);

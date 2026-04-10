@@ -2,7 +2,7 @@
 
 Copyright (c) 1994, 2025, Oracle and/or its affiliates.
 Copyright (c) 2012, Facebook Inc.
-Copyright (c) 2025, buildup-db.
+Copyright (c) 2026, buildup-db.
 
 This program is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License, version 2.0, as published by the
@@ -915,7 +915,7 @@ static ALWAYS_INLINE void page_cur_insert_rec_write_log(
 
   uint8_t cur_version = 0;
   uint8_t ins_version = 0;
-  if (index->has_row_versions()) {
+  if (UNIV_UNLIKELY(index->has_row_versions())) {
     const bool is_cmp = page_rec_is_comp(insert_rec);
 
     auto has_version = [is_cmp](rec_t *rec) {

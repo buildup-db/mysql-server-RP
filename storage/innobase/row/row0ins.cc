@@ -1,6 +1,7 @@
 /*****************************************************************************
 
 Copyright (c) 1996, 2025, Oracle and/or its affiliates.
+Copyright (c) 2026, buildup-db.
 
 This program is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License, version 2.0, as published by the
@@ -492,7 +493,7 @@ static bool row_ins_cascade_ancestor_updates_table(
 
   *fts_col_affected = foreign->is_fts_col_affected();
 
-  if (table->fts) {
+  if (UNIV_UNLIKELY(table->fts)) {
     doc_id_pos = dict_table_get_nth_col_pos(table, table->fts->doc_col);
   }
 
@@ -504,7 +505,7 @@ static bool row_ins_cascade_ancestor_updates_table(
       const upd_field_t *parent_ufield = &parent_update->fields[j];
 
       /* Skip if the updated field is virtual */
-      if (parent_ufield->is_virtual()) {
+      if (UNIV_UNLIKELY(parent_ufield->is_virtual())) {
         continue;
       }
 
@@ -595,7 +596,7 @@ static bool row_ins_cascade_ancestor_updates_table(
 
         /* If Doc ID is updated, check whether the
         Doc ID is valid */
-        if (table->fts && ufield->field_no == doc_id_pos) {
+        if (UNIV_UNLIKELY(table->fts) && ufield->field_no == doc_id_pos) {
           doc_id_t n_doc_id;
 
           n_doc_id = table->fts->cache->next_doc_id;
@@ -629,7 +630,7 @@ static bool row_ins_cascade_ancestor_updates_table(
   }
 
   /* Generate a new Doc ID if FTS index columns get updated */
-  if (table->fts && *fts_col_affected) {
+  if (UNIV_UNLIKELY(table->fts) && UNIV_UNLIKELY(*fts_col_affected)) {
     if (DICT_TF2_FLAG_IS_SET(table, DICT_TF2_FTS_HAS_DOC_ID)) {
       doc_id_t doc_id;
       doc_id_t *next_doc_id;
@@ -1144,7 +1145,7 @@ func_exit:
     goto nonstandard_exit_func;
   }
 
-  if (table->fts) {
+  if (UNIV_UNLIKELY(table->fts)) {
     doc_id = fts_get_doc_id_from_rec(table, clust_rec, clust_index, tmp_heap);
   }
 
@@ -1154,7 +1155,8 @@ func_exit:
   the row requires virtual columns to be materialized. Hence, if child
   table has any virtual columns which are indexed, we have to initialize
   virtual column template. */
-  if (cascade->is_delete && dict_table_has_indexed_v_cols(table) &&
+  if (cascade->is_delete &&
+      UNIV_UNLIKELY(dict_table_has_indexed_v_cols(table)) &&
       table->vc_templ == nullptr) {
     innobase_init_vc_templ(table);
   }
@@ -1184,11 +1186,12 @@ func_exit:
       dfield_set_null(&ufield->new_val);
     }
 
-    if (foreign->is_fts_col_affected()) {
+    if (UNIV_UNLIKELY(foreign->is_fts_col_affected())) {
       fts_trx_add_op(trx, table, doc_id, FTS_DELETE, nullptr);
     }
 
-    if (foreign->v_cols != nullptr && foreign->v_cols->size() > 0) {
+    if (UNIV_UNLIKELY(foreign->v_cols != nullptr) &&
+        foreign->v_cols->size() > 0) {
       row_ins_foreign_fill_virtual(cascade, clust_rec, clust_index, node,
                                    foreign, &err);
 
@@ -1197,7 +1200,7 @@ func_exit:
       }
     }
 
-  } else if (table->fts && cascade->is_delete) {
+  } else if (UNIV_UNLIKELY(table->fts) && cascade->is_delete) {
     /* DICT_FOREIGN_ON_DELETE_CASCADE case */
     if (foreign->is_fts_col_affected()) {
       fts_trx_add_op(trx, table, doc_id, FTS_DELETE, nullptr);
@@ -1212,7 +1215,8 @@ func_exit:
     n_to_update = row_ins_cascade_calc_update_vec(node, foreign, tmp_heap, trx,
                                                   &fts_col_affected);
 
-    if (foreign->v_cols != nullptr && foreign->v_cols->size() > 0) {
+    if (UNIV_UNLIKELY(foreign->v_cols != nullptr) &&
+        foreign->v_cols->size() > 0) {
       row_ins_foreign_fill_virtual(cascade, clust_rec, clust_index, node,
                                    foreign, &err);
 
@@ -1247,7 +1251,7 @@ func_exit:
     }
 
     /* Mark the old Doc ID as deleted */
-    if (fts_col_affected) {
+    if (UNIV_UNLIKELY(fts_col_affected)) {
       ut_ad(table->fts);
       fts_trx_add_op(trx, table, doc_id, FTS_DELETE, nullptr);
     }
@@ -2725,7 +2729,7 @@ static dberr_t row_ins_sorted_clust_index_entry(ulint mode, dict_index_t *index,
 
   mtr->set_log_mode(log_mode);
 
-  if (!check) {
+  if (UNIV_LIKELY(!check)) {
     return (false);
   }
 
@@ -2825,7 +2829,7 @@ dberr_t row_ins_sec_index_entry_low(uint32_t flags, ulint mode,
     mode = BTR_MODIFY_TREE;
   });
 
-  if (check) {
+  if (UNIV_UNLIKELY(check)) {
     DEBUG_SYNC(thr_get_trx(thr)->mysql_thd, "row_ins_sec_index_enter");
     if (mode == BTR_MODIFY_LEAF) {
       search_mode |= BTR_ALREADY_S_LATCHED;
@@ -2922,11 +2926,11 @@ dberr_t row_ins_sec_index_entry_low(uint32_t flags, ulint mode,
 
     mtr_commit(&mtr);
 
-    switch (err) {
+    switch (UNIV_EXPECT(err, DB_SUCCESS)) {
       case DB_SUCCESS:
         break;
       case DB_DUPLICATE_KEY:
-        if (!index->is_committed()) {
+        if (UNIV_UNLIKELY(!index->is_committed())) {
           ut_ad(!thr_get_trx(thr)->dict_operation_lock_mode);
 
           dict_set_corrupted(index);
@@ -3290,7 +3294,7 @@ static dberr_t row_ins_index_entry(dict_index_t *index, dtuple_t *entry,
 
   if (index->is_clustered()) {
     return (row_ins_clust_index_entry(index, entry, thr, false));
-  } else if (index->is_multi_value()) {
+  } else if (UNIV_UNLIKELY(index->is_multi_value())) {
     return (
         row_ins_sec_index_multi_value_entry(index, entry, multi_val_pos, thr));
   } else {
@@ -3344,7 +3348,7 @@ dberr_t row_ins_index_entry_set_vals(const dict_index_t *index, dtuple_t *entry,
     ulint len;
     dict_col_t *col;
 
-    if (i >= n_fields) {
+    if (UNIV_UNLIKELY(i >= n_fields)) {
       /* This is virtual field */
       field = dtuple_get_nth_v_field(entry, i - n_fields);
       col = &dict_table_get_nth_v_col(index->table, i - n_fields)->m_col;
@@ -3355,7 +3359,7 @@ dberr_t row_ins_index_entry_set_vals(const dict_index_t *index, dtuple_t *entry,
       ut_ad(!col->is_instant_dropped());
     }
 
-    if (col->is_virtual()) {
+    if (UNIV_UNLIKELY(col->is_virtual())) {
       const dict_v_col_t *v_col = reinterpret_cast<const dict_v_col_t *>(col);
       ut_ad(dtuple_get_n_fields(row) == index->table->get_n_cols());
       row_field = dtuple_get_nth_v_field(row, v_col->v_pos);
@@ -3543,7 +3547,7 @@ static inline void row_ins_get_row_from_query_block(
   ut_ad(node->state == INS_NODE_INSERT_ENTRIES);
 
   while (node->index != nullptr) {
-    if (node->index->type != DICT_FTS) {
+    if (UNIV_LIKELY(node->index->type != DICT_FTS)) {
       err = row_ins_index_entry_step(node, thr);
 
       switch (err) {

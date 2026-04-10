@@ -1,7 +1,7 @@
 /*****************************************************************************
 
 Copyright (c) 1996, 2025, Oracle and/or its affiliates.
-Copyright (c) 2025, buildup-db.
+Copyright (c) 2026, buildup-db.
 
 This program is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License, version 2.0, as published by the
@@ -442,7 +442,7 @@ static bool trx_undo_report_insert_virtual(page_t *undo_page,
 
       ulint flen = vfield->len;
 
-      if (col->m_col.is_multi_value()) {
+      if (UNIV_UNLIKELY(col->m_col.is_multi_value())) {
         bool suc = trx_undo_store_multi_value(undo_page, vfield, ptr);
 
         if (!suc) {
@@ -539,7 +539,7 @@ static ulint trx_undo_page_report_insert(
     }
   }
 
-  if (index->table->n_v_cols) {
+  if (UNIV_UNLIKELY(index->table->n_v_cols)) {
     if (!trx_undo_report_insert_virtual(undo_page, index->table, clust_entry,
                                         &ptr)) {
       return (0);
@@ -1315,7 +1315,8 @@ static ulint trx_undo_page_report_modify(
     need to double check if there are any non-indexed columns
     being registered in update vector in case they will be indexed
     in new table */
-    if (dict_index_is_online_ddl(index) && index->table->n_v_cols > 0) {
+    if (dict_index_is_online_ddl(index) &&
+        UNIV_UNLIKELY(index->table->n_v_cols > 0)) {
       for (i = 0; i < upd_get_n_fields(update); i++) {
         upd_field_t *fld = upd_get_nth_field(update, i);
         ulint pos = fld->field_no;
@@ -1345,7 +1346,7 @@ static ulint trx_undo_page_report_modify(
         return 0;
       }
 
-      if (is_virtual) {
+      if (UNIV_UNLIKELY(is_virtual)) {
         /* Skip the non-indexed column, during
         an online alter table */
         if (dict_index_is_online_ddl(index) &&
@@ -1358,7 +1359,7 @@ static ulint trx_undo_page_report_modify(
         pos += REC_MAX_N_FIELDS;
       }
 
-      if (index->has_row_versions() && !is_virtual) {
+      if (UNIV_UNLIKELY(index->has_row_versions()) && !is_virtual) {
         /* Write physical position of field in UNDO */
         auto phy_pos = index->get_field(pos)->col->get_col_phy_pos();
         ut_ad(phy_pos == fld->field_phy_pos);
@@ -1369,7 +1370,7 @@ static ulint trx_undo_page_report_modify(
       }
 
       /* Save the old value of field */
-      if (is_virtual) {
+      if (UNIV_UNLIKELY(is_virtual)) {
         ut_ad(fld->field_no < table->n_v_def);
 
         ptr = trx_undo_log_v_idx(undo_page, table, fld->field_no, ptr,
@@ -1397,7 +1398,8 @@ static ulint trx_undo_page_report_modify(
         return 0;
       }
 
-      if (!is_virtual && rec_offs_nth_extern(index, offsets, pos)) {
+      if (UNIV_LIKELY(!is_virtual) &&
+          rec_offs_nth_extern(index, offsets, pos)) {
         ut_ad(!is_multi_val);
         const dict_col_t *col = index->get_col(pos);
         ulint prefix_len = dict_max_field_len_store_undo(table, col);
@@ -1419,11 +1421,11 @@ static ulint trx_undo_page_report_modify(
         undo_ptr->update_undo->del_marks = true;
 
         *type_cmpl_ptr |= TRX_UNDO_UPD_EXTERN;
-      } else if (!is_multi_val) {
+      } else if (UNIV_LIKELY(!is_multi_val)) {
         ptr += mach_write_compressed(ptr, flen);
       }
 
-      if (is_multi_val) {
+      if (UNIV_UNLIKELY(is_multi_val)) {
         bool suc = trx_undo_store_multi_value(undo_page, fld->old_v_val, &ptr);
         if (!suc) {
           return 0;
@@ -1436,7 +1438,8 @@ static ulint trx_undo_page_report_modify(
         ut_memcpy(ptr, field, flen);
         ptr += flen;
 
-        if (!is_virtual && rec_offs_nth_extern(index, offsets, pos)) {
+        if (UNIV_LIKELY(!is_virtual) &&
+            rec_offs_nth_extern(index, offsets, pos)) {
           ptr = trx_undo_report_blob_update(undo_page, index, ptr, field, flen,
                                             update, fld, mtr);
 
@@ -1447,7 +1450,7 @@ static ulint trx_undo_page_report_modify(
       }
 
       /* Also record the new value for virtual column */
-      if (is_virtual) {
+      if (UNIV_UNLIKELY(is_virtual)) {
         field = static_cast<byte *>(fld->new_val.data);
         flen = fld->new_val.len;
         if (flen != UNIV_SQL_NULL) {
@@ -1458,7 +1461,7 @@ static ulint trx_undo_page_report_modify(
           return 0;
         }
 
-        if (is_multi_val) {
+        if (UNIV_UNLIKELY(is_multi_val)) {
           bool suc = trx_undo_store_multi_value(undo_page, &fld->new_val, &ptr);
           if (!suc) {
             return 0;
@@ -1528,7 +1531,7 @@ static ulint trx_undo_page_report_modify(
         }
 
         pos = index->get_col_pos(col_no);
-        if (index->has_row_versions()) {
+        if (UNIV_UNLIKELY(index->has_row_versions())) {
           /* Write physical position of field in UNDO */
           ut_ad(!col->is_virtual());
           ut_ad(!col->is_instant_dropped());
@@ -1594,7 +1597,8 @@ static ulint trx_undo_page_report_modify(
       }
     }
 
-    for (col_no = 0; col_no < dict_table_get_n_v_cols(table); col_no++) {
+    for (col_no = 0; UNIV_UNLIKELY(col_no < dict_table_get_n_v_cols(table));
+         col_no++) {
       dfield_t *vfield = nullptr;
 
       const dict_v_col_t *col = dict_table_get_nth_v_col(table, col_no);
@@ -1653,7 +1657,7 @@ static ulint trx_undo_page_report_modify(
           return 0;
         }
 
-        if (col->m_col.is_multi_value()) {
+        if (UNIV_UNLIKELY(col->m_col.is_multi_value())) {
           dfield_t multi_value_field;
           if (vfield == nullptr) {
             dfield_set_null(&multi_value_field);
@@ -1789,13 +1793,13 @@ byte *trx_undo_update_rec_get_update(const byte *ptr, const dict_index_t *index,
 
     is_virtual = (field_no >= REC_MAX_N_FIELDS);
 
-    if (is_virtual) {
+    if (UNIV_UNLIKELY(is_virtual)) {
       /* If new version, we need to check index list to figure
       out the correct virtual column position */
       ptr = trx_undo_read_v_idx(index->table, ptr, first_v_col, &is_undo_log,
                                 &field_no);
       first_v_col = false;
-    } else if (field_no >= dict_index_get_n_fields(index)) {
+    } else if (UNIV_UNLIKELY(field_no >= dict_index_get_n_fields(index))) {
       ib::error(ER_IB_MSG_1184)
           << "Trying to access update undo rec"
              " field "
@@ -1814,13 +1818,13 @@ byte *trx_undo_update_rec_get_update(const byte *ptr, const dict_index_t *index,
 
     upd_field = upd_get_nth_field(update, i);
 
-    if (is_virtual) {
+    if (UNIV_UNLIKELY(is_virtual)) {
       /* This column could be dropped or no longer indexed */
       if (field_no == ULINT_UNDEFINED) {
         /* Mark this is no longer needed */
         upd_field->field_no = REC_MAX_N_FIELDS;
 
-        if (trx_undo_rec_is_multi_value(ptr)) {
+        if (UNIV_UNLIKELY(trx_undo_rec_is_multi_value(ptr))) {
           ptr = trx_undo_rec_get_multi_value(ptr, nullptr, heap);
           ut_ad(trx_undo_rec_is_multi_value(ptr));
           ptr = trx_undo_rec_get_multi_value(ptr, nullptr, heap);
@@ -1836,7 +1840,7 @@ byte *trx_undo_update_rec_get_update(const byte *ptr, const dict_index_t *index,
 
       upd_field_set_v_field_no(upd_field, field_no, index);
     } else {
-      if (index->has_row_versions()) {
+      if (UNIV_UNLIKELY(index->has_row_versions())) {
         auto log_pos = index->fields_array[field_no];
         upd_field_set_field_no(upd_field, log_pos, index);
         IF_DEBUG(upd_field->field_phy_pos = field_no;)
@@ -1845,7 +1849,8 @@ byte *trx_undo_update_rec_get_update(const byte *ptr, const dict_index_t *index,
       }
     }
 
-    if (vcol != nullptr && vcol->m_col.is_multi_value()) {
+    if (UNIV_UNLIKELY(vcol != nullptr) &&
+        UNIV_UNLIKELY(vcol->m_col.is_multi_value())) {
       ptr = trx_undo_rec_get_multi_value(ptr, &upd_field->new_val, heap);
     } else {
       ptr = trx_undo_rec_get_col_val(ptr, &field, &len, &orig_len);
@@ -1869,11 +1874,11 @@ byte *trx_undo_update_rec_get_update(const byte *ptr, const dict_index_t *index,
       }
     }
 
-    if (is_virtual) {
+    if (UNIV_UNLIKELY(is_virtual)) {
       upd_field->old_v_val = static_cast<dfield_t *>(
           mem_heap_zalloc(heap, sizeof *upd_field->old_v_val));
 
-      if (vcol != nullptr && vcol->m_col.is_multi_value()) {
+      if (vcol != nullptr && UNIV_UNLIKELY(vcol->m_col.is_multi_value())) {
         ptr = trx_undo_rec_get_multi_value(ptr, upd_field->old_v_val, heap);
       } else {
         ptr = trx_undo_rec_get_col_val(ptr, &field, &len, &orig_len);
@@ -1977,7 +1982,7 @@ byte *trx_undo_rec_get_partial_row(
 
     is_virtual = (field_no >= REC_MAX_N_FIELDS);
 
-    if (is_virtual) {
+    if (UNIV_UNLIKELY(is_virtual)) {
       ptr = trx_undo_read_v_idx(index->table, ptr, first_v_col, &is_undo_log,
                                 &field_no);
       first_v_col = false;
@@ -1990,8 +1995,9 @@ byte *trx_undo_rec_get_partial_row(
       }
     }
 
-    if ((vcol != nullptr && vcol->m_col.is_multi_value()) ||
-        trx_undo_rec_is_multi_value(ptr)) {
+    if ((UNIV_UNLIKELY(vcol != nullptr) &&
+         UNIV_UNLIKELY(vcol->m_col.is_multi_value())) ||
+        UNIV_UNLIKELY(trx_undo_rec_is_multi_value(ptr))) {
       ut_ad(is_virtual);
       ut_ad(vcol != nullptr || field_no == ULINT_UNDEFINED);
       ut_ad(dfield != nullptr || field_no == ULINT_UNDEFINED);
@@ -2007,8 +2013,8 @@ byte *trx_undo_rec_get_partial_row(
       continue;
     }
 
-    if (!is_virtual) {
-      if (index->has_row_versions()) {
+    if (UNIV_LIKELY(!is_virtual)) {
+      if (UNIV_UNLIKELY(index->has_row_versions())) {
         /* This field_no is physical pos */
         col = index->get_physical_field(field_no)->col;
       } else {
@@ -2608,7 +2614,7 @@ bool trx_undo_prev_version_build(
 
   /* Set the old value (which is the after image of an update) in the
   update vector to dtuple vrow */
-  if (v_status & TRX_UNDO_GET_OLD_V_VALUE) {
+  if (UNIV_UNLIKELY(v_status & TRX_UNDO_GET_OLD_V_VALUE)) {
     row_upd_replace_vcol((dtuple_t *)*vrow, index->table, update, false,
                          nullptr, nullptr);
   }
@@ -2636,7 +2642,7 @@ bool trx_undo_prev_version_build(
   UPD_NODE_NO_ORD_CHANGE flag was set for this version.
   This last statement is an important assumption made by the
   row_vers_impl_x_locked_low() function. */
-  if (vrow && !(cmpl_info & UPD_NODE_NO_ORD_CHANGE)) {
+  if (UNIV_UNLIKELY(vrow) && !(cmpl_info & UPD_NODE_NO_ORD_CHANGE)) {
     if (!(*vrow)) {
       *vrow = dtuple_create_with_vcol(v_heap ? v_heap : heap,
                                       index->table->get_n_cols(),
@@ -2698,7 +2704,7 @@ void trx_undo_read_v_cols(const dict_table_t *table, const byte *ptr,
     if (!is_virtual || field_no == ULINT_UNDEFINED) {
       /* The virtual column is no longer indexed or does not exist.
       "continue" needs to put after ptr gets advanced */
-      if (trx_undo_rec_is_multi_value(ptr)) {
+      if (UNIV_UNLIKELY(trx_undo_rec_is_multi_value(ptr))) {
         ptr = trx_undo_rec_get_multi_value(ptr, nullptr, heap);
       } else {
         ptr = trx_undo_rec_get_col_val(ptr, &field, &len, &orig_len);
@@ -2715,7 +2721,7 @@ void trx_undo_read_v_cols(const dict_table_t *table, const byte *ptr,
     }
 
     if (col_no == ULINT_UNDEFINED) {
-      if (trx_undo_rec_is_multi_value(ptr)) {
+      if (UNIV_UNLIKELY(trx_undo_rec_is_multi_value(ptr))) {
         ptr = trx_undo_rec_get_multi_value(ptr, nullptr, heap);
       } else {
         ptr = trx_undo_rec_get_col_val(ptr, &field, &len, &orig_len);
@@ -2725,7 +2731,7 @@ void trx_undo_read_v_cols(const dict_table_t *table, const byte *ptr,
 
     dfield = dtuple_get_nth_v_field(row, col_no);
 
-    if (trx_undo_rec_is_multi_value(ptr)) {
+    if (UNIV_UNLIKELY(trx_undo_rec_is_multi_value(ptr))) {
       ut_ad(vcol->m_col.is_multi_value());
       ptr = trx_undo_rec_get_multi_value(ptr, &multi_value_field, heap);
     } else {
@@ -2735,10 +2741,10 @@ void trx_undo_read_v_cols(const dict_table_t *table, const byte *ptr,
 
     if (!in_purge || dfield_get_type(dfield)->mtype == DATA_MISSING) {
       vcol->m_col.copy_type(dfield_get_type(dfield));
-      if (online && !vcol->m_col.is_multi_value()) {
+      if (online && UNIV_LIKELY(!vcol->m_col.is_multi_value())) {
         dfield->adjust_v_data_mysql(vcol, dict_table_is_comp(table), field, len,
                                     heap);
-      } else if (!vcol->m_col.is_multi_value()) {
+      } else if (UNIV_LIKELY(!vcol->m_col.is_multi_value())) {
         dfield_set_data(dfield, field, len);
       } else {
         dfield_copy_data(dfield, &multi_value_field);

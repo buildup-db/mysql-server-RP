@@ -2,7 +2,7 @@
 
 Copyright (c) 1996, 2025, Oracle and/or its affiliates.
 Copyright (c) 2012, Facebook Inc.
-Copyright (c) 2025, buildup-db.
+Copyright (c) 2026, buildup-db.
 
 This program is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License, version 2.0, as published by the
@@ -453,12 +453,14 @@ static inline bool dict_index_is_auto_gen_clust(const dict_index_t *index);
     const dict_index_t *index); /*!< in: index */
 /** Check whether the index is a Spatial Index.
  @return        nonzero for Spatial Index, zero for other indexes */
-[[nodiscard]] static inline ulint dict_index_is_spatial(
+[[nodiscard]] static inline ulint dict_index_is_spatial_func(
     const dict_index_t *index); /*!< in: index */
+#define dict_index_is_spatial(I) UNIV_UNLIKELY(dict_index_is_spatial_func(I))
 /** Check whether the index contains a virtual column.
 @param[in]      index   index
 @return nonzero for index on virtual column, zero for other indexes */
-static inline ulint dict_index_has_virtual(const dict_index_t *index);
+static inline ulint dict_index_has_virtual_func(const dict_index_t *index);
+#define dict_index_has_virtual(I) UNIV_UNLIKELY(dict_index_has_virtual_func(I))
 /** Check whether the index is the insert buffer tree.
  @return nonzero for insert buffer, zero for other indexes */
 [[nodiscard]] static inline ulint dict_index_is_ibuf(
@@ -490,7 +492,10 @@ static inline ulint dict_table_get_n_v_cols(const dict_table_t *table);
 /** Check if a table has indexed virtual columns
 @param[in]      table   the table to check
 @return true is the table has indexed virtual columns */
-static inline bool dict_table_has_indexed_v_cols(const dict_table_t *table);
+static inline bool dict_table_has_indexed_v_cols_func(
+    const dict_table_t *table);
+#define dict_table_has_indexed_v_cols(T) \
+  UNIV_UNLIKELY(dict_table_has_indexed_v_cols_func(T))
 
 #ifndef UNIV_HOTBACKUP
 /** Gets the approximately estimated number of rows in the table.
@@ -536,7 +541,8 @@ static inline dict_v_col_t *dict_table_get_nth_v_col(const dict_table_t *table,
     const dict_table_t *table, ulint sys);
 /** Check whether the table uses the compact page format.
  @return true if table uses the compact page format */
-[[nodiscard]] static inline bool dict_table_is_comp(
+#define dict_table_is_comp(T) UNIV_LIKELY(dict_table_is_comp_func(T))
+[[nodiscard]] static inline bool dict_table_is_comp_func(
     const dict_table_t *table); /*!< in: table */
 
 /** Determine if a table uses atomic BLOBs (no locally stored prefix).
@@ -611,8 +617,10 @@ static inline void dict_table_x_unlock_indexes(
     dict_table_t *table); /*!< in: table */
 /** Check if the table has an FTS index.
  @return true if table has an FTS index */
-[[nodiscard]] static inline bool dict_table_has_fts_index(
+[[nodiscard]] static inline bool dict_table_has_fts_index_func(
     dict_table_t *table); /*!< in: table */
+#define dict_table_has_fts_index(T) \
+  UNIV_UNLIKELY(dict_table_has_fts_index_func(T))
 #ifdef UNIV_DEBUG
 /** Validate no active background threads to cause purge or rollback
  operations. */
@@ -883,8 +891,10 @@ static inline void dict_index_set_online_status(
  if this is a clustered index and the table is being or has been rebuilt online
  @retval false if the index has been created or the table has been
  rebuilt completely */
-[[nodiscard]] static inline bool dict_index_is_online_ddl(
+[[nodiscard]] static inline bool dict_index_is_online_ddl_func(
     const dict_index_t *index); /*!< in: index */
+#define dict_index_is_online_ddl(I) \
+  UNIV_UNLIKELY(dict_index_is_online_ddl_func(I))
 /** Calculates the minimum record length in an index. */
 [[nodiscard]] ulint dict_index_calc_min_rec_len(
     const dict_index_t *index); /*!< in: index */

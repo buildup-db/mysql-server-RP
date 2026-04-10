@@ -1,7 +1,7 @@
 /*****************************************************************************
 
 Copyright (c) 1996, 2025, Oracle and/or its affiliates.
-Copyright (c) 2025, buildup-db.
+Copyright (c) 2026, buildup-db.
 
 This program is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License, version 2.0, as published by the
@@ -729,7 +729,7 @@ inline ulint btr_pcur_t::get_rel_pos() const {
 inline void btr_pcur_t::close() {
   free_rec_buf();
 
-  if (m_btr_cur.rtr_info != nullptr) {
+  if (UNIV_UNLIKELY(m_btr_cur.rtr_info != nullptr)) {
     rtr_clean_rtr_info(m_btr_cur.rtr_info, true);
     m_btr_cur.rtr_info = nullptr;
   }

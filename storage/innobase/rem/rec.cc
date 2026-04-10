@@ -1,6 +1,7 @@
 /*****************************************************************************
 
 Copyright (c) 1994, 2025, Oracle and/or its affiliates.
+Copyright (c) 2026, buildup-db.
 
 This program is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License, version 2.0, as published by the
@@ -175,7 +176,7 @@ static void rec_init_offset_old_1byte(const rec_t *rec,
   ulint i = 0;
   uint32_t dropped_col_count = 0;
   do {
-    if (index->has_instant_cols_or_row_versions()) {
+    if (UNIV_UNLIKELY(index->has_instant_cols_or_row_versions())) {
       dict_field_t *dfield = index->get_physical_field(i);
       dict_col_t *col = dfield->col;
 
@@ -255,7 +256,7 @@ static void rec_init_offset_old_2byte(const rec_t *rec,
   ulint i = 0;
   uint32_t dropped_col_count = 0;
   do {
-    if (index->has_instant_cols_or_row_versions()) {
+    if (UNIV_UNLIKELY(index->has_instant_cols_or_row_versions())) {
       dict_field_t *dfield = index->get_physical_field(i);
       dict_col_t *col = dfield->col;
 

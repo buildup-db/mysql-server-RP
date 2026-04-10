@@ -6759,7 +6759,7 @@ static void innobase_vcol_build_templ(const TABLE *table,
   templ->mysql_col_len = static_cast<ulint>(field->pack_length());
   /* The multi-value index indexes attribute values in a JSON doc, so its
   index field length could be different from the actual column data length */
-  if (templ->is_virtual && innobase_is_multi_value_fld(field)) {
+  if (UNIV_UNLIKELY(templ->is_virtual) && innobase_is_multi_value_fld(field)) {
     templ->mysql_mvidx_len = static_cast<ulint>(field->key_length());
     templ->is_multi_val = true;
   } else {
@@ -7319,10 +7319,11 @@ int ha_innobase::open(const char *name, int, uint open_flags,
   }
 
   if (ib_table != nullptr &&
-      ((!DICT_TF2_FLAG_IS_SET(ib_table, DICT_TF2_FTS_HAS_DOC_ID) &&
-        table->s->fields != dict_table_get_n_tot_u_cols(ib_table)) ||
-       (DICT_TF2_FLAG_IS_SET(ib_table, DICT_TF2_FTS_HAS_DOC_ID) &&
-        (table->s->fields != dict_table_get_n_tot_u_cols(ib_table) - 1)))) {
+      UNIV_UNLIKELY(
+          (!DICT_TF2_FLAG_IS_SET(ib_table, DICT_TF2_FTS_HAS_DOC_ID) &&
+           table->s->fields != dict_table_get_n_tot_u_cols(ib_table)) ||
+          (DICT_TF2_FLAG_IS_SET(ib_table, DICT_TF2_FTS_HAS_DOC_ID) &&
+           (table->s->fields != dict_table_get_n_tot_u_cols(ib_table) - 1)))) {
     ib::warn(ER_IB_MSG_556)
         << "Table " << norm_name << " contains " << ib_table->get_n_user_cols()
         << " user"
@@ -7433,7 +7434,7 @@ int ha_innobase::open(const char *name, int, uint open_flags,
 
   key_used_on_scan = table_share->primary_key;
 
-  if (ib_table->n_v_cols) {
+  if (UNIV_UNLIKELY(ib_table->n_v_cols)) {
     dict_sys_mutex_enter();
     if (ib_table->vc_templ == nullptr) {
       ib_table->vc_templ =
@@ -7649,7 +7650,7 @@ int ha_innobase::open(const char *name, int, uint open_flags,
   }
 #endif /* UNIV_DEBUG */
 
-  if (m_prebuilt->table->is_fts_aux()) {
+  if (UNIV_UNLIKELY(m_prebuilt->table->is_fts_aux())) {
     dict_table_close(m_prebuilt->table, false, false);
   }
 
@@ -8276,7 +8277,7 @@ static mysql_row_templ_t *build_template_field(
     col = index->table->get_col(i);
   }
 
-  if (!templ->is_virtual) {
+  if (UNIV_LIKELY(!templ->is_virtual)) {
     templ->col_no = i;
     templ->clust_rec_field_no = dict_col_get_clust_pos(col, clust_index);
     ut_a(templ->clust_rec_field_no != ULINT_UNDEFINED);
@@ -8308,7 +8309,7 @@ static mysql_row_templ_t *build_template_field(
 
   templ->mysql_col_offset = (ulint)get_field_offset(table, field);
   templ->mysql_col_len = (ulint)field->pack_length();
-  if (templ->is_virtual && innobase_is_multi_value_fld(field)) {
+  if (UNIV_UNLIKELY(templ->is_virtual) && innobase_is_multi_value_fld(field)) {
     templ->mysql_mvidx_len = static_cast<ulint>(field->key_length());
     templ->is_multi_val = true;
   } else {
@@ -8500,8 +8501,9 @@ void ha_innobase::build_template(bool whole_row) {
       field->part_of_key.is_set(active_index)
       which would be acceptable if end_range==NULL. */
       bool is_v = innobase_is_v_fld(table->field[i]);
-      if (build_template_needs_field_in_icp(index, m_prebuilt, index_contains,
-                                            is_v ? num_v : i - num_v, is_v)) {
+      if (build_template_needs_field_in_icp(
+              index, m_prebuilt, index_contains,
+              UNIV_UNLIKELY(is_v) ? num_v : i - num_v, is_v)) {
         /* Needed in ICP */
         const Field *field;
         mysql_row_templ_t *templ;
@@ -8581,8 +8583,9 @@ void ha_innobase::build_template(bool whole_row) {
 
       bool is_v = innobase_is_v_fld(table->field[i]);
 
-      if (!build_template_needs_field_in_icp(index, m_prebuilt, index_contains,
-                                             is_v ? num_v : i - num_v, is_v)) {
+      if (!build_template_needs_field_in_icp(
+              index, m_prebuilt, index_contains,
+              UNIV_UNLIKELY(is_v) ? num_v : i - num_v, is_v)) {
         /* Not needed in ICP */
         const Field *field;
 
@@ -8603,7 +8606,7 @@ void ha_innobase::build_template(bool whole_row) {
         templ = build_template_field(m_prebuilt, clust_index, index, table,
                                      field, i - num_v, num_v);
 
-        if (templ->is_virtual) {
+        if (UNIV_UNLIKELY(templ->is_virtual)) {
           num_v++;
         }
       }
@@ -8627,7 +8630,7 @@ void ha_innobase::build_template(bool whole_row) {
         will not try to fill the value since they
         are not stored in such index nor in the
         cluster index. */
-        if (is_virtual && m_prebuilt->read_just_key &&
+        if (UNIV_UNLIKELY(is_virtual) && m_prebuilt->read_just_key &&
             !dict_index_contains_col_or_prefix(m_prebuilt->index, num_v,
                                                true)) {
           /* Turn off ROW_MYSQL_WHOLE_ROW */
@@ -8650,7 +8653,7 @@ void ha_innobase::build_template(bool whole_row) {
             contain, m_prebuilt->read_just_key, fetch_all_in_key,
             fetch_primary_key_cols, index, table, i, num_v);
         if (!field) {
-          if (is_virtual) {
+          if (UNIV_UNLIKELY(is_virtual)) {
             num_v++;
           }
           continue;
@@ -8666,11 +8669,11 @@ void ha_innobase::build_template(bool whole_row) {
       auto scan_index = m_prebuilt->index;
       bool is_sec_idx = (scan_index != nullptr && !scan_index->is_clustered());
 
-      if (is_virtual && is_sec_idx) {
+      if (UNIV_UNLIKELY(is_virtual) && is_sec_idx) {
         set_templ_icp(templ, index, scan_index, num_v);
       }
 
-      if (templ->is_virtual) {
+      if (UNIV_UNLIKELY(templ->is_virtual)) {
         num_v++;
       }
     }
@@ -9373,7 +9376,7 @@ static dberr_t calc_row_difference(
     bool is_multi_value = innobase_is_multi_value_fld(field);
     dict_col_t *col;
 
-    if (is_virtual) {
+    if (UNIV_UNLIKELY(is_virtual)) {
       col = &prebuilt->table->v_cols[num_v].m_col;
     } else {
       col = &prebuilt->table->cols[i - num_v];
@@ -9400,7 +9403,7 @@ static dberr_t calc_row_difference(
 
     /* Reset the type to BLOB for multi-value field, since server may
     keep it as non-BLOB one. */
-    if (is_multi_value) {
+    if (UNIV_UNLIKELY(is_multi_value)) {
       col_type = DATA_BLOB;
     }
 
@@ -9433,7 +9436,8 @@ static dberr_t calc_row_difference(
       default:;
     }
 
-    if (field_mysql_type == MYSQL_TYPE_LONGLONG && prebuilt->table->fts &&
+    if (field_mysql_type == MYSQL_TYPE_LONGLONG &&
+        UNIV_UNLIKELY(prebuilt->table->fts) &&
         innobase_strcasecmp(field->field_name, FTS_DOC_ID_COL_NAME) == 0) {
       doc_id = (doc_id_t)mach_read_from_n_little_endian(n_ptr, 8);
       if (doc_id == 0) {
@@ -9455,7 +9459,7 @@ static dberr_t calc_row_difference(
     bool online_ord_part = false;
 #endif
 
-    if (is_virtual) {
+    if (UNIV_UNLIKELY(is_virtual)) {
       /* If the virtual column is not indexed,
       we shall ignore it for update */
       if (!col->ord_part) {
@@ -9503,7 +9507,7 @@ static dberr_t calc_row_difference(
         dfield_t *vfield = dtuple_get_nth_v_field(uvect->old_vrow, num_v);
         col->copy_type(dfield_get_type(vfield));
 
-        if (is_multi_value) {
+        if (UNIV_UNLIKELY(is_multi_value)) {
           innobase_get_multi_value(prebuilt->m_mysql_table, i, vfield, nullptr,
                                    static_cast<uint>(old_row - new_row), comp,
                                    uvect->per_stmt_heap);
@@ -9574,7 +9578,7 @@ static dberr_t calc_row_difference(
         return (DB_CANT_CREATE_GEOMETRY_OBJECT);
       }
 
-      if (is_multi_value && n_len != UNIV_SQL_NULL &&
+      if (UNIV_UNLIKELY(is_multi_value) && n_len != UNIV_SQL_NULL &&
           !field->is_null_in_record(old_row)) {
         /* Multi-value field and both old and new are not NULL,
         parse the value separately and also calculate the difference */
@@ -9593,7 +9597,7 @@ static dberr_t calc_row_difference(
       if (n_len != UNIV_SQL_NULL) {
         col->copy_type(dfield_get_type(&dfield));
 
-        if (is_multi_value && !multi_value_calc_by_diff) {
+        if (UNIV_UNLIKELY(is_multi_value) && !multi_value_calc_by_diff) {
           innobase_get_multi_value(prebuilt->m_mysql_table, i, &dfield, nullptr,
                                    0, comp, uvect->per_stmt_heap);
         } else {
@@ -9616,7 +9620,7 @@ static dberr_t calc_row_difference(
       ufield->orig_len = 0;
       ufield->mysql_field = field;
 
-      if (is_virtual) {
+      if (UNIV_UNLIKELY(is_virtual)) {
         dfield_t *vfield = dtuple_get_nth_v_field(uvect->old_vrow, num_v);
         upd_fld_set_virtual_col(ufield);
         /* Set ufield->field_no to store the position of virtual column. */
@@ -9636,7 +9640,7 @@ static dberr_t calc_row_difference(
             col->copy_type(dfield_get_type(&dfield));
           }
 
-          if (is_multi_value && !multi_value_calc_by_diff) {
+          if (UNIV_UNLIKELY(is_multi_value) && !multi_value_calc_by_diff) {
             innobase_get_multi_value(prebuilt->m_mysql_table, i, &dfield,
                                      nullptr,
                                      static_cast<uint>(old_row - new_row), comp,
@@ -9684,7 +9688,7 @@ static dberr_t calc_row_difference(
       checking only once here. Later we will need to
       note which columns have been updated and do
       selective processing. */
-      if (prebuilt->table->fts != nullptr && !is_virtual) {
+      if (UNIV_UNLIKELY(prebuilt->table->fts) && !is_virtual) {
         ulint offset;
         dict_table_t *innodb_table;
 
@@ -9702,11 +9706,11 @@ static dberr_t calc_row_difference(
           changes_fts_doc_col = row_upd_changes_doc_id(innodb_table, ufield);
         }
       }
-    } else if (is_virtual) {
+    } else if (UNIV_UNLIKELY(is_virtual)) {
       dfield_t *vfield = dtuple_get_nth_v_field(uvect->old_vrow, num_v);
       col->copy_type(dfield_get_type(vfield));
 
-      if (is_multi_value) {
+      if (UNIV_UNLIKELY(is_multi_value)) {
         innobase_get_multi_value(prebuilt->m_mysql_table, i, vfield, nullptr,
                                  static_cast<uint>(old_row - new_row), comp,
                                  uvect->per_stmt_heap);
@@ -9724,7 +9728,7 @@ static dberr_t calc_row_difference(
   then add an update column node with a new document id to the
   other changes. We piggy back our changes on the normal UPDATE
   to reduce processing and IO overhead. */
-  if (!prebuilt->table->fts) {
+  if (UNIV_LIKELY(!prebuilt->table->fts)) {
     trx->fts_next_doc_id = 0;
   } else if (changes_fts_column || changes_fts_doc_col) {
     dict_table_t *innodb_table = prebuilt->table;
@@ -10256,7 +10260,7 @@ int ha_innobase::index_read(
                                  : HA_ERR_TABLE_DEF_CHANGED;
   }
 
-  if (index->type & DICT_FTS) {
+  if (UNIV_UNLIKELY(index->type & DICT_FTS)) {
     return HA_ERR_KEY_NOT_FOUND;
   }
 
@@ -10529,7 +10533,7 @@ int ha_innobase::change_active_index(
   /* Initialization of search_tuple is not needed for FT index
   since FT search returns rank only. In addition engine should
   be able to retrieve FTS_DOC_ID column value if necessary. */
-  if ((m_prebuilt->index->type & DICT_FTS)) {
+  if (UNIV_UNLIKELY(m_prebuilt->index->type & DICT_FTS)) {
     if (table->fts_doc_id_field &&
         bitmap_is_set(table->read_set,
                       table->fts_doc_id_field->field_index()) &&
@@ -11314,7 +11318,7 @@ void innodb_base_col_setup(dict_table_t *table, const Field *field,
   for (uint i = 0; i < field->table->s->fields; ++i) {
     const Field *base_field = field->table->field[i];
 
-    if (!base_field->is_virtual_gcol() &&
+    if (UNIV_LIKELY(!base_field->is_virtual_gcol()) &&
         bitmap_is_set(&field->gcol_info->base_columns_map, i)) {
       ulint z;
 
@@ -11650,7 +11654,7 @@ void innodb_base_col_setup_for_stored(const dict_table_t *table,
       goto error_ret;
     }
 
-    if (!is_virtual) {
+    if (UNIV_LIKELY(!is_virtual)) {
       uint32_t v_added = UINT32_UNDEFINED;
       uint32_t v_dropped = UINT32_UNDEFINED;
       uint32_t phy_pos = UINT32_UNDEFINED;
@@ -11689,7 +11693,7 @@ void innodb_base_col_setup_for_stored(const dict_table_t *table,
         mem_heap_free(instant_heap);
       }
     } else {
-      if (is_multi_val) {
+      if (UNIV_UNLIKELY(is_multi_val)) {
         col_len = field->key_length();
       }
       dict_mem_table_add_v_col(
@@ -11702,7 +11706,7 @@ void innodb_base_col_setup_for_stored(const dict_table_t *table,
           !field->is_hidden_by_system());
     }
 
-    if (is_stored) {
+    if (UNIV_UNLIKELY(is_stored)) {
       ut_ad(!is_virtual);
       /* Added stored column in m_s_cols list. */
       dict_mem_table_add_s_col(table,
@@ -12157,7 +12161,7 @@ inline int create_index(
       nullptr);
 
   /* For multi-value virtual index, we need to adjust indexed col length */
-  if (error == 0 && multi_val_idx) {
+  if (error == 0 && UNIV_UNLIKELY(multi_val_idx)) {
     dict_table_t *new_table = dd_table_open_on_name_in_mem(table_name, false);
 
     dict_index_t *last_index = UT_LIST_GET_LAST(new_table->indexes);
@@ -17777,7 +17781,7 @@ static bool innobase_get_index_column_cardinality(
     }
   }
 
-  if (ib_table->is_fts_aux()) {
+  if (UNIV_UNLIKELY(ib_table->is_fts_aux())) {
     /* Server should not ask for Stats for Internal Tables */
     dd_table_close(ib_table, thd, &mdl, false);
     ut_d(ut_error);
@@ -18147,8 +18151,9 @@ int ha_innobase::optimize(THD *,          /*!< in: connection thread handle */
   This works OK otherwise, but MySQL locks the entire table during
   calls to OPTIMIZE, which is undesirable. */
 
-  if (innodb_optimize_fulltext_only) {
-    if (m_prebuilt->table->fts && m_prebuilt->table->fts->cache &&
+  if (UNIV_UNLIKELY(innodb_optimize_fulltext_only)) {
+    if (UNIV_UNLIKELY(m_prebuilt->table->fts) &&
+        m_prebuilt->table->fts->cache &&
         !dict_table_is_discarded(m_prebuilt->table)) {
       fts_sync_table(m_prebuilt->table, false, true, false);
       fts_optimize_table(m_prebuilt->table);
@@ -18333,8 +18338,9 @@ int ha_innobase::check(THD *thd,                /*!< in: user thread handle */
 
     if (index == m_prebuilt->table->first_index()) {
       n_rows_in_table = n_rows;
-    } else if (!(index->type & DICT_FTS) && (n_rows != n_rows_in_table) &&
-               (!index->is_multi_value()) &&
+    } else if (UNIV_LIKELY(!(index->type & DICT_FTS)) &&
+               UNIV_UNLIKELY(n_rows != n_rows_in_table) &&
+               UNIV_LIKELY(!index->is_multi_value()) &&
                (!dict_index_is_spatial(index) || (n_rows < n_rows_in_table) ||
                 (n_dups < n_rows - n_rows_in_table))) {
       push_warning_printf(thd, Sql_condition::SL_WARNING, ER_NOT_KEYFILE,
@@ -23787,13 +23793,13 @@ dfield_t *innobase_get_computed_value(
        vctempl->mysql_null_bit_mask)) {
     dfield_set_null(field);
     field->type.prtype |= DATA_VIRTUAL;
-    if (col->m_col.is_multi_value()) {
+    if (UNIV_UNLIKELY(col->m_col.is_multi_value())) {
       field->type.prtype |= DATA_MULTI_VALUE;
     }
     return (field);
   }
 
-  if (col->m_col.is_multi_value()) {
+  if (UNIV_UNLIKELY(col->m_col.is_multi_value())) {
     Field_typed_array *fld;
     fld = down_cast<Field_typed_array *>(mysql_table->field[col->m_col.ind]);
     json_binary::Value v(json_binary::parse_binary(mv_data_ptr, mv_length));

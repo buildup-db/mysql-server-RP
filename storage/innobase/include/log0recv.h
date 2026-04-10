@@ -1,6 +1,7 @@
 /*****************************************************************************
 
 Copyright (c) 1997, 2025, Oracle and/or its affiliates.
+Copyright (c) 2026, buildup-db.
 
 This program is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License, version 2.0, as published by the
@@ -186,7 +187,7 @@ size_t meb_heap_used();
 
 /** Returns true if recovery is currently running.
 @return recv_recovery_on */
-[[nodiscard]] static inline bool recv_recovery_is_on();
+#define recv_recovery_is_on() UNIV_UNLIKELY(recv_recovery_on)
 
 /** Returns true if the page is brand new (the next log record is init_file_page
 or no records to apply).

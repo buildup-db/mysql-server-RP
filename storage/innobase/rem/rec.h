@@ -1,7 +1,7 @@
 /*****************************************************************************
 
 Copyright (c) 1994, 2025, Oracle and/or its affiliates.
-Copyright (c) 2025, buildup-db.
+Copyright (c) 2026, buildup-db.
 
 This program is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License, version 2.0, as published by the
@@ -336,7 +336,7 @@ current index.
     const rec_t *rec, const dict_index_t *index) {
   uint16_t n = rec_get_n_fields_old_raw(rec);
 
-  if (index->has_instant_cols_or_row_versions()) {
+  if (UNIV_UNLIKELY(index->has_instant_cols_or_row_versions())) {
     if (strcmp(index->name, RECOVERY_INDEX_TABLE_NAME) == 0) {
       /* In recovery, index is not completely built. Skip validation. */
       if (n > 1) /* For infimum/supremum, n is 1 */ {
@@ -641,18 +641,20 @@ inline void rec_init_fixed_offsets(const dict_index_t *index, ulint *offsets) {
 /** The following function tells if a new-style record is versioned.
 @param[in]      rec     new-style (COMPACT/DYNAMIC) record
 @return true if it is versioned */
-static inline bool rec_new_is_versioned(const rec_t *rec) {
+static inline bool rec_new_is_versioned_func(const rec_t *rec) {
   ulint info = rec_get_info_bits(rec, true);
   return ((info & REC_INFO_VERSION_FLAG) != 0);
 }
+#define rec_new_is_versioned(rec) UNIV_UNLIKELY(rec_new_is_versioned_func(rec))
 
 /** The following function tells if an old-style record is versioned.
 @param[in]      rec     old-style (REDUNDANT) record
 @return true if it's versioned */
-static inline bool rec_old_is_versioned(const rec_t *rec) {
+static inline bool rec_old_is_versioned_func(const rec_t *rec) {
   ulint info = rec_get_info_bits(rec, false);
   return ((info & REC_INFO_VERSION_FLAG) != 0);
 }
+#define rec_old_is_versioned(rec) UNIV_UNLIKELY(rec_old_is_versioned_func(rec))
 
 /** The following function tells if a temporary record is versioned.
 @param[in]      rec     new-style temporary record
@@ -732,7 +734,7 @@ static ALWAYS_INLINE enum REC_INSERT_STATE get_rec_insert_state(
     const dict_index_t *index, const rec_t *rec, bool temp) {
   ut_ad(dict_table_is_comp(index->table) || temp);
 
-  if (!index->has_instant_cols_or_row_versions()) {
+  if (UNIV_LIKELY(!index->has_instant_cols_or_row_versions())) {
     return INSERTED_INTO_TABLE_WITH_NO_INSTANT_NO_VERSION;
   }
 
@@ -751,7 +753,7 @@ static ALWAYS_INLINE enum REC_INSERT_STATE get_rec_insert_state(
                    "run CHECK TABLE before proceeding.";
   });
 
-  if (is_versioned && is_instant) {
+  if (UNIV_UNLIKELY(is_versioned) && UNIV_UNLIKELY(is_instant)) {
     ib::error() << "Record has both instant and version bit set in Table '"
                 << index->table_name << "', Index '" << index->name()
                 << "'. This indicates that the table may be corrupt. Please "
@@ -760,7 +762,7 @@ static ALWAYS_INLINE enum REC_INSERT_STATE get_rec_insert_state(
   ut_ad(!is_versioned || !is_instant);
 
   enum REC_INSERT_STATE rec_insert_state = REC_INSERT_STATE::NONE;
-  if (is_versioned) {
+  if (UNIV_UNLIKELY(is_versioned)) {
     const byte *v_ptr =
         (byte *)rec -
         ((temp ? REC_N_TMP_EXTRA_BYTES : REC_N_NEW_EXTRA_BYTES) + 1);
@@ -774,10 +776,10 @@ static ALWAYS_INLINE enum REC_INSERT_STATE get_rec_insert_state(
       ut_ad(index->has_row_versions());
       rec_insert_state = INSERTED_AFTER_INSTANT_ADD_NEW_IMPLEMENTATION;
     }
-  } else if (is_instant) {
+  } else if (UNIV_UNLIKELY(is_instant)) {
     ut_ad(index->table->has_instant_cols());
     rec_insert_state = INSERTED_AFTER_INSTANT_ADD_OLD_IMPLEMENTATION;
-  } else if (index->table->has_instant_cols()) {
+  } else if (UNIV_UNLIKELY(index->table->has_instant_cols())) {
     rec_insert_state = INSERTED_BEFORE_INSTANT_ADD_OLD_IMPLEMENTATION;
   } else {
     rec_insert_state = INSERTED_BEFORE_INSTANT_ADD_NEW_IMPLEMENTATION;

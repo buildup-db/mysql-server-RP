@@ -1,6 +1,7 @@
 /*****************************************************************************
 
 Copyright (c) 1996, 2025, Oracle and/or its affiliates.
+Copyright (c) 2026, buildup-db.
 
 This program is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License, version 2.0, as published by the
@@ -598,7 +599,7 @@ static const char *dict_load_column_low(
     }
   }
 
-  if (table && table->n_def != pos && !(prtype & DATA_VIRTUAL)) {
+  if (table && UNIV_UNLIKELY(table->n_def != pos) && !(prtype & DATA_VIRTUAL)) {
     return ("SYS_COLUMNS.POS mismatch");
   }
 
@@ -616,7 +617,7 @@ static const char *dict_load_column_low(
   num_base = mach_read_from_4(field);
 
   if (column == nullptr) {
-    if (prtype & DATA_VIRTUAL) {
+    if (UNIV_UNLIKELY(prtype & DATA_VIRTUAL)) {
 #ifdef UNIV_DEBUG
       dict_v_col_t *vcol =
 #endif
@@ -816,7 +817,7 @@ static void dict_load_virtual_one_col(dict_table_t *table, ulint nth_v_col,
 @param[in]      heap    memory heap
 */
 static void dict_load_virtual(dict_table_t *table, mem_heap_t *heap) {
-  for (ulint i = 0; i < table->n_v_cols; i++) {
+  for (ulint i = 0; UNIV_UNLIKELY(i < table->n_v_cols); i++) {
     dict_v_col_t *v_col = dict_table_get_nth_v_col(table, i);
 
     dict_load_virtual_one_col(table, i, v_col, heap);

@@ -1053,7 +1053,7 @@ int cmp_rec_rec_with_match(const rec_t *rec1, const rec_t *rec2,
       mtype = DATA_BINARY;
       prtype = 0;
       is_asc = true;
-    } else if ((i == 1) && spatial_index_non_leaf) {
+    } else if ((i == 1) && UNIV_UNLIKELY(spatial_index_non_leaf)) {
       /* When the page is non-leaf spatial index page we should
       not depend upon the dictionary information because the
       page doesn't hold any primary key information.The spatial

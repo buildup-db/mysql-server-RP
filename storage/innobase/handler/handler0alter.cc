@@ -1,6 +1,7 @@
 /*****************************************************************************
 
 Copyright (c) 2005, 2025, Oracle and/or its affiliates.
+Copyright (c) 2026, buildup-db.
 
 This program is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License, version 2.0, as published by the
@@ -606,7 +607,7 @@ static bool check_v_col_in_order(const TABLE *table, const TABLE *altered_table,
     cf_it.rewind();
 
     while (const Create_field *new_field = cf_it++) {
-      if (!new_field->is_virtual_gcol()) {
+      if (UNIV_LIKELY(!new_field->is_virtual_gcol())) {
         /* We do not support add virtual col
         before autoinc column */
         if (has_new && (new_field->flags & AUTO_INCREMENT_FLAG)) {
@@ -1244,7 +1245,7 @@ enum_alter_inplace_result ha_innobase::check_if_supported_inplace_alter(
         online = false;
       }
 
-      if (key_part->field->is_virtual_gcol()) {
+      if (UNIV_UNLIKELY(key_part->field->is_virtual_gcol())) {
         /* Do not support adding index on newly added
         virtual column, while there is also a drop
         virtual column in the same clause */
@@ -2583,7 +2584,7 @@ static void innobase_create_index_field_def(const TABLE *altered_table,
   index_field->m_is_ascending = !(key_part->key_part_flag & HA_REVERSE_SORT);
 
   /* No prefix index on multi-value field */
-  if (!index_field->m_is_multi_value &&
+  if (UNIV_LIKELY(!index_field->m_is_multi_value) &&
       (DATA_LARGE_MTYPE(col_type) ||
        (key_part->length < field->pack_length() &&
         field->type() != MYSQL_TYPE_VARCHAR) ||
@@ -2745,11 +2746,11 @@ static void innobase_create_index_def(const TABLE *altered_table,
       innobase_create_index_field_def(altered_table, &key->key_part[i],
                                       &index_def->m_fields[i], new_clustered);
 
-      if (index_def->m_fields[i].m_is_v_col) {
+      if (UNIV_UNLIKELY(index_def->m_fields[i].m_is_v_col)) {
         index_def->m_ind_type |= DICT_VIRTUAL;
       }
 
-      if (index_def->m_fields[i].m_is_multi_value) {
+      if (UNIV_UNLIKELY(index_def->m_fields[i].m_is_multi_value)) {
         index_def->m_ind_type |= DICT_MULTI_VALUE;
       }
     }
@@ -3818,7 +3819,7 @@ static bool prepare_inplace_add_virtual(Alter_inplace_info *ha_alter_info,
       return (true);
     }
 
-    if (is_multi_value) {
+    if (UNIV_UNLIKELY(is_multi_value)) {
       col_len = field->key_length();
     } else {
       col_len = field->pack_length();
@@ -3851,7 +3852,7 @@ static bool prepare_inplace_add_virtual(Alter_inplace_info *ha_alter_info,
       charset_no = 0;
     }
 
-    if (field->type() == MYSQL_TYPE_VARCHAR && !is_multi_value) {
+    if (field->type() == MYSQL_TYPE_VARCHAR && UNIV_LIKELY(!is_multi_value)) {
       uint32_t length_bytes = field->get_length_bytes();
 
       col_len -= length_bytes;
@@ -3865,7 +3866,7 @@ static bool prepare_inplace_add_virtual(Alter_inplace_info *ha_alter_info,
 
     ctx->add_vcol[j].m_col.prtype |= DATA_VIRTUAL;
 
-    if (is_multi_value) {
+    if (UNIV_UNLIKELY(is_multi_value)) {
       ctx->add_vcol[j].m_col.prtype |= DATA_MULTI_VALUE;
     }
 
@@ -3947,7 +3948,7 @@ static bool prepare_inplace_drop_virtual(Alter_inplace_info *ha_alter_info,
       return (true);
     }
 
-    if (is_multi_value) {
+    if (UNIV_UNLIKELY(is_multi_value)) {
       col_len = field->key_length();
     } else {
       col_len = field->pack_length();
@@ -3981,7 +3982,7 @@ static bool prepare_inplace_drop_virtual(Alter_inplace_info *ha_alter_info,
       charset_no = 0;
     }
 
-    if (field->type() == MYSQL_TYPE_VARCHAR && !is_multi_value) {
+    if (field->type() == MYSQL_TYPE_VARCHAR && UNIV_LIKELY(!is_multi_value)) {
       uint32_t length_bytes = field->get_length_bytes();
 
       col_len -= length_bytes;
@@ -4036,7 +4037,7 @@ static void innodb_v_adjust_idx_col(const Alter_inplace_info *ha_alter_info,
     /* Only adjust virtual column col_no, since non-virtual
     column position (in non-vcol list) won't change unless
     table rebuild */
-    if (!index_field->m_is_v_col) {
+    if (UNIV_LIKELY(!index_field->m_is_v_col)) {
       continue;
     }
 
@@ -4046,7 +4047,7 @@ static void innodb_v_adjust_idx_col(const Alter_inplace_info *ha_alter_info,
 
     /* Found the field in the new table */
     while (const Create_field *new_field = cf_it++) {
-      if (!new_field->is_virtual_gcol()) {
+      if (UNIV_LIKELY(!new_field->is_virtual_gcol())) {
         continue;
       }
 
@@ -4080,7 +4081,7 @@ static void innodb_v_adjust_idx_col(const Alter_inplace_info *ha_alter_info,
         break;
       }
 
-      if (old_table->field[old_i]->is_virtual_gcol()) {
+      if (UNIV_UNLIKELY(old_table->field[old_i]->is_virtual_gcol())) {
         num_v++;
       }
     }
@@ -4688,7 +4689,7 @@ template <typename Table>
         charset_no = 0;
       }
 
-      if (is_multi_value) {
+      if (UNIV_UNLIKELY(is_multi_value)) {
         col_len = field->key_length();
       } else {
         col_len = field->pack_length();
@@ -4700,7 +4701,7 @@ template <typename Table>
       length in the InnoDB data dictionary is the
       real maximum byte length of the actual data. */
 
-      if (field->type() == MYSQL_TYPE_VARCHAR && !is_multi_value) {
+      if (field->type() == MYSQL_TYPE_VARCHAR && UNIV_LIKELY(!is_multi_value)) {
         uint32_t length_bytes = field->get_length_bytes();
 
         col_len -= length_bytes;
@@ -4722,9 +4723,9 @@ template <typename Table>
         goto new_clustered_failed;
       }
 
-      if (is_virtual) {
+      if (UNIV_UNLIKELY(is_virtual)) {
         field_type |= DATA_VIRTUAL;
-        if (is_multi_value) {
+        if (UNIV_UNLIKELY(is_multi_value)) {
           field_type |= DATA_MULTI_VALUE;
         }
         dict_mem_table_add_v_col(
@@ -6530,12 +6531,12 @@ static void innobase_rename_or_enlarge_columns_cache(
         continue;
       }
 
-      ulint col_n = is_virtual ? num_v : i - num_v;
+      ulint col_n = UNIV_UNLIKELY(is_virtual) ? num_v : i - num_v;
 
       if ((*fp)->is_equal(cf) == IS_EQUAL_PACK_LENGTH) {
         dict_col_t *col;
 
-        if (is_virtual) {
+        if (UNIV_UNLIKELY(is_virtual)) {
           col = &dict_table_get_nth_v_col(user_table, col_n)->m_col;
         } else {
           col = user_table->get_col(col_n);
@@ -6570,7 +6571,7 @@ static void innobase_rename_or_enlarge_columns_cache(
       break;
     }
 
-    if (is_virtual) {
+    if (UNIV_UNLIKELY(is_virtual)) {
       num_v++;
     }
   }

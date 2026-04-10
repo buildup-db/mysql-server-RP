@@ -1,6 +1,7 @@
 /*****************************************************************************
 
 Copyright (c) 1997, 2025, Oracle and/or its affiliates.
+Copyright (c) 2026, buildup-db.
 
 This program is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License, version 2.0, as published by the
@@ -413,7 +414,7 @@ introduced where a call to log_free_check() is bypassed. */
     modify_leaf = true;
   }
 
-  if (!index->is_committed()) {
+  if (UNIV_UNLIKELY(!index->is_committed())) {
     /* The index->online_status may change if the index is
     or was being created online, but not committed yet. It
     is protected by index->lock. */
@@ -613,7 +614,7 @@ try_again:
 
   dict_disable_redo_if_temporary(index->table, &mtr);
 
-  if (!index->is_committed()) {
+  if (UNIV_UNLIKELY(!index->is_committed())) {
     /* The index->online_status may change if the index is
     or was being created online, but not committed yet. It
     is protected by index->lock. */
@@ -639,7 +640,7 @@ try_again:
 
   search_result = row_search_index_entry(index, entry, mode, &pcur, &mtr);
 
-  switch (search_result) {
+  switch (UNIV_EXPECT(search_result, ROW_FOUND)) {
     mem_heap_t *heap;
     mem_heap_t *offsets_heap;
     ulint *offsets;
@@ -839,12 +840,12 @@ This is the specific function to handle the modify on multi-value indexes.
     dict_index_t *index = node->index;
     dtuple_t *entry;
 
-    if (index->type & DICT_FTS) {
+    if (UNIV_UNLIKELY(index->type & DICT_FTS)) {
       dict_table_next_uncorrupted_index(node->index);
       continue;
     }
 
-    if (index->is_multi_value()) {
+    if (UNIV_UNLIKELY(index->is_multi_value())) {
       err = row_undo_mod_upd_del_multi_sec(node, thr, index, heap);
       if (err != DB_SUCCESS) {
         break;
@@ -951,12 +952,12 @@ This is the specific function to handle the modify on multi-value indexes.
     dict_index_t *index = node->index;
     dtuple_t *entry;
 
-    if (index->type == DICT_FTS) {
+    if (UNIV_UNLIKELY(index->type == DICT_FTS)) {
       dict_table_next_uncorrupted_index(node->index);
       continue;
     }
 
-    if (index->is_multi_value()) {
+    if (UNIV_UNLIKELY(index->is_multi_value())) {
       err = row_undo_mod_del_mark_multi_sec(node, thr, index, heap);
       if (err != DB_SUCCESS) {
         break;
@@ -1093,16 +1094,17 @@ static dberr_t row_undo_mod_upd_exist_multi_sec(undo_node_t *node,
         continue;
       }
     } else {
-      if (index->type == DICT_FTS ||
+      if (UNIV_UNLIKELY(index->type == DICT_FTS) ||
           !row_upd_changes_ord_field_binary(
               index, node->update, thr, node->row, node->ext,
-              (index->is_multi_value() ? &non_mv_upd : nullptr))) {
+              (UNIV_UNLIKELY(index->is_multi_value()) ? &non_mv_upd
+                                                      : nullptr))) {
         dict_table_next_uncorrupted_index(node->index);
         continue;
       }
     }
 
-    if (index->is_multi_value()) {
+    if (UNIV_UNLIKELY(index->is_multi_value())) {
       err =
           row_undo_mod_upd_exist_multi_sec(node, thr, index, non_mv_upd, heap);
       mem_heap_empty(heap);
@@ -1260,7 +1262,7 @@ static void row_undo_mod_parse_undo_rec(undo_node_t *node, THD *thd,
   }
 
   /* Extract indexed virtual columns from undo log */
-  if (node->table && node->table->n_v_cols) {
+  if (node->table && UNIV_UNLIKELY(node->table->n_v_cols)) {
     row_upd_replace_vcol(
         node->row, node->table, node->update, false, node->undo_row,
         (node->cmpl_info & UPD_NODE_NO_ORD_CHANGE) ? nullptr : ptr);

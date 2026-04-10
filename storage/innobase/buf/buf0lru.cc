@@ -1,7 +1,7 @@
 /*****************************************************************************
 
 Copyright (c) 1995, 2025, Oracle and/or its affiliates.
-Copyright (c) 2025, buildup-db.
+Copyright (c) 2026, buildup-db.
 
 This program is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License, version 2.0, as published by the
@@ -1182,7 +1182,7 @@ bool buf_LRU_scan_and_free_block(buf_pool_t *buf_pool, bool scan_all) {
 
   mutex_enter(&buf_pool->LRU_list_mutex);
 
-  if (use_unzip_list) {
+  if (UNIV_UNLIKELY(use_unzip_list)) {
     freed = buf_LRU_free_from_unzip_LRU_list(buf_pool, scan_all);
   }
 
@@ -1242,7 +1242,7 @@ static ALWAYS_INLINE buf_block_t *buf_LRU_get_free_only_inline(
     UT_LIST_REMOVE(buf_pool->free, &block->page);
     mutex_exit(&buf_pool->free_list_mutex);
 
-    if (!buf_get_withdraw_depth(buf_pool) ||
+    if (UNIV_LIKELY(!buf_get_withdraw_depth(buf_pool)) ||
         !buf_block_will_withdrawn(buf_pool, block)) {
       /* found valid free block */
       /* No adaptive hash index entries may point to
@@ -1571,7 +1571,7 @@ static void buf_unzip_LRU_remove_block_if_needed(buf_page_t *bpage) {
   ut_ad(buf_page_in_file(bpage));
   ut_ad(mutex_own(&buf_pool->LRU_list_mutex));
 
-  if (buf_page_belongs_to_unzip_LRU(bpage)) {
+  if (UNIV_UNLIKELY(buf_page_belongs_to_unzip_LRU(bpage))) {
     buf_block_t *block = reinterpret_cast<buf_block_t *>(bpage);
 
     ut_ad(block->in_unzip_LRU_list);
@@ -1739,7 +1739,7 @@ static inline void buf_LRU_add_block_low(buf_page_t *bpage, bool old) {
 
   /* If this is a zipped block with decompressed frame as well
   then put it on the unzip_LRU list */
-  if (buf_page_belongs_to_unzip_LRU(bpage)) {
+  if (UNIV_UNLIKELY(buf_page_belongs_to_unzip_LRU(bpage))) {
     buf_unzip_LRU_add_block((buf_block_t *)bpage, old);
   }
 }
@@ -2081,7 +2081,7 @@ void buf_LRU_block_free_non_file_page(buf_block_t *block) {
   ut_ad(block->page.get_space() == nullptr);
 #endif /* !UNIV_HOTBACKUP */
 
-  if (buf_get_withdraw_depth(buf_pool) &&
+  if (UNIV_UNLIKELY(buf_get_withdraw_depth(buf_pool)) &&
       buf_block_will_withdrawn(buf_pool, block)) {
     /* This should be withdrawn */
     buf_block_set_state(block, BUF_BLOCK_NOT_USED);
@@ -2140,14 +2140,14 @@ static bool buf_LRU_block_remove_hashed(buf_page_t *bpage, bool zip,
 
   buf_pool->freed_page_clock += 1;
 
-  switch (buf_page_get_state(bpage)) {
+  switch (UNIV_EXPECT(buf_page_get_state(bpage), BUF_BLOCK_FILE_PAGE)) {
     case BUF_BLOCK_FILE_PAGE: {
       UNIV_MEM_ASSERT_W(bpage, sizeof(buf_block_t));
       UNIV_MEM_ASSERT_W(((buf_block_t *)bpage)->frame, UNIV_PAGE_SIZE);
 
       buf_block_modify_clock_inc((buf_block_t *)bpage);
 
-      if (bpage->zip.data != nullptr) {
+      if (UNIV_UNLIKELY(bpage->zip.data != nullptr)) {
         const page_t *page = ((buf_block_t *)bpage)->frame;
 
         ut_a(!zip || !bpage->is_dirty());
@@ -2224,7 +2224,7 @@ static bool buf_LRU_block_remove_hashed(buf_page_t *bpage, bool zip,
       [[fallthrough]];
     case BUF_BLOCK_ZIP_PAGE:
       ut_a(!bpage->is_dirty());
-      if (bpage->size.is_compressed()) {
+      if (UNIV_UNLIKELY(bpage->size.is_compressed())) {
         UNIV_MEM_ASSERT_W(bpage->zip.data, bpage->size.physical());
       }
       break;
@@ -2266,7 +2266,7 @@ static bool buf_LRU_block_remove_hashed(buf_page_t *bpage, bool zip,
 
   HASH_DELETE(buf_page_t, hash, buf_pool->page_hash, bpage->id.hash(), bpage);
 
-  switch (buf_page_get_state(bpage)) {
+  switch (UNIV_EXPECT(buf_page_get_state(bpage), BUF_BLOCK_FILE_PAGE)) {
     case BUF_BLOCK_ZIP_PAGE:
       ut_ad(!bpage->in_free_list);
       ut_ad(!bpage->in_flush_list);
@@ -2316,7 +2316,7 @@ static bool buf_LRU_block_remove_hashed(buf_page_t *bpage, bool zip,
       rw_lock_x_unlock(hash_lock);
       mutex_exit(&((buf_block_t *)bpage)->mutex);
 
-      if (zip && bpage->zip.data) {
+      if (UNIV_LIKELY(zip) && UNIV_UNLIKELY(bpage->zip.data)) {
         /* Free the compressed page. */
         void *data = bpage->zip.data;
         bpage->zip.data = nullptr;

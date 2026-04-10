@@ -1,6 +1,7 @@
 /*****************************************************************************
 
 Copyright (c) 1996, 2025, Oracle and/or its affiliates.
+Copyright (c) 2026, buildup-db.
 
 This program is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License, version 2.0, as published by the
@@ -113,7 +114,7 @@ dtuple_t *row_build_index_entry_low(const dtuple_t *row, const row_ext_t *ext,
     }
     static_assert(DATA_MISSING == 0, "DATA_MISSING != 0");
 
-    if (col->is_virtual()) {
+    if (UNIV_UNLIKELY(col->is_virtual())) {
       const dict_v_col_t *v_col = reinterpret_cast<const dict_v_col_t *>(col);
 
       ut_ad(v_col->v_pos < dtuple_get_n_v_fields(row));
@@ -268,7 +269,7 @@ dtuple_t *row_build_index_entry_low(const dtuple_t *row, const row_ext_t *ext,
     indexed long columns may be stored off-page. */
     ut_ad(col->ord_part);
 
-    if (ext && !col->is_virtual()) {
+    if (ext && UNIV_LIKELY(!col->is_virtual())) {
       /* See if the column is stored externally. */
       const byte *buf = row_ext_lookup(ext, col_no, &len);
       if (UNIV_LIKELY_NULL(buf)) {
@@ -415,7 +416,7 @@ static inline dtuple_t *row_build_low(ulint type, const dict_index_t *index,
       col_table->get_col(i)->copy_type(
           dfield_get_type(dtuple_get_nth_field(row, i)));
     }
-  } else if (add_v != nullptr) {
+  } else if (UNIV_UNLIKELY(add_v != nullptr)) {
     row = dtuple_create_with_vcol(
         heap, col_table->get_n_cols(),
         dict_table_get_n_v_cols(col_table) + add_v->n_v_col);

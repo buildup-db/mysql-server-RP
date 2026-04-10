@@ -1,6 +1,7 @@
 /*****************************************************************************
 
 Copyright (c) 1997, 2025, Oracle and/or its affiliates.
+Copyright (c) 2026, buildup-db.
 
 This program is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License, version 2.0, as published by the
@@ -302,8 +303,8 @@ static ulint opt_calc_index_goodness(
 
   /* At least for now we don't support using FTS indexes, or
   virtual index for queries done through InnoDB's own SQL parser. */
-  if (dict_index_is_online_ddl(index) || (index->type & DICT_FTS) ||
-      dict_index_has_virtual(index)) {
+  if (dict_index_is_online_ddl(index) ||
+      UNIV_UNLIKELY(index->type & DICT_FTS) || dict_index_has_virtual(index)) {
     return (0);
   }
 

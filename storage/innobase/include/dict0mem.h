@@ -2,7 +2,7 @@
 
 Copyright (c) 1996, 2025, Oracle and/or its affiliates.
 Copyright (c) 2012, Facebook Inc.
-Copyright (c) 2025, buildup-db.
+Copyright (c) 2026, buildup-db.
 
 This program is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License, version 2.0, as published by the
@@ -1255,11 +1255,11 @@ struct dict_index_t {
   /** Get the nullable fields before any INSTANT ADD/DROP
   @return number of nullable fields */
   uint16_t get_nullable_before_instant_add_drop() const {
-    if (has_instant_cols()) {
+    if (UNIV_UNLIKELY(has_instant_cols())) {
       return get_instant_nullable();
     }
 
-    if (has_row_versions()) {
+    if (UNIV_UNLIKELY(has_row_versions())) {
       return get_nullable_in_version(0);
     }
 
@@ -1271,7 +1271,7 @@ struct dict_index_t {
   @return whether the index definition has been committed */
   bool is_committed() const {
     ut_ad(!uncommitted || !(type & DICT_CLUSTERED));
-    return (UNIV_LIKELY(!uncommitted));
+    return (!uncommitted);
   }
 
   /** Flag an index committed or uncommitted.
@@ -1305,6 +1305,7 @@ struct dict_index_t {
 
     return (type & DICT_CORRUPT);
   }
+#define dict_index_is_corrupted(I) UNIV_UNLIKELY((I)->is_corrupted())
 
   /* Check whether the index is the clustered index
   @return nonzero for clustered index, zero for other indexes */
@@ -1394,7 +1395,7 @@ struct dict_index_t {
   uint32_t get_instant_fields() const;
 
   size_t calculate_n_instant_nullable(size_t _n_fields) const {
-    if (!has_row_versions()) {
+    if (UNIV_LIKELY(!has_row_versions())) {
       ut_ad(has_instant_cols());
       return get_n_nullable_before(_n_fields);
     }
@@ -1490,7 +1491,7 @@ struct dict_index_t {
     ut_ad(pos < n_def);
     ut_ad(magic_n == DICT_INDEX_MAGIC_N);
 
-    if (has_row_versions()) {
+    if (UNIV_UNLIKELY(has_row_versions())) {
       return get_field(fields_array[pos]);
     }
 
@@ -1788,7 +1789,7 @@ bool dict_foreign_set_validate(const dict_table_t &table);
 inline void dict_foreign_free(
     dict_foreign_t *foreign) /*!< in, own: foreign key struct */
 {
-  if (foreign->v_cols != nullptr) {
+  if (UNIV_UNLIKELY(foreign->v_cols != nullptr)) {
     ut::delete_(foreign->v_cols);
   }
 
@@ -2563,6 +2564,7 @@ detect this and will eventually quit sooner. */
 
     return (index != nullptr && index->type & DICT_CORRUPT);
   }
+#define dict_table_is_corrupted(T) UNIV_UNLIKELY((T)->is_corrupted())
 
   /** Returns a column's name.
   @param[in] col_nr     column number
@@ -2644,7 +2646,7 @@ detect this and will eventually quit sooner. */
   dropped INSTANTly.
   @returns number of non-virtual columns of a table */
   ulint get_total_cols() const {
-    if (!has_row_versions()) {
+    if (UNIV_LIKELY(!has_row_versions())) {
       return n_cols;
     }
 

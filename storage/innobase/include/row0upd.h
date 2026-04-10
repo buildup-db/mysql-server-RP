@@ -1,7 +1,7 @@
 /*****************************************************************************
 
 Copyright (c) 1996, 2025, Oracle and/or its affiliates.
-Copyright (c) 2025, buildup-db.
+Copyright (c) 2026, buildup-db.
 
 This program is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License, version 2.0, as published by the
@@ -548,9 +548,11 @@ inline std::ostream &operator<<(std::ostream &out, const upd_field_t &obj) {
 }
 
 /* check whether an update field is on virtual column */
-static inline bool upd_fld_is_virtual_col(const upd_field_t *upd_fld) {
+static inline bool upd_fld_is_virtual_col_func(const upd_field_t *upd_fld) {
   return (upd_fld->new_val.type.prtype & DATA_VIRTUAL) == DATA_VIRTUAL;
 }
+#define upd_fld_is_virtual_col(field) \
+  UNIV_UNLIKELY(upd_fld_is_virtual_col_func(field))
 
 /* check whether an update field is on multi-value virtual column */
 static inline bool upd_fld_is_multi_value_col(const upd_field_t *upd_fld) {
