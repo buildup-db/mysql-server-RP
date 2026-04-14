@@ -1,7 +1,7 @@
 /*****************************************************************************
 
 Copyright (c) 1995, 2025, Oracle and/or its affiliates.
-Copyright (c) 2025, buildup-db.
+Copyright (c) 2026, buildup-db.
 
 This program is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License, version 2.0, as published by the
@@ -140,7 +140,7 @@ void mtr_t::release_block_at_savepoint_inline(ulint savepoint, buf_block_t *bloc
 
   ut_a(slot->object == block);
 
-  buf_page_release_latch(block, slot->type);
+  buf_page_release_latch<RW_S_LATCH>(block, slot->type);
   buf_block_unfix(block);
 
   slot->object = nullptr;

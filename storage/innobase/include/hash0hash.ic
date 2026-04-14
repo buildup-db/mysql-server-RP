@@ -1,6 +1,7 @@
 /*****************************************************************************
 
 Copyright (c) 1997, 2025, Oracle and/or its affiliates.
+Copyright (c) 2026, buildup-db.
 
 This program is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License, version 2.0, as published by the
@@ -133,7 +134,7 @@ static inline rw_lock_t *hash_lock_s_confirm(rw_lock_t *hash_lock,
 
   rw_lock_t *hash_lock_tmp = hash_get_lock(table, hash_value);
 
-  while (hash_lock_tmp != hash_lock) {
+  while (UNIV_UNLIKELY(hash_lock_tmp != hash_lock)) {
     rw_lock_s_unlock(hash_lock);
     hash_lock = hash_lock_tmp;
     rw_lock_s_lock(hash_lock, UT_LOCATION_HERE);

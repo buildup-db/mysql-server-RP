@@ -1,6 +1,7 @@
 /*****************************************************************************
 
 Copyright (c) 1994, 2025, Oracle and/or its affiliates.
+Copyright (c) 2026, buildup-db.
 
 This program is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License, version 2.0, as published by the
@@ -257,7 +258,7 @@ mem_block_t *mem_heap_create_block(mem_heap_t *heap, ulint n,
   ut_ad((type == MEM_HEAP_DYNAMIC) || (type == MEM_HEAP_BUFFER) ||
         (type == MEM_HEAP_BUFFER + MEM_HEAP_BTR_SEARCH));
 
-  if (heap != nullptr) {
+  if (UNIV_UNLIKELY(heap != nullptr)) {
     mem_block_validate(heap);
     ut_d(mem_heap_validate(heap));
   }
@@ -266,7 +267,7 @@ mem_block_t *mem_heap_create_block(mem_heap_t *heap, ulint n,
   len = MEM_BLOCK_HEADER_SIZE + MEM_SPACE_NEEDED(n);
 
 #if !defined(UNIV_LIBRARY) && !defined(UNIV_HOTBACKUP)
-  if (type == MEM_HEAP_DYNAMIC || len < UNIV_PAGE_SIZE / 2) {
+  if (UNIV_LIKELY(type == MEM_HEAP_DYNAMIC) || len < UNIV_PAGE_SIZE / 2) {
     ut_ad(type == MEM_HEAP_DYNAMIC || n <= MEM_MAX_ALLOC_IN_BUF);
 
     block = static_cast<mem_block_t *>(
@@ -292,7 +293,7 @@ mem_block_t *mem_heap_create_block(mem_heap_t *heap, ulint n,
     block = (mem_block_t *)buf_block->frame;
   }
 
-  if (block == nullptr) {
+  if (UNIV_UNLIKELY(block == nullptr)) {
 #ifdef UNIV_NO_ERR_MSGS
     ib::fatal(UT_LOCATION_HERE)
 #else
@@ -428,7 +429,7 @@ void mem_heap_block_free(mem_heap_t *heap,   /*!< in: heap */
 #endif
 
 #if !defined(UNIV_LIBRARY) && !defined(UNIV_HOTBACKUP)
-  if (type == MEM_HEAP_DYNAMIC || len < UNIV_PAGE_SIZE / 2) {
+  if (UNIV_LIKELY(type == MEM_HEAP_DYNAMIC) || len < UNIV_PAGE_SIZE / 2) {
     ut_ad(!buf_block);
     ut::free(block);
   } else {

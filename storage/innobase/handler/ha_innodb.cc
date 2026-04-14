@@ -2021,7 +2021,7 @@ const char *thd_innodb_tmpdir(THD *thd) {
   innodb_session_t *&innodb_session =
       *(innodb_session_t **)thd_ha_data(thd, innodb_hton_ptr);
 
-  if (innodb_session != nullptr) {
+  if (UNIV_LIKELY(innodb_session != nullptr)) {
     return (innodb_session);
   }
 
@@ -2818,7 +2818,7 @@ trx_t *check_trx_exists(THD *thd) /*!< in: user thread handle */
 
   ut_ad(EQ_CURRENT_THD(thd));
 
-  if (trx == nullptr) {
+  if (UNIV_UNLIKELY(trx == nullptr)) {
     trx = innobase_trx_allocate(thd);
 
     /* User trx can be forced to rollback,
@@ -3003,7 +3003,7 @@ void ha_innobase::update_thd(THD *thd) /*!< in: thd to use the handle */
 
   TrxInInnoDB trx_in_innodb(trx);
 
-  if (m_prebuilt->trx != trx) {
+  if (UNIV_UNLIKELY(m_prebuilt->trx != trx)) {
     row_update_prebuilt_trx(m_prebuilt, trx);
   }
 
@@ -3182,7 +3182,7 @@ void ha_innobase::reset_template(void) {
   m_prebuilt->m_end_range = false;
 
   /* Reset index condition pushdown state. */
-  if (m_prebuilt->idx_cond) {
+  if (UNIV_UNLIKELY(m_prebuilt->idx_cond)) {
     m_prebuilt->idx_cond = false;
     m_prebuilt->idx_cond_n_cols = 0;
     /* Invalidate m_prebuilt->mysql_template
@@ -5834,7 +5834,7 @@ static int innobase_commit(handlerton *hton, /*!< in: InnoDB handlerton */
 
     /* We need current binlog position for mysqlbackup to work. */
 
-    if (!read_only) {
+    if (UNIV_UNLIKELY(!read_only)) {
       while (innobase_commit_concurrency > 0) {
         mysql_mutex_lock(&commit_cond_m);
 
@@ -8199,20 +8199,20 @@ static const Field *build_template_needs_field(
 {
   const Field *field = table->field[i];
 
-  if (!index_contains) {
-    if (read_just_key) {
+  if (UNIV_LIKELY(!index_contains)) {
+    if (UNIV_UNLIKELY(read_just_key)) {
       /* If this is a 'key read', we do not need
       columns that are not in the key */
 
       return (nullptr);
     }
-  } else if (fetch_all_in_key) {
+  } else if (UNIV_UNLIKELY(fetch_all_in_key)) {
     /* This field is needed in the query */
 
     return (field);
   }
 
-  if (bitmap_is_set(table->read_set, static_cast<uint>(i)) ||
+  if (UNIV_LIKELY(bitmap_is_set(table->read_set, static_cast<uint>(i))) ||
       bitmap_is_set(table->write_set, static_cast<uint>(i))) {
     /* This field is needed in the query */
 
@@ -8319,7 +8319,7 @@ static mysql_row_templ_t *build_template_field(
   templ->type = col->mtype;
   templ->mysql_type = (ulint)field->type();
 
-  if (templ->mysql_type == DATA_MYSQL_TRUE_VARCHAR) {
+  if (UNIV_UNLIKELY(templ->mysql_type == DATA_MYSQL_TRUE_VARCHAR)) {
     templ->mysql_length_bytes = field->get_length_bytes();
   } else {
     templ->mysql_length_bytes = 0;
@@ -8330,7 +8330,8 @@ static mysql_row_templ_t *build_template_field(
   templ->mbmaxlen = col->get_mbmaxlen();
   templ->is_unsigned = col->prtype & DATA_UNSIGNED;
 
-  if (!index->is_clustered() && templ->rec_field_no == ULINT_UNDEFINED) {
+  if (!index->is_clustered() &&
+      UNIV_LIKELY(templ->rec_field_no == ULINT_UNDEFINED)) {
     prebuilt->need_to_access_clustered = true;
   }
 
@@ -8339,16 +8340,16 @@ static mysql_row_templ_t *build_template_field(
     prebuilt->need_to_access_clustered = true;
   }
 
-  if (prebuilt->mysql_prefix_len <
-      templ->mysql_col_offset + templ->mysql_col_len) {
+  if (UNIV_LIKELY(prebuilt->mysql_prefix_len <
+                  templ->mysql_col_offset + templ->mysql_col_len)) {
     prebuilt->mysql_prefix_len = templ->mysql_col_offset + templ->mysql_col_len;
   }
 
-  if (DATA_LARGE_MTYPE(templ->type)) {
+  if (UNIV_UNLIKELY(DATA_LARGE_MTYPE(templ->type))) {
     prebuilt->templ_contains_blob = true;
   }
 
-  if (templ->type == DATA_POINT) {
+  if (UNIV_UNLIKELY(templ->type == DATA_POINT)) {
     /* We set this only when it's DATA_POINT, but not
     DATA_VAR_POINT */
     prebuilt->templ_contains_fixed_point = true;
@@ -8619,11 +8620,11 @@ void ha_innobase::build_template(bool whole_row) {
     /* No index condition pushdown */
     m_prebuilt->idx_cond = false;
 
-    for (i = 0; i < n_fields; i++) {
+    for (i = 0; UNIV_LIKELY(i < n_fields); i++) {
       const Field *field;
       bool is_virtual = innobase_is_v_fld(table->field[i]);
 
-      if (whole_row) {
+      if (UNIV_UNLIKELY(whole_row)) {
         /* Even this is whole_row, if the search is
         on a virtual column, and read_just_key is
         set, and field is not in this index, we
@@ -8652,7 +8653,7 @@ void ha_innobase::build_template(bool whole_row) {
         field = build_template_needs_field(
             contain, m_prebuilt->read_just_key, fetch_all_in_key,
             fetch_primary_key_cols, index, table, i, num_v);
-        if (!field) {
+        if (UNIV_UNLIKELY(!field)) {
           if (UNIV_UNLIKELY(is_virtual)) {
             num_v++;
           }
@@ -8667,7 +8668,8 @@ void ha_innobase::build_template(bool whole_row) {
       evaluating an end-range condition in row_search_end_range_check(). Set
       ICP field number for virtual column. */
       auto scan_index = m_prebuilt->index;
-      bool is_sec_idx = (scan_index != nullptr && !scan_index->is_clustered());
+      bool is_sec_idx =
+          (UNIV_LIKELY(scan_index != nullptr) && !scan_index->is_clustered());
 
       if (UNIV_UNLIKELY(is_virtual) && is_sec_idx) {
         set_templ_icp(templ, index, scan_index, num_v);
@@ -8682,7 +8684,7 @@ void ha_innobase::build_template(bool whole_row) {
   if (index != clust_index && m_prebuilt->need_to_access_clustered) {
     /* Change rec_field_no's to correspond to the clustered index
     record */
-    for (i = 0; i < m_prebuilt->n_template; i++) {
+    for (i = 0; UNIV_LIKELY(i < m_prebuilt->n_template); i++) {
       mysql_row_templ_t *templ = &m_prebuilt->mysql_template[i];
 
       templ->rec_field_no = templ->clust_rec_field_no;
@@ -9407,36 +9409,38 @@ static dberr_t calc_row_difference(
       col_type = DATA_BLOB;
     }
 
-    switch (col_type) {
-      case DATA_BLOB:
-      case DATA_POINT:
-      case DATA_VAR_POINT:
-      case DATA_GEOMETRY:
-        o_ptr = row_mysql_read_blob_ref(&o_len, o_ptr, o_len);
-        n_ptr = row_mysql_read_blob_ref(&n_len, n_ptr, n_len);
+    if (UNIV_UNLIKELY(col_type != DATA_INT)) {
+      switch (UNIV_EXPECT(col_type, DATA_VARMYSQL)) {
+        case DATA_BLOB:
+        case DATA_POINT:
+        case DATA_VAR_POINT:
+        case DATA_GEOMETRY:
+          o_ptr = row_mysql_read_blob_ref(&o_len, o_ptr, o_len);
+          n_ptr = row_mysql_read_blob_ref(&n_len, n_ptr, n_len);
 
-        break;
+          break;
 
-      case DATA_VARCHAR:
-      case DATA_BINARY:
-      case DATA_VARMYSQL:
-        if (field_mysql_type == MYSQL_TYPE_VARCHAR) {
-          /* This is a >= 5.0.3 type true VARCHAR where
-          the real payload data length is stored in
-          1 or 2 bytes */
+        case DATA_VARCHAR:
+        case DATA_BINARY:
+        case DATA_VARMYSQL:
+          if (field_mysql_type == MYSQL_TYPE_VARCHAR) {
+            /* This is a >= 5.0.3 type true VARCHAR where
+            the real payload data length is stored in
+            1 or 2 bytes */
 
-          o_ptr = row_mysql_read_true_varchar(&o_len, o_ptr,
-                                              (ulint)field->get_length_bytes());
+            o_ptr = row_mysql_read_true_varchar(
+                &o_len, o_ptr, (ulint)field->get_length_bytes());
 
-          n_ptr = row_mysql_read_true_varchar(&n_len, n_ptr,
-                                              (ulint)field->get_length_bytes());
-        }
+            n_ptr = row_mysql_read_true_varchar(
+                &n_len, n_ptr, (ulint)field->get_length_bytes());
+          }
 
-        break;
-      default:;
+          break;
+        default:;
+      }
     }
 
-    if (field_mysql_type == MYSQL_TYPE_LONGLONG &&
+    if (UNIV_UNLIKELY(field_mysql_type == MYSQL_TYPE_LONGLONG) &&
         UNIV_UNLIKELY(prebuilt->table->fts) &&
         innobase_strcasecmp(field->field_name, FTS_DOC_ID_COL_NAME) == 0) {
       doc_id = (doc_id_t)mach_read_from_n_little_endian(n_ptr, 8);
@@ -9552,7 +9556,7 @@ static dberr_t calc_row_difference(
       }
     }
 
-    if (changed)
+    if (UNIV_UNLIKELY(changed))
 #else
     if (o_len != n_len || (o_len != UNIV_SQL_NULL && o_len != 0 &&
                            0 != memcmp(o_ptr, n_ptr, o_len)))
@@ -18380,7 +18384,7 @@ int ha_innobase::check(THD *thd,                /*!< in: user thread handle */
 int ha_innobase::extra(enum ha_extra_function operation)
 /*!< in: HA_EXTRA_FLUSH or some other flag */
 {
-  if (m_prebuilt->table) {
+  if (UNIV_UNLIKELY(m_prebuilt->table)) {
 #ifdef UNIV_DEBUG
     if (m_prebuilt->table->n_ref_count > 0)
 #endif /* UNIV_DEBUG */
@@ -18454,7 +18458,12 @@ int ha_innobase::extra(enum ha_extra_function operation)
 /** Direct call wrapper for ha_innobase::extra() */
 int innobase_extra(handler *file, enum ha_extra_function operation) {
   ut_a(file->ht->db_type == DB_TYPE_INNODB);
-  return static_cast<ha_innobase *>(file)->extra(operation);
+  ha_innobase *innobase_file = static_cast<ha_innobase *>(file);
+  if (UNIV_LIKELY(!innobase_file->is_innopart())) {
+    return innobase_file->ha_innobase::extra(operation);
+  } else {
+    return innobase_file->extra(operation);
+  }
 }
 
 /**

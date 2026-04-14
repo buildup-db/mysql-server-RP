@@ -1033,7 +1033,7 @@ inline T *new_arr_withkey(PSI_memory_key_t key, Count count) {
 
   size_t offset = 0;
   try {
-    for (; offset < sizeof(T) * count(); offset += sizeof(T)) {
+    for (; UNIV_LIKELY(offset < sizeof(T) * count()); offset += sizeof(T)) {
       new (reinterpret_cast<uint8_t *>(mem) + offset) T{};
     }
   } catch (...) {
@@ -1784,7 +1784,7 @@ inline T *aligned_new_arr_withkey(PSI_memory_key_t key, std::size_t alignment,
 
   size_t offset = 0;
   try {
-    for (; offset < sizeof(T) * count(); offset += sizeof(T)) {
+    for (; UNIV_LIKELY(offset < sizeof(T) * count()); offset += sizeof(T)) {
       new (reinterpret_cast<uint8_t *>(mem) + offset) T{};
     }
   } catch (...) {

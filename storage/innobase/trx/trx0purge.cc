@@ -2350,8 +2350,8 @@ static void trx_purge_wait_for_workers_to_complete() {
   ulint n_submitted = purge_sys->n_submitted;
 
   /* Ensure that the work queue empties out. */
-  while (purge_sys->n_completed.load() != n_submitted) {
-    if (++i < 10) {
+  while (UNIV_LIKELY(purge_sys->n_completed.load() != n_submitted)) {
+    if (UNIV_LIKELY(++i < 10)) {
       std::this_thread::yield();
     } else {
       if (srv_get_task_queue_length() > 0) {

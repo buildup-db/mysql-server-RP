@@ -55,7 +55,7 @@ static inline sync_array_t *sync_array_get_and_reserve_cell(
   sync_array_t *sync_arr = nullptr;
 
   *cell = nullptr;
-  for (ulint i = 0; i < sync_array_size && *cell == nullptr; ++i) {
+  for (ulint i = 0; UNIV_LIKELY(i < sync_array_size) && *cell == nullptr; ++i) {
     /* Although the sync_array is get in a random way currently,
     we still try at most sync_array_size times, in case any
     of the sync_array we get is full */

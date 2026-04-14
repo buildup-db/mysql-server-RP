@@ -1,6 +1,7 @@
 /*****************************************************************************
 
 Copyright (c) 2017, 2025, Oracle and/or its affiliates.
+Copyright (c) 2026, buildup-db.
 
 This program is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License, version 2.0,
@@ -207,7 +208,7 @@ Link_buf<Position>::Link_buf(size_t capacity)
   m_links = ut::new_arr_withkey<std::atomic<Distance>>(UT_NEW_THIS_FILE_PSI_KEY,
                                                        ut::Count{capacity});
 
-  for (size_t i = 0; i < capacity; ++i) {
+  for (size_t i = 0; UNIV_LIKELY(i < capacity); ++i) {
     m_links[i].store(0);
   }
 }
@@ -283,7 +284,7 @@ inline void Link_buf<Position>::add_link_advance_tail(Position from,
 
   ut_ad(position <= from);
 
-  if (position == from) {
+  if (UNIV_LIKELY(position == from)) {
     /* can advance m_tail directly and exclusively, and it is unlock */
     m_tail.store(to, std::memory_order_release);
   } else {
@@ -406,7 +407,7 @@ inline Position Link_buf<Position>::tail() const {
 template <typename Position>
 inline bool Link_buf<Position>::has_space(Position position) {
   auto tail = m_tail.load(std::memory_order_acquire);
-  if (tail + m_capacity > position) {
+  if (UNIV_LIKELY(tail + m_capacity > position)) {
     return true;
   }
 

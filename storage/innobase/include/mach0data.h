@@ -1,7 +1,7 @@
 /*****************************************************************************
 
 Copyright (c) 1995, 2025, Oracle and/or its affiliates.
-Copyright (c) 2025, buildup-db.
+Copyright (c) 2026, buildup-db.
 
 This program is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License, version 2.0, as published by the
@@ -283,8 +283,8 @@ static inline void mach_write_ulonglong(byte *dest, ulonglong src, ulint len,
 @param[in]      ptr     pointer where to read
 @param[in]      type    MLOG_1BYTE, MLOG_2BYTES, or MLOG_4BYTES
 @return value read */
-[[nodiscard]] static inline uint32_t mach_read_ulint(const byte *ptr,
-                                                     mlog_id_t type);
+[[nodiscard]] static ALWAYS_INLINE uint32_t mach_read_ulint(const byte *ptr,
+                                                            mlog_id_t type);
 
 #include "mach0data.ic"
 

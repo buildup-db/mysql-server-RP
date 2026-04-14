@@ -1,7 +1,7 @@
 /*****************************************************************************
 
 Copyright (c) 1995, 2025, Oracle and/or its affiliates.
-Copyright (c) 2025, buildup-db.
+Copyright (c) 2026, buildup-db.
 
 This program is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License, version 2.0, as published by the
@@ -82,7 +82,7 @@ struct Iterate {
 
     ut_ad(!(block->used() % sizeof(*slot)));
 
-    while (slot-- != start) {
+    while (UNIV_LIKELY(slot-- != start)) {
       if (!m_functor(slot)) {
         return false;
       }
@@ -250,7 +250,7 @@ static ALWAYS_INLINE void memo_slot_release_inline(mtr_memo_slot_t *slot) {
 #ifndef UNIV_HOTBACKUP
       block = reinterpret_cast<buf_block_t *>(slot->object);
 
-      buf_page_release_latch(block, slot->type);
+      buf_page_release_latch<RW_X_LATCH>(block, slot->type);
       /* The buf_page_release_latch(block,..) call was last action dereferencing
       the `block`, so we can unfix the `block` now, but not sooner.*/
       buf_block_unfix(block);
@@ -347,8 +347,8 @@ struct Add_dirty_blocks_to_flush_list {
   /** @return true always. */
   ALWAYS_INLINE bool operator()(mtr_memo_slot_t *slot) const {
     if (slot->object != nullptr) {
-      if (slot->type == MTR_MEMO_PAGE_X_FIX ||
-          slot->type == MTR_MEMO_PAGE_SX_FIX) {
+      if (UNIV_LIKELY(slot->type == MTR_MEMO_PAGE_X_FIX) ||
+          UNIV_LIKELY(slot->type == MTR_MEMO_PAGE_SX_FIX)) {
         add_dirty_page_to_flush_list(slot);
 
       } else if (slot->type == MTR_MEMO_BUF_FIX) {
@@ -512,7 +512,7 @@ struct mtr_write_log_t {
 
     ut_ad(block != nullptr);
 
-    if (block->used() == 0) {
+    if (UNIV_UNLIKELY(block->used() == 0)) {
       return true;
     }
 
@@ -544,8 +544,8 @@ struct mtr_write_log_t {
 
         Only in case 1), the next group of records is the first group
         of log records in block containing m_lsn. */
-        && m_handle.start_lsn / OS_FILE_LOG_BLOCK_SIZE !=
-               end_lsn / OS_FILE_LOG_BLOCK_SIZE) {
+        && UNIV_UNLIKELY(m_handle.start_lsn / OS_FILE_LOG_BLOCK_SIZE !=
+                         end_lsn / OS_FILE_LOG_BLOCK_SIZE)) {
       log_buffer_set_first_record_group(*log_sys, end_lsn);
     }
 
@@ -603,7 +603,7 @@ void mtr_t::start(bool sync) {
   m_impl.m_marked_nolog = s_logging.mark_mtr(shard_index);
 
   /* Disable redo logging by this mtr if logging is globally off. */
-  if (m_impl.m_marked_nolog) {
+  if (UNIV_UNLIKELY(m_impl.m_marked_nolog)) {
     ut_ad(m_impl.m_log_mode == MTR_LOG_ALL);
     m_impl.m_log_mode = MTR_LOG_NO_REDO;
     m_impl.m_shard_index = shard_index;
@@ -622,7 +622,7 @@ void mtr_t::start(bool sync) {
 
 #ifndef UNIV_HOTBACKUP
 void mtr_t::check_nolog_and_unmark() {
-  if (m_impl.m_marked_nolog) {
+  if (UNIV_UNLIKELY(m_impl.m_marked_nolog)) {
     s_logging.unmark_mtr(m_impl.m_shard_index);
 
     m_impl.m_marked_nolog = false;

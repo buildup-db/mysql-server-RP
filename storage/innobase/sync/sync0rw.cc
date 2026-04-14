@@ -2,7 +2,7 @@
 
 Copyright (c) 1995, 2025, Oracle and/or its affiliates.
 Copyright (c) 2008, Google Inc.
-Copyright (c) 2025, buildup-db.
+Copyright (c) 2026, buildup-db.
 
 Portions of this file contain modifications contributed and copyrighted by
 Google, Inc. Those modifications are gratefully acknowledged and are described
@@ -379,7 +379,8 @@ static inline void rw_lock_x_lock_wait_func(rw_lock_t *lock,
 
   ut_ad(lock->lock_word.load(std::memory_order_acquire) <= threshold);
 
-  while (lock->lock_word.load(std::memory_order_acquire) < threshold) {
+  while (UNIV_UNLIKELY(lock->lock_word.load(std::memory_order_acquire) <
+                       threshold)) {
     if (srv_spin_wait_delay) {
       ut_delay(ut::random_from_interval_fast(0, srv_spin_wait_delay));
     }
@@ -580,8 +581,9 @@ void rw_lock_x_lock_func(rw_lock_t *lock, ulint pass, ut::Location location) {
 
 lock_loop:
 
-  if (rw_lock_x_lock_low(lock, pass, location.filename, location.line)) {
-    if (count_os_wait > 0) {
+  if (UNIV_LIKELY(
+          rw_lock_x_lock_low(lock, pass, location.filename, location.line))) {
+    if (UNIV_UNLIKELY(count_os_wait > 0)) {
       lock->count_os_wait += static_cast<uint32_t>(count_os_wait);
     }
 

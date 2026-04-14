@@ -1,7 +1,7 @@
 /*****************************************************************************
 
 Copyright (c) 1995, 2025, Oracle and/or its affiliates.
-Copyright (c) 2025, buildup-db.
+Copyright (c) 2026, buildup-db.
 
 This program is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License, version 2.0, as published by the
@@ -486,6 +486,7 @@ static inline void buf_page_release_zip(
 /** Releases a latch, if specified.
 @param[in]      block           buffer block
 @param[in]      rw_latch        RW_S_LATCH, RW_X_LATCH, RW_NO_LATCH */
+template <ulint Expect>
 static inline void buf_page_release_latch(buf_block_t *block, ulint rw_latch);
 
 /** Moves a page to the start of the buffer pool LRU list. This high-level
@@ -1226,7 +1227,7 @@ class buf_page_t {
     these values need to be executed in reversed order. The atomic reads
     cannot be relaxed for it to work. */
     bool was_not_deleted = m_space->was_not_deleted();
-    if (m_version == m_space->get_recent_version()) {
+    if (UNIV_LIKELY(m_version == m_space->get_recent_version())) {
       ut_a(was_not_deleted);
       return false;
     } else {
@@ -1897,7 +1898,7 @@ struct buf_block_t {
   if applicable.
   @return page descriptor or nullptr. */
   page_zip_des_t *get_page_zip() noexcept {
-    return page.zip.data != nullptr ? &page.zip : nullptr;
+    return UNIV_UNLIKELY(page.zip.data != nullptr) ? &page.zip : nullptr;
   }
 
   /** Const version.

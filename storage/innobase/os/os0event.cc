@@ -85,7 +85,7 @@ struct os_event {
   void set() UNIV_NOTHROW {
     mutex.enter();
 
-    if (!m_set) {
+    if (UNIV_UNLIKELY(!m_set)) {
       broadcast();
     }
 

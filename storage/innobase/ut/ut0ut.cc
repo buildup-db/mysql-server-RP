@@ -107,7 +107,7 @@ ulint ut_delay(ulint delay) {
 
   j = 0;
 
-  for (i = 0; i < iterations; i++) {
+  for (i = 0; UNIV_LIKELY(i < iterations); i++) {
     j += i;
     UT_RELAX_CPU();
   }

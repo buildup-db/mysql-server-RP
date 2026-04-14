@@ -863,7 +863,7 @@ bool dict_index_contains_col_or_prefix(const dict_index_t *index, ulint n,
   ut_ad(index);
   ut_ad(index->magic_n == DICT_INDEX_MAGIC_N);
 
-  if (index->is_clustered()) {
+  if (UNIV_UNLIKELY(index->is_clustered())) {
     return true;
   }
 
@@ -875,7 +875,7 @@ bool dict_index_contains_col_or_prefix(const dict_index_t *index, ulint n,
 
   n_fields = dict_index_get_n_fields(index);
 
-  for (pos = 0; pos < n_fields; pos++) {
+  for (pos = 0; UNIV_LIKELY(pos < n_fields); pos++) {
     field = index->get_field(pos);
 
     if (col == field->col) {
@@ -2948,7 +2948,7 @@ void dict_index_copy_types(dtuple_t *tuple, const dict_index_t *index,
     return;
   }
 
-  for (i = 0; i < n_fields; i++) {
+  for (i = 0; UNIV_LIKELY(i < n_fields); i++) {
     const dict_field_t *ifield;
     dtype_t *dfield_type;
 

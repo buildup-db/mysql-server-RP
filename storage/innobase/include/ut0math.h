@@ -256,7 +256,7 @@ class fast_modulo_t {
     const uint64_t guess = hi * m_mod;
     const uint64_t rest = x - guess;
 
-    return rest - (m_mod <= rest) * m_mod;
+    return rest - unlikely(m_mod <= rest) * m_mod;
   }
 
   /** Gets the precomputed value of inverse. */

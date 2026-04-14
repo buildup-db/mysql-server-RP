@@ -265,7 +265,7 @@ void mlog_write_ulint(
     mlog_id_t type, /*!< in: MLOG_1BYTE, MLOG_2BYTES, MLOG_4BYTES */
     mtr_t *mtr)     /*!< in: mini-transaction handle */
 {
-  switch (type) {
+  switch (UNIV_EXPECT(type, MLOG_4BYTES)) {
     case MLOG_1BYTE:
       mach_write_to_1(ptr, val);
       break;
@@ -279,13 +279,14 @@ void mlog_write_ulint(
       ut_error;
   }
 
-  if (mtr == nullptr) {
+  if (UNIV_UNLIKELY(mtr == nullptr)) {
     return;
   }
 
   /* If no logging is requested, we may return now */
   byte *log_ptr = nullptr;
-  if (!mlog_open(mtr, REDO_LOG_INITIAL_INFO_SIZE + 2 + 5, log_ptr)) {
+  if (UNIV_UNLIKELY(
+          !mlog_open(mtr, REDO_LOG_INITIAL_INFO_SIZE + 2 + 5, log_ptr))) {
     return;
   }
 
@@ -694,7 +695,7 @@ static bool log_index_fields(const dict_index_t *index, uint16_t n,
                              bool is_versioned, std::vector<dict_field_t *> &f,
                              bool *changed_order, byte *&log_ptr, F &func) {
   /* Write metadata for each field. Log the fields in their logical order. */
-  for (size_t i = 0; i < n; i++) {
+  for (size_t i = 0; UNIV_LIKELY(i < n); i++) {
     dict_field_t *field = index->get_field(i);
     const dict_col_t *col = field->col;
     ulint len = field->fixed_len;
@@ -883,7 +884,7 @@ bool mlog_open_and_write_index(mtr_t *mtr, const byte *rec,
 
   /* To check _size is available on buffer. If not, close and reopen buffer */
   auto f = [&](const size_t _size) ALWAYS_INLINE_ATTR {
-    if (log_ptr + _size > log_end) {
+    if (UNIV_UNLIKELY(log_ptr + _size > log_end)) {
       if (!close_and_reopen_log(log_ptr, log_start, log_end, mtr, alloc,
                                 total)) {
         return false;

@@ -271,7 +271,7 @@ static size_t get_nullable_fields_for_rec(const dict_index_t *index,
   const bool is_valid_version = is_valid_row_version(rec_version);
   size_t nullable_fields = 0;
 
-  if (!is_valid_version) {
+  if (UNIV_UNLIKELY(!is_valid_version)) {
     /* Invalid version. Temp record for redundnat format. Record being logged
     doesn't have version. It will be stored in version=0 */
     rec_version = 0;
@@ -317,7 +317,8 @@ static size_t get_nullable_fields_for_rec(const dict_index_t *index,
   /* At the time being, only temp file record could possible
   store virtual columns */
   ut_ad(!v_entry || (index->is_clustered() && temp));
-  ulint n_v_fields = v_entry ? dtuple_get_n_v_fields(v_entry) : 0;
+  ulint n_v_fields =
+      UNIV_UNLIKELY(v_entry) ? dtuple_get_n_v_fields(v_entry) : 0;
 
 #ifdef UNIV_DEBUG
   /* INVALID vesion. Possible for temp record for redundant format. */
@@ -326,12 +327,13 @@ static size_t get_nullable_fields_for_rec(const dict_index_t *index,
 #endif
 
   ulint n_null = 0;
-  if (n_fields > 0) {
+  if (UNIV_LIKELY(n_fields > 0)) {
     n_null = get_nullable_fields_for_rec(index, n_fields, rec_version);
   }
 
   ulint extra_size = 0;
-  if (index->is_tuple_instant_format(n_fields) && status != nullptr) {
+  if (UNIV_UNLIKELY(index->is_tuple_instant_format(n_fields) &&
+                    status != nullptr)) {
     switch (UNIV_EXPECT(*status, REC_STATUS_ORDINARY)) {
       case REC_STATUS_ORDINARY:
         ut_ad(!temp && n_fields > 0);
@@ -357,8 +359,9 @@ static size_t get_nullable_fields_for_rec(const dict_index_t *index,
     }
   }
 
-  extra_size += temp ? UT_BITS_IN_BYTES(n_null)
-                     : REC_N_NEW_EXTRA_BYTES + UT_BITS_IN_BYTES(n_null);
+  extra_size += UNIV_UNLIKELY(temp)
+                    ? UT_BITS_IN_BYTES(n_null)
+                    : REC_N_NEW_EXTRA_BYTES + UT_BITS_IN_BYTES(n_null);
 
   if (temp && dict_table_is_comp(index->table)) {
     /* No need to do adjust fixed_len=0. We only need to
@@ -368,7 +371,7 @@ static size_t get_nullable_fields_for_rec(const dict_index_t *index,
 
   ulint data_size = 0;
   /* read the lengths of fields 0..n */
-  for (size_t i = 0; i < n_fields; i++) {
+  for (size_t i = 0; UNIV_LIKELY(i < n_fields); i++) {
     const dict_field_t *field;
     ulint len;
     ulint fixed_len;
@@ -401,7 +404,7 @@ static size_t get_nullable_fields_for_rec(const dict_index_t *index,
     /* All NULLable fields must be included in the n_null count. */
     ut_ad((col->prtype & DATA_NOT_NULL) || n_null--);
 
-    if (dfield_is_null(&fields[i])) {
+    if (UNIV_UNLIKELY(dfield_is_null(&fields[i]))) {
       /* No length is stored for NULL fields. */
       ut_ad(!(col->prtype & DATA_NOT_NULL));
       continue;
@@ -412,7 +415,7 @@ static size_t get_nullable_fields_for_rec(const dict_index_t *index,
           (col->len == 0 && col->mtype == DATA_VARCHAR));
 
     fixed_len = field->fixed_len;
-    if (temp && fixed_len && !col->get_fixed_size(temp)) {
+    if (UNIV_UNLIKELY(temp) && fixed_len && !col->get_fixed_size(temp)) {
       fixed_len = 0;
     }
     /* If the maximum length of a variable-length field
@@ -422,7 +425,7 @@ static size_t get_nullable_fields_for_rec(const dict_index_t *index,
     0..127.  The length will be encoded in two bytes when
     it is 128 or more, or when the field is stored externally. */
 
-    if (fixed_len) {
+    if (UNIV_LIKELY(fixed_len)) {
 #ifdef UNIV_DEBUG
       ulint mbminlen = DATA_MBMINLEN(col->mbminmaxlen);
       ulint mbmaxlen = DATA_MBMAXLEN(col->mbminmaxlen);
@@ -440,10 +443,10 @@ static size_t get_nullable_fields_for_rec(const dict_index_t *index,
       /* dict_index_add_col() should guarantee this */
       ut_ad(!field->prefix_len || fixed_len == field->prefix_len);
 #endif /* UNIV_DEBUG */
-    } else if (dfield_is_ext(&fields[i])) {
+    } else if (UNIV_UNLIKELY(dfield_is_ext(&fields[i]))) {
       ut_ad(DATA_BIG_COL(col));
       extra_size += 2;
-    } else if (len < 128 || !DATA_BIG_COL(col)) {
+    } else if (UNIV_LIKELY(len < 128) || !DATA_BIG_COL(col)) {
       extra_size++;
     } else {
       /* For variable-length columns, we look up the
@@ -888,7 +891,7 @@ static inline Rec_instant_state rec_convert_dtuple_to_rec_comp(
       uint32_t fixed_len = ifield->fixed_len;
       dict_col_t *col = ifield->col;
 
-      if (temp && fixed_len && !col->get_fixed_size(temp)) {
+      if (UNIV_UNLIKELY(temp) && fixed_len && !col->get_fixed_size(temp)) {
         fixed_len = 0;
       }
 
@@ -898,7 +901,7 @@ static inline Rec_instant_state rec_convert_dtuple_to_rec_comp(
       bytes, the actual length is stored in one byte for
       0..127.  The length will be encoded in two bytes when
       it is 128 or more, or when the field is stored externally. */
-      if (fixed_len) {
+      if (UNIV_LIKELY(fixed_len)) {
 #ifdef UNIV_DEBUG
         ulint mbminlen = DATA_MBMINLEN(col->mbminmaxlen);
         ulint mbmaxlen = DATA_MBMAXLEN(col->mbminmaxlen);
@@ -936,7 +939,7 @@ static inline Rec_instant_state rec_convert_dtuple_to_rec_comp(
         }
       }
 
-      if (len > 0) memcpy(end, dfield_get_data(field), len);
+      if (UNIV_LIKELY(len > 0)) memcpy(end, dfield_get_data(field), len);
       end += len;
     };
 
@@ -978,7 +981,7 @@ static inline Rec_instant_state rec_convert_dtuple_to_rec_comp(
         n_fields_stored++;
       }
     } else {
-      for (size_t i = 0; i < n_fields; i++) {
+      for (size_t i = 0; UNIV_LIKELY(i < n_fields); i++) {
         const dfield_t *field = &fields[i];
         uint32_t len = dfield_get_len(field);
 

@@ -464,6 +464,12 @@ class ha_innobase : public handler {
   bool check_if_incompatible_data(HA_CREATE_INFO *info,
                                   uint table_changes) override;
 
+  bool is_innopart() {
+    return (m_int_table_flags &
+            (HA_CAN_FULLTEXT | HA_CAN_FULLTEXT_EXT | HA_CAN_GEOMETRY |
+             HA_DUPLICATE_POS | HA_READ_BEFORE_WRITE_REMOVAL)) == 0;
+  }
+
  private:
   /** @name Multi Range Read interface
   @{ */

@@ -1,7 +1,7 @@
 /*****************************************************************************
 
 Copyright (c) 1994, 2025, Oracle and/or its affiliates.
-Copyright (c) 2025, buildup-db.
+Copyright (c) 2026, buildup-db.
 
 This program is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License, version 2.0, as published by the
@@ -310,7 +310,7 @@ struct mem_block_info_t {
   UT_LIST_NODE_T(mem_block_t) list;
   /** In the first block of the list this is the base node of the list of
   blocks; in subsequent blocks this is undefined */
-  UT_LIST_BASE_NODE_T_EXTERN(mem_block_t, list) base;
+  UT_LIST_BASE_NODE_T_EXTERN_EE(mem_block_t, list) base;
   ulint len;        /*!< physical length of this block in bytes */
   ulint total_size; /*!< physical length in bytes of all blocks
                 in the heap. This is defined only in the base

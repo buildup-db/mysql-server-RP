@@ -298,7 +298,7 @@ bool fsp_is_session_temporary(space_id_t space_id) {
 @param[in]      space_id        tablespace ID
 @return true if tablespace is system temporary. */
 bool fsp_is_system_temporary(space_id_t space_id) {
-  return (fsp_is_global_temporary(space_id) ||
+  return (UNIV_UNLIKELY(fsp_is_global_temporary(space_id)) ||
           fsp_is_session_temporary(space_id));
 }
 
@@ -410,7 +410,7 @@ static inline page_no_t xdes_get_n_used(
 
   ut_ad(descr && mtr);
   ut_ad(mtr_memo_contains_page(mtr, descr, MTR_MEMO_PAGE_SX_FIX));
-  for (page_no_t i = 0; i < FSP_EXTENT_SIZE; ++i) {
+  for (page_no_t i = 0; UNIV_LIKELY(i < FSP_EXTENT_SIZE); ++i) {
     if (false == xdes_mtr_get_bit(descr, XDES_FREE_BIT, i, mtr)) {
       count++;
     }
@@ -2247,7 +2247,7 @@ static ulint fseg_get_n_frag_pages(
 
   ut_ad(inode && mtr);
 
-  for (i = 0; i < FSEG_FRAG_ARR_N_SLOTS; i++) {
+  for (i = 0; UNIV_LIKELY(i < FSEG_FRAG_ARR_N_SLOTS); i++) {
     if (FIL_NULL != fseg_get_nth_frag_page_no(inode, i, mtr)) {
       count++;
     }

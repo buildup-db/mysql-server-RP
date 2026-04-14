@@ -186,13 +186,13 @@ static inline bool buf_page_peek_if_too_old(const buf_page_t *bpage) {
     statistics or move blocks in the LRU list.  This is
     either the warm-up phase or an in-memory workload. */
     return false;
-  } else if (get_buf_LRU_old_threshold() != std::chrono::seconds::zero() &&
+  } else if (UNIV_LIKELY(get_buf_LRU_old_threshold() != std::chrono::seconds::zero()) &&
              bpage->old) {
     const auto access_time = buf_page_is_accessed(bpage);
 
     if (access_time != std::chrono::steady_clock::time_point{} &&
-        (std::chrono::steady_clock::now() - access_time) >=
-            get_buf_LRU_old_threshold()) {
+        UNIV_UNLIKELY((std::chrono::steady_clock::now() - access_time) >=
+            get_buf_LRU_old_threshold())) {
       return true;
     }
 
@@ -349,9 +349,9 @@ static inline bool buf_page_in_file(
 {
   auto state = buf_page_get_state(bpage);
 
-  if (likely(state == BUF_BLOCK_FILE_PAGE) ||
-      unlikely(state == BUF_BLOCK_ZIP_PAGE) ||
-      unlikely(state == BUF_BLOCK_ZIP_DIRTY)) {
+  if (UNIV_LIKELY(state == BUF_BLOCK_FILE_PAGE) ||
+      UNIV_UNLIKELY(state == BUF_BLOCK_ZIP_PAGE) ||
+      UNIV_UNLIKELY(state == BUF_BLOCK_ZIP_DIRTY)) {
     return true;
   }
 
@@ -1047,6 +1047,7 @@ static inline void buf_page_release_zip(
 }
 
 /** Releases a latch, if specified. */
+template <ulint Expect>
 static inline void buf_page_release_latch(
     buf_block_t *block, /*!< in: buffer block */
     ulint rw_latch)     /*!< in: RW_S_LATCH, RW_X_LATCH,
@@ -1061,12 +1062,13 @@ static inline void buf_page_release_latch(
   }
 #endif /* UNIV_DEBUG */
 
-  if (rw_latch == RW_S_LATCH) {
-    rw_lock_s_unlock(&block->lock);
-  } else if (rw_latch == RW_SX_LATCH) {
-    rw_lock_sx_unlock(&block->lock);
-  } else if (rw_latch == RW_X_LATCH) {
-    rw_lock_x_unlock(&block->lock);
+  switch(UNIV_EXPECT(rw_latch, Expect)) {
+    case RW_S_LATCH:
+      rw_lock_s_unlock(&block->lock); break;
+    case RW_X_LATCH:
+      rw_lock_x_unlock(&block->lock); break;
+    case RW_SX_LATCH:
+      rw_lock_sx_unlock(&block->lock); break;
   }
 }
 

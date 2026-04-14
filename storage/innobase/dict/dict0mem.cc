@@ -747,16 +747,17 @@ ulint dict_index_t::get_col_pos(ulint n, bool inc_prefix,
     col = table->get_col(n);
   }
 
-  if (is_clustered()) {
+  if (UNIV_UNLIKELY(is_clustered())) {
     return (dict_col_get_clust_pos(col, this));
   }
 
   n_fields = dict_index_get_n_fields(this);
 
-  for (pos = 0; pos < n_fields; pos++) {
+  for (pos = 0; UNIV_LIKELY(pos < n_fields); pos++) {
     field = get_field(pos);
 
-    if (col == field->col && (inc_prefix || field->prefix_len == 0)) {
+    if (UNIV_UNLIKELY(col == field->col) &&
+        (UNIV_UNLIKELY(inc_prefix) || UNIV_LIKELY(field->prefix_len == 0))) {
       return (pos);
     }
   }

@@ -1014,7 +1014,7 @@ static void que_run_threads_low(que_thr_t *thr) /*!< in: query thread */
 
     trx_mutex_exit(trx);
 
-  } while (next_thr != nullptr);
+  } while (UNIV_LIKELY(next_thr != nullptr));
 }
 
 /** Run a query thread. Handles lock waits. */

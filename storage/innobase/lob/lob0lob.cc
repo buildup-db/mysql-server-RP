@@ -1070,7 +1070,7 @@ ulint btr_rec_get_externally_stored_len(const dict_index_t *index,
 
   ut_ad(!rec_offs_comp(offsets) || !rec_get_node_ptr_flag(rec));
 
-  if (!rec_offs_any_extern(offsets)) {
+  if (UNIV_LIKELY(!rec_offs_any_extern(offsets))) {
     return (0);
   }
 

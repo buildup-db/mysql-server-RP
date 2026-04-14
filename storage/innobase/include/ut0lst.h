@@ -1,7 +1,7 @@
 /*****************************************************************************
 
 Copyright (c) 1995, 2025, Oracle and/or its affiliates.
-Copyright (c) 2025, buildup-db.
+Copyright (c) 2026, buildup-db.
 
 This program is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License, version 2.0, as published by the
@@ -78,7 +78,7 @@ struct ut_list_node {
  @tparam NodeGetter a class which has a static member
          ut_list_node<Type> get_node(const Type & e) which knows how to extract
          a node from an element */
-template <typename Type, typename NodeGetter>
+template <typename Type, typename NodeGetter, bool EmptyExpected = false>
 struct ut_list_base {
   using elem_type = Type;
   using node_type = ut_list_node<elem_type>;
@@ -96,6 +96,7 @@ struct ut_list_base {
   static elem_type *prev(elem_type &e) {
     return const_cast<elem_type *>(prev(const_cast<const elem_type &>(e)));
   }
+  static constexpr bool empty_expected = EmptyExpected;
 
   /** Pointer to list start, NULL if empty. */
   elem_type *first_element{nullptr};
@@ -253,6 +254,8 @@ NOTE: In cases in which definition of t is not yet in scope and thus you can't
 refer to t::m at this point yet, use UT_LIST_BASE_NODE_T_EXTERN macro instead.*/
 #define UT_LIST_BASE_NODE_T(t, m) \
   ut_list_base<t, ut_list_base_explicit_getter<t, &t::m>>
+#define UT_LIST_BASE_NODE_T_EE(t, m) \
+  ut_list_base<t, ut_list_base_explicit_getter<t, &t::m>, true>
 
 /** A helper for the UT_LIST_BASE_NODE_T_EXTERN which builds a name of a node
 getter struct from the name of elem type t, and its member name m */
@@ -279,6 +282,8 @@ forward declare UT_LIST_NODE_GETTER(t,m) struct to be defined later by the
 UT_LIST_NODE_GETTER_DEFINITION(t,m) once t::m is defined. */
 #define UT_LIST_BASE_NODE_T_EXTERN(t, m) \
   ut_list_base<t, struct UT_LIST_NODE_GETTER(t, m)>
+#define UT_LIST_BASE_NODE_T_EXTERN_EE(t, m) \
+  ut_list_base<t, struct UT_LIST_NODE_GETTER(t, m), true>
 
 /** Initializes the base node of a two-way list.
  @param b the list base node
@@ -301,7 +306,7 @@ void ut_list_prepend(List &list, typename List::elem_type *elem) {
   elem_node.prev = nullptr;
   elem_node.next = list.first_element;
 
-  if (list.first_element != nullptr) {
+  if (UNIV_EXPECT(list.first_element != nullptr, !List::empty_expected)) {
     ut_ad(list.first_element != elem);
 
     List::get_node(*list.first_element).prev = elem;
@@ -309,7 +314,7 @@ void ut_list_prepend(List &list, typename List::elem_type *elem) {
 
   list.first_element = elem;
 
-  if (list.last_element == nullptr) {
+  if (UNIV_EXPECT(list.last_element == nullptr, List::empty_expected)) {
     list.last_element = elem;
   }
 
@@ -334,7 +339,7 @@ void ut_list_append(List &list, typename List::elem_type *elem) {
   elem_node.next = nullptr;
   elem_node.prev = list.last_element;
 
-  if (list.last_element != nullptr) {
+  if (UNIV_EXPECT(list.last_element != nullptr, !List::empty_expected)) {
     ut_ad(list.last_element != elem);
 
     List::get_node(*list.last_element).next = elem;
@@ -342,7 +347,7 @@ void ut_list_append(List &list, typename List::elem_type *elem) {
 
   list.last_element = elem;
 
-  if (list.first_element == nullptr) {
+  if (UNIV_EXPECT(list.first_element == nullptr, List::empty_expected)) {
     list.first_element = elem;
   }
 
@@ -372,7 +377,7 @@ void ut_list_insert(List &list, typename List::elem_type *elem1,
   elem2_node.prev = elem1;
   elem2_node.next = elem1_node.next;
   ut_ad((elem2_node.next == nullptr) == (list.last_element == elem1));
-  if (elem2_node.next != nullptr) {
+  if (UNIV_EXPECT(elem2_node.next != nullptr, !List::empty_expected)) {
     List::get_node(*elem2_node.next).prev = elem2;
   } else {
     list.last_element = elem2;
@@ -400,13 +405,13 @@ void ut_list_remove(List &list, typename List::elem_type *elem) {
   ut_ad(UT_LIST_IS_INITIALISED(list));
 
   auto &node = List::get_node(*elem);
-  if (node.next != nullptr) {
+  if (UNIV_EXPECT(node.next != nullptr, !List::empty_expected)) {
     List::get_node(*node.next).prev = node.prev;
   } else {
     list.last_element = node.prev;
   }
 
-  if (node.prev != nullptr) {
+  if (UNIV_EXPECT(node.prev != nullptr, !List::empty_expected)) {
     List::get_node(*node.prev).next = node.next;
   } else {
     list.first_element = node.next;

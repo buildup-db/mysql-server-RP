@@ -2,7 +2,7 @@
 
 Copyright (c) 1995, 2025, Oracle and/or its affiliates.
 Copyright (c) 2008, Google Inc.
-Copyright (c) 2025, buildup-db.
+Copyright (c) 2026, buildup-db.
 
 Portions of this file contain modifications contributed and copyrighted by
 Google, Inc. Those modifications are gratefully acknowledged and are described
@@ -99,7 +99,7 @@ static inline ulint rw_lock_get_writer(
   int32_t lock_word = lock->lock_word;
 
   ut_ad(lock_word <= X_LOCK_DECR);
-  if (lock_word > X_LOCK_HALF_DECR) {
+  if (UNIV_LIKELY(lock_word > X_LOCK_HALF_DECR)) {
     /* return NOT_LOCKED in s-lock state, like the writer
     member of the old lock implementation. */
     return (RW_LOCK_NOT_LOCKED);
@@ -216,9 +216,9 @@ bool rw_lock_lock_word_decr(rw_lock_t *lock, /*!< in/out: rw-lock */
   int32_t local_lock_word;
 
   local_lock_word = lock->lock_word.load(std::memory_order_acquire);
-  while (local_lock_word > threshold) {
-    if (lock->lock_word.compare_exchange_strong(local_lock_word,
-                                                local_lock_word - amount)) {
+  while (UNIV_LIKELY(local_lock_word > threshold)) {
+    if (UNIV_LIKELY(lock->lock_word.compare_exchange_strong(local_lock_word,
+                                                local_lock_word - amount))) {
       return (true);
     }
   }
@@ -290,7 +290,7 @@ static inline void rw_lock_s_lock_func(rw_lock_t *lock, ulint pass,
   ut_ad(!rw_lock_own(lock, RW_LOCK_S)); /* see NOTE above */
   ut_ad(!rw_lock_own(lock, RW_LOCK_X));
 
-  if (!rw_lock_s_lock_low(lock, pass, location)) {
+  if (UNIV_UNLIKELY(!rw_lock_s_lock_low(lock, pass, location))) {
     /* Did not succeed, try spin wait */
 
     rw_lock_s_lock_spin(lock, pass, location);
@@ -364,7 +364,7 @@ static inline void rw_lock_s_unlock_func(IF_DEBUG(ulint pass, )
 
   /* Increment lock_word to indicate 1 less reader */
   int32_t lock_word = rw_lock_lock_word_incr(lock, 1);
-  if (lock_word == 0 || lock_word == -X_LOCK_HALF_DECR) {
+  if (UNIV_UNLIKELY(lock_word == 0) || UNIV_UNLIKELY(lock_word == -X_LOCK_HALF_DECR)) {
     /* wait_ex waiter exists. It may not be asleep, but we signal
     anyway. We do not wake other waiters, because they can't
     exist without wait_ex waiter and wait_ex waiter goes first.*/
@@ -390,7 +390,7 @@ static inline void rw_lock_x_unlock_func(IF_DEBUG(ulint pass, )
   stale. Otherwise if our thread tried to reacquire the lock it would wrongly
   believe it already has it.
   Note that since we still hold the x-lock we can safely read the lock_word. */
-  if (lock->lock_word == 0) {
+  if (UNIV_LIKELY(lock->lock_word == 0)) {
     /* Last caller in a possible recursive chain. */
     lock->recursive.store(false, std::memory_order_relaxed);
   }
@@ -398,10 +398,10 @@ static inline void rw_lock_x_unlock_func(IF_DEBUG(ulint pass, )
   ut_d(rw_lock_remove_debug_info(lock, pass, RW_LOCK_X));
 
   const int32_t lock_word = lock->lock_word;
-  if (lock_word == 0 || lock_word == -X_LOCK_HALF_DECR) {
+  if (UNIV_LIKELY(lock_word == 0) || lock_word == -X_LOCK_HALF_DECR) {
     /* There is 1 x-lock */
     /* atomic increment is needed, because it is last */
-    if (rw_lock_lock_word_incr(lock, X_LOCK_DECR) <= 0) {
+    if (UNIV_UNLIKELY(rw_lock_lock_word_incr(lock, X_LOCK_DECR) <= 0)) {
       ut_error;
     }
 
@@ -410,7 +410,7 @@ static inline void rw_lock_x_unlock_func(IF_DEBUG(ulint pass, )
     We need to signal read/write waiters.
     We do not need to signal wait_ex waiters, since they cannot
     exist when there is a writer. */
-    if (lock->waiters) {
+    if (UNIV_UNLIKELY(lock->waiters)) {
       rw_lock_reset_waiter_flag(lock);
       os_event_set(lock->event);
       sync_array_object_signalled();
@@ -441,19 +441,19 @@ static inline void rw_lock_sx_unlock_func(IF_DEBUG(ulint pass, )
 
   ut_d(rw_lock_remove_debug_info(lock, pass, RW_LOCK_SX));
 
-  if (lock->sx_recursive == 0) {
+  if (UNIV_LIKELY(lock->sx_recursive == 0)) {
     /* Last caller in a possible recursive chain. */
-    if (lock->lock_word > 0) {
+    if (UNIV_LIKELY(lock->lock_word > 0)) {
       lock->recursive.store(false, std::memory_order_relaxed);
 
-      if (rw_lock_lock_word_incr(lock, X_LOCK_HALF_DECR) <= X_LOCK_HALF_DECR) {
+      if (UNIV_UNLIKELY(rw_lock_lock_word_incr(lock, X_LOCK_HALF_DECR) <= X_LOCK_HALF_DECR)) {
         ut_error;
       }
       /* Lock is now free. May have to signal read/write
       waiters. We do not need to signal wait_ex waiters,
       since they cannot exist when there is an sx-lock
       holder. */
-      if (lock->waiters) {
+      if (UNIV_UNLIKELY(lock->waiters)) {
         rw_lock_reset_waiter_flag(lock);
         os_event_set(lock->event);
         sync_array_object_signalled();
@@ -491,7 +491,7 @@ static inline void pfs_rw_lock_create_func(mysql_pfs_key_t key, rw_lock_t *lock,
  @param[in] location location where requested */
 static inline void pfs_rw_lock_x_lock_func(rw_lock_t *lock, ulint pass,
                                            ut::Location location) {
-  if (lock->pfs_psi != nullptr) {
+  if (UNIV_UNLIKELY(lock->pfs_psi != nullptr)) {
     if (lock->pfs_psi->m_enabled) {
       PSI_rwlock_locker *locker;
       PSI_rwlock_locker_state state;
@@ -525,7 +525,7 @@ static inline bool pfs_rw_lock_x_lock_func_nowait(
 {
   bool ret;
 
-  if (lock->pfs_psi != nullptr) {
+  if (UNIV_UNLIKELY(lock->pfs_psi != nullptr)) {
     if (lock->pfs_psi->m_enabled) {
       PSI_rwlock_locker *locker;
       PSI_rwlock_locker_state state;
@@ -575,7 +575,7 @@ to unlock
 ALWAYS_INLINE
 void pfs_rw_lock_s_lock_func(rw_lock_t *lock, ulint pass,
                              ut::Location location) {
-  if (lock->pfs_psi != nullptr) {
+  if (UNIV_UNLIKELY(lock->pfs_psi != nullptr)) {
     if (lock->pfs_psi->m_enabled) {
       PSI_rwlock_locker *locker;
       PSI_rwlock_locker_state state;
@@ -606,7 +606,7 @@ void pfs_rw_lock_s_lock_func(rw_lock_t *lock, ulint pass,
  @param[in] location location where requested */
 static inline void pfs_rw_lock_sx_lock_func(rw_lock_t *lock, ulint pass,
                                             ut::Location location) {
-  if (lock->pfs_psi != nullptr) {
+  if (UNIV_UNLIKELY(lock->pfs_psi != nullptr)) {
     if (lock->pfs_psi->m_enabled) {
       PSI_rwlock_locker *locker;
       PSI_rwlock_locker_state state;
@@ -632,7 +632,7 @@ static inline bool pfs_rw_lock_s_lock_low(rw_lock_t *lock, ulint pass,
                                           ut::Location location) {
   bool ret;
 
-  if (lock->pfs_psi != nullptr) {
+  if (UNIV_UNLIKELY(lock->pfs_psi != nullptr)) {
     if (lock->pfs_psi->m_enabled) {
       PSI_rwlock_locker *locker;
       PSI_rwlock_locker_state state;
@@ -669,7 +669,7 @@ static inline bool pfs_rw_lock_sx_lock_low(rw_lock_t *lock, ulint pass,
                                            ut::Location location) {
   bool ret;
 
-  if (lock->pfs_psi != nullptr) {
+  if (UNIV_UNLIKELY(lock->pfs_psi != nullptr)) {
     if (lock->pfs_psi->m_enabled) {
       PSI_rwlock_locker *locker;
       PSI_rwlock_locker_state state;
@@ -701,7 +701,7 @@ static inline bool pfs_rw_lock_sx_lock_low(rw_lock_t *lock, ulint pass,
 static inline void pfs_rw_lock_x_unlock_func(IF_DEBUG(ulint pass, )
                                                  rw_lock_t *lock) {
   /* Inform performance schema we are unlocking the lock */
-  if (lock->pfs_psi != nullptr) {
+  if (UNIV_UNLIKELY(lock->pfs_psi != nullptr)) {
     if (lock->pfs_psi->m_enabled) {
       PSI_RWLOCK_CALL(unlock_rwlock)(lock->pfs_psi, PSI_RWLOCK_EXCLUSIVEUNLOCK);
     }
@@ -713,7 +713,7 @@ static inline void pfs_rw_lock_x_unlock_func(IF_DEBUG(ulint pass, )
 static inline void pfs_rw_lock_sx_unlock_func(IF_DEBUG(ulint pass, )
                                                   rw_lock_t *lock) {
   /* Inform performance schema we are unlocking the lock */
-  if (lock->pfs_psi != nullptr) {
+  if (UNIV_UNLIKELY(lock->pfs_psi != nullptr)) {
     if (lock->pfs_psi->m_enabled) {
       PSI_RWLOCK_CALL(unlock_rwlock)
       (lock->pfs_psi, PSI_RWLOCK_SHAREDEXCLUSIVEUNLOCK);
@@ -726,7 +726,7 @@ static inline void pfs_rw_lock_sx_unlock_func(IF_DEBUG(ulint pass, )
 ALWAYS_INLINE
 void pfs_rw_lock_s_unlock_func(IF_DEBUG(ulint pass, ) rw_lock_t *lock) {
   /* Inform performance schema we are unlocking the lock */
-  if (lock->pfs_psi != nullptr) {
+  if (UNIV_UNLIKELY(lock->pfs_psi != nullptr)) {
     if (lock->pfs_psi->m_enabled) {
       PSI_RWLOCK_CALL(unlock_rwlock)(lock->pfs_psi, PSI_RWLOCK_SHAREDUNLOCK);
     }
