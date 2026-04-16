@@ -1,4 +1,5 @@
 /* Copyright (c) 2000, 2025, Oracle and/or its affiliates.
+   Copyright (c) 2026, buildup-db.
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License, version 2.0,
@@ -1439,9 +1440,16 @@ static const char *require_quotes(const char *name, size_t name_length) {
   // Identifier starting with '$' is deprecated.
   if (name_length && static_cast<uchar>(*name) == '$') return name;
 
+  const bool is_utf8mb3 =
+      (system_charset_info->cset->mbcharlen == my_mbcharlen_utf8mb3);
   for (; name < end; name++) {
     uchar chr = (uchar)*name;
-    uint length = my_mbcharlen(system_charset_info, chr);
+    uint length;
+    if (likely(is_utf8mb3)) {
+      length = my_mbcharlen_utf8mb3_inline(chr);
+    } else {
+      length = my_mbcharlen(system_charset_info, chr);
+    }
     if (length == 0 || (length == 1 && !system_charset_info->ident_map[chr]))
       return name;
     if (length == 1 && (chr < '0' || chr > '9')) pure_digit = false;

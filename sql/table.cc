@@ -1,5 +1,6 @@
 /*
    Copyright (c) 2000, 2025, Oracle and/or its affiliates.
+   Copyright (c) 2026, buildup-db.
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License, version 2.0,
@@ -3672,11 +3673,18 @@ Ident_name_check check_table_name(const char *name, size_t length) {
   const char *end = name + length;
   if (!length || length > NAME_LEN) return Ident_name_check::WRONG;
   bool last_char_is_space = false;
+  const bool is_utf8mb3 =
+      (system_charset_info->cset->ismbchar == my_ismbchar_utf8mb3);
 
   while (name != end) {
     last_char_is_space = my_isspace(system_charset_info, *name);
     if (use_mb(system_charset_info)) {
-      int len = my_ismbchar(system_charset_info, name, end);
+      int len;
+      if (likely(is_utf8mb3)) {
+        len = my_ismbchar_utf8mb3(system_charset_info, name, end);
+      } else {
+        len = my_ismbchar(system_charset_info, name, end);
+      }
       if (len) {
         name += len;
         name_length++;
@@ -3706,11 +3714,18 @@ bool check_column_name(const Name_string &namestring) {
   bool last_char_is_space = true;
   const char *name_end = name + namestring.length();
   const bool is_multibyte = use_mb(system_charset_info);
+  const bool is_utf8mb3 =
+      (system_charset_info->cset->ismbchar == my_ismbchar_utf8mb3);
 
   while (*name) {
     last_char_is_space = my_isspace(system_charset_info, *name);
     if (is_multibyte) {
-      const int len = my_ismbchar(system_charset_info, name, name_end);
+      int len;
+      if (likely(is_utf8mb3)) {
+        len = my_ismbchar_utf8mb3(system_charset_info, name, name_end);
+      } else {
+        len = my_ismbchar(system_charset_info, name, name_end);
+      }
       if (len) {
         name += len;
         name_length++;

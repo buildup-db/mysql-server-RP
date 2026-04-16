@@ -1,4 +1,5 @@
 /* Copyright (c) 2000, 2025, Oracle and/or its affiliates.
+   Copyright (c) 2026, buildup-db.
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License, version 2.0,
@@ -7690,14 +7691,22 @@ Field *find_field_in_table(TABLE *table, const char *name, bool allow_rowid,
   Field **field_ptr = nullptr, *field;
 
   if (!(field_ptr = table->field)) return nullptr;
+  const bool is_utf8mb3 =
+      (system_charset_info->coll->strcasecmp == my_strcasecmp_utf8mb3);
   for (; *field_ptr; ++field_ptr) {
     // NOTE: This should probably be strncollsp() instead of my_strcasecmp();
     // in particular, Ñ != N for my_strcasecmp(), which is not according to the
     // usual ai_ci rules. However, changing it would risk breaking existing
     // table definitions (which don't distinguish between N and Ñ), so we can
     // only do this when actually changing the system collation.
-    if (!my_strcasecmp(system_charset_info, (*field_ptr)->field_name, name))
+    if (likely(is_utf8mb3)) {
+      if (!my_strcasecmp_utf8mb3(system_charset_info, (*field_ptr)->field_name,
+                                 name))
+        break;
+    } else if (!my_strcasecmp(system_charset_info, (*field_ptr)->field_name,
+                              name)) {
       break;
+    }
   }
 
   if (field_ptr && *field_ptr) {

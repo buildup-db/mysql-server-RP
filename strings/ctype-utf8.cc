@@ -5703,8 +5703,7 @@ uint my_ismbchar_utf8mb3(const CHARSET_INFO *, const char *b, const char *e) {
   return (res > 1) ? res : 0;
 }
 
-static uint my_mbcharlen_utf8mb3(const CHARSET_INFO *cs [[maybe_unused]],
-                                 uint c) {
+uint my_mbcharlen_utf8mb3(const CHARSET_INFO *cs [[maybe_unused]], uint c) {
   if (c < 0x80)
     return 1;
   else if (c < 0xc2)
@@ -7685,8 +7684,7 @@ size_t my_charpos_mb4(const CHARSET_INFO *cs, const char *pos, const char *end,
   return (size_t)(length ? end + 2 - start : pos - start);
 }
 
-static uint my_mbcharlen_utf8mb4(const CHARSET_INFO *cs [[maybe_unused]],
-                                 uint c) {
+uint my_mbcharlen_utf8mb4(const CHARSET_INFO *cs [[maybe_unused]], uint c) {
   if (c < 0x80) return 1;
   if (c < 0xc2) return 0; /* Illegal mb head */
   if (c < 0xe0) return 2;

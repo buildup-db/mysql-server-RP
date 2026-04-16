@@ -683,6 +683,32 @@ int my_strnncollsp_uca_900(const CHARSET_INFO *cs, const uchar *s, size_t slen,
 uint my_ismbchar_utf8mb3(const CHARSET_INFO *, const char *b, const char *e);
 
 uint my_ismbchar_utf8mb4(const CHARSET_INFO *cs, const char *b, const char *e);
+
+uint my_mbcharlen_utf8mb3(const CHARSET_INFO *cs, uint c);
+uint my_mbcharlen_utf8mb4(const CHARSET_INFO *cs, uint c);
+
+static ALWAYS_INLINE uint my_mbcharlen_utf8mb3_inline(uint c) {
+  if (c < 0x80)
+    return 1;
+  else if (c < 0xc2)
+    return 0; /* Illegal mb head */
+  else if (c < 0xe0)
+    return 2;
+  else if (c < 0xf0)
+    return 3;
+  return 0; /* Illegal mb head */
+  ;
+}
+
+static ALWAYS_INLINE uint my_mbcharlen_utf8mb4_inline(uint c) {
+  if (c < 0x80) return 1;
+  if (c < 0xc2) return 0; /* Illegal mb head */
+  if (c < 0xe0) return 2;
+  if (c < 0xf0) return 3;
+  if (c < 0xf8) return 4;
+  return 0; /* Illegal mb head */
+  ;
+}
 }
 
 #define _MY_U 01    /* Upper case */

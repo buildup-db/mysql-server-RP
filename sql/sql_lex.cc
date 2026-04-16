@@ -1,5 +1,6 @@
 /*
    Copyright (c) 2000, 2025, Oracle and/or its affiliates.
+   Copyright (c) 2026, buildup-db.
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License, version 2.0,
@@ -1027,15 +1028,23 @@ static char *get_text(Lex_input_stream *lip, int pre_skip, int post_skip) {
 
   lip->tok_bitmap = 0;
   sep = lip->yyGetLast();  // String should end with this
+  const bool is_utf8mb4 = (cs->cset->ismbchar == my_ismbchar_utf8mb4);
   while (!lip->eof()) {
     c = lip->yyGet();
     lip->tok_bitmap |= c;
     {
       int l;
-      if (use_mb(cs) &&
-          (l = my_ismbchar(cs, lip->get_ptr() - 1, lip->get_end_of_query()))) {
-        lip->skip_binary(l - 1);
-        continue;
+      if (use_mb(cs)) {
+        if (likely(is_utf8mb4)) {
+          l = my_ismbchar_utf8mb4(cs, lip->get_ptr() - 1,
+                                  lip->get_end_of_query());
+        } else {
+          l = my_ismbchar(cs, lip->get_ptr() - 1, lip->get_end_of_query());
+        }
+        if (l) {
+          lip->skip_binary(l - 1);
+          continue;
+        }
       }
     }
     if (c == '\\' && !(lip->m_thd->variables.sql_mode &
@@ -1078,10 +1087,17 @@ static char *get_text(Lex_input_stream *lip, int pre_skip, int post_skip) {
 
         for (to = start; str != end; str++) {
           int l;
-          if (use_mb(cs) && (l = my_ismbchar(cs, str, end))) {
-            while (l--) *to++ = *str++;
-            str--;
-            continue;
+          if (use_mb(cs)) {
+            if (likely(is_utf8mb4)) {
+              l = my_ismbchar_utf8mb4(cs, str, end);
+            } else {
+              l = my_ismbchar(cs, str, end);
+            }
+            if (l) {
+              while (l--) *to++ = *str++;
+              str--;
+              continue;
+            }
           }
           if (!(lip->m_thd->variables.sql_mode & MODE_NO_BACKSLASH_ESCAPES) &&
               *str == '\\' && str + 1 != end) {
@@ -1467,7 +1483,14 @@ static int lex_one_token(Lexer_yystype *yylval, THD *thd) {
         const char *start;
         if (use_mb(cs)) {
           result_state = IDENT_QUOTED;
-          switch (my_mbcharlen(cs, lip->yyGetLast())) {
+          uint charlen;
+          const bool is_utf8mb4 = (cs->cset->mbcharlen == my_mbcharlen_utf8mb4);
+          if (likely(is_utf8mb4)) {
+            charlen = my_mbcharlen_utf8mb4_inline(lip->yyGetLast());
+          } else {
+            charlen = my_mbcharlen(cs, lip->yyGetLast());
+          }
+          switch (charlen) {
             case 1:
               break;
             case 0:
@@ -1483,7 +1506,13 @@ static int lex_one_token(Lexer_yystype *yylval, THD *thd) {
               lip->skip_binary(l - 1);
           }
           while (ident_map[c = lip->yyGet()]) {
-            switch (my_mbcharlen(cs, c)) {
+            uint charlen;
+            if (likely(is_utf8mb4)) {
+              charlen = my_mbcharlen_utf8mb4_inline(c);
+            } else {
+              charlen = my_mbcharlen(cs, c);
+            }
+            switch (charlen) {
               case 1:
                 break;
               case 0:
@@ -1636,8 +1665,15 @@ static int lex_one_token(Lexer_yystype *yylval, THD *thd) {
         result_state = IDENT;
         if (use_mb(cs)) {
           result_state = IDENT_QUOTED;
+          const bool is_utf8mb4 = (cs->cset->mbcharlen == my_mbcharlen_utf8mb4);
           while (ident_map[c = lip->yyGet()]) {
-            switch (my_mbcharlen(cs, c)) {
+            uint charlen;
+            if (likely(is_utf8mb4)) {
+              charlen = my_mbcharlen_utf8mb4_inline(c);
+            } else {
+              charlen = my_mbcharlen(cs, c);
+            }
+            switch (charlen) {
               case 1:
                 break;
               case 0:
