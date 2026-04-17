@@ -2,6 +2,7 @@
 #define PROTOCOL_CLASSIC_INCLUDED
 
 /* Copyright (c) 2002, 2025, Oracle and/or its affiliates.
+   Copyright (c) 2026, buildup-db.
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License, version 2.0,
@@ -58,7 +59,6 @@ class Protocol_classic : public Protocol {
                                       const CHARSET_INFO *tocs);
 
  protected:
-  THD *m_thd;
   String *packet;
   String convert;
   uint field_pos;
@@ -118,7 +118,7 @@ class Protocol_classic : public Protocol {
   void end_partial_result_set() override;
 
   bool end_row() override;
-  uint get_rw_status() override;
+  uint get_rw_status();
   bool get_compression() override;
 
   char *get_compression_algorithm() override;
@@ -217,8 +217,10 @@ class Protocol_classic : public Protocol {
 
 class Protocol_text : public Protocol_classic {
  public:
-  Protocol_text() = default;
-  Protocol_text(THD *thd_arg) : Protocol_classic(thd_arg) {}
+  Protocol_text() : Protocol_classic() { m_type = PROTOCOL_TEXT; }
+  Protocol_text(THD *thd_arg) : Protocol_classic(thd_arg) {
+    m_type = PROTOCOL_TEXT;
+  }
   bool store_null() override;
   bool store_tiny(longlong from, uint32 zerofill) override;
   bool store_short(longlong from, uint32 zerofill) override;
@@ -234,7 +236,10 @@ class Protocol_text : public Protocol_classic {
   void start_row() override;
   bool send_parameters(List<Item_param> *parameters, bool) override;
 
-  enum enum_protocol_type type() const override { return PROTOCOL_TEXT; }
+  enum enum_protocol_type type() const {
+    assert(m_type == PROTOCOL_TEXT);
+    return PROTOCOL_TEXT;
+  }
 };
 
 class Protocol_binary final : public Protocol_text {
@@ -242,8 +247,10 @@ class Protocol_binary final : public Protocol_text {
   uint bit_fields;
 
  public:
-  Protocol_binary() = default;
-  Protocol_binary(THD *thd_arg) : Protocol_text(thd_arg) {}
+  Protocol_binary() : Protocol_text() { m_type = PROTOCOL_BINARY; }
+  Protocol_binary(THD *thd_arg) : Protocol_text(thd_arg) {
+    m_type = PROTOCOL_BINARY;
+  }
   void start_row() override;
   bool store_null() override;
   bool store_tiny(longlong from, uint32 zerofill) override;
@@ -264,7 +271,10 @@ class Protocol_binary final : public Protocol_text {
   bool send_parameters(List<Item_param> *parameters,
                        bool is_sql_prepare) override;
 
-  enum enum_protocol_type type() const override { return PROTOCOL_BINARY; }
+  enum enum_protocol_type type() const {
+    assert(m_type == PROTOCOL_BINARY);
+    return PROTOCOL_BINARY;
+  }
 };
 
 bool net_send_error(THD *thd, uint sql_errno, const char *err);

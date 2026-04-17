@@ -2,6 +2,7 @@
 #define PROTOCOL_INCLUDED
 
 /* Copyright (c) 2002, 2025, Oracle and/or its affiliates.
+   Copyright (c) 2026, buildup-db.
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License, version 2.0,
@@ -39,11 +40,30 @@ class Item_param;
 template <class T>
 class List;
 class Field;
+class THD;
 
 class Protocol {
  private:
   /// Pointer to the Protocol below on the stack.
   Protocol *m_previous_protocol = nullptr;
+
+ public:
+  /**
+    Enum used by type() to specify the protocol type
+  */
+  enum enum_protocol_type {
+    PROTOCOL_TEXT = 0,    // text Protocol type used mostly
+                          // for the old (MySQL 4.0 protocol)
+    PROTOCOL_BINARY = 1,  // binary protocol type
+    PROTOCOL_LOCAL = 2,   // local protocol type(intercepts communication)
+    PROTOCOL_ERROR = 3,   // error protocol instance
+    PROTOCOL_PLUGIN = 4,  // pluggable protocol type
+    PROTOCOL_INVALID = 5
+  };
+
+ protected:
+  THD *m_thd;
+  enum_protocol_type m_type = PROTOCOL_INVALID;
 
  public:
   virtual ~Protocol() = default;
@@ -94,23 +114,11 @@ class Protocol {
   virtual int get_command(COM_DATA *com_data, enum_server_command *cmd) = 0;
 
   /**
-    Enum used by type() to specify the protocol type
-  */
-  enum enum_protocol_type {
-    PROTOCOL_TEXT = 0,    // text Protocol type used mostly
-                          // for the old (MySQL 4.0 protocol)
-    PROTOCOL_BINARY = 1,  // binary protocol type
-    PROTOCOL_LOCAL = 2,   // local protocol type(intercepts communication)
-    PROTOCOL_ERROR = 3,   // error protocol instance
-    PROTOCOL_PLUGIN = 4   // pluggable protocol type
-  };
-
-  /**
     Flags available to alter the way the messages are sent to the client
   */
   enum { SEND_NUM_ROWS = 1, SEND_DEFAULTS = 2, SEND_EOF = 4 };
 
-  virtual enum enum_protocol_type type() const = 0;
+  enum enum_protocol_type type() const { return m_type; }
 
   virtual enum enum_vio_type connection_type() const = 0;
 
@@ -231,7 +239,7 @@ class Protocol {
     @retval 2       Write
     @retval 0       Other(Idle, Killed)
   */
-  virtual uint get_rw_status() = 0;
+  ALWAYS_INLINE uint get_rw_status();
   /**
     Returns if the protocol is compressed or not.
 
@@ -370,5 +378,23 @@ class Protocol {
   virtual bool send_parameters(List<Item_param> *parameters,
                                bool is_sql_prepare) = 0;
 };
+
+#include "sql/sql_class.h"  // THD
+
+/**
+  Returns the read/writing status
+
+  @retval 1       Read
+  @retval 2       Write
+  @retval 0       Other(Idle, Killed)
+*/
+inline uint Protocol::get_rw_status() {
+  if (likely(m_type == Protocol::PROTOCOL_TEXT ||
+             m_type == Protocol::PROTOCOL_BINARY) &&
+      likely(m_thd)) {
+    return m_thd->get_net()->reading_or_writing;
+  }
+  return 0;
+}
 
 #endif /* PROTOCOL_INCLUDED */

@@ -1,4 +1,5 @@
 /* Copyright (c) 2002, 2025, Oracle and/or its affiliates.
+   Copyright (c) 2026, buildup-db.
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License, version 2.0,
@@ -259,7 +260,7 @@ class Protocol_local final : public Protocol {
   void start_row() override;
   bool end_row() override;
   void abort_row() override {}
-  uint get_rw_status() override;
+  uint get_rw_status();
   bool get_compression() override;
 
   char *get_compression_algorithm() override;
@@ -290,7 +291,10 @@ class Protocol_local final : public Protocol {
   bool store_double(double value, uint32 decimals, uint32 zerofill) override;
   bool store_field(const Field *field) override;
 
-  enum enum_protocol_type type() const override { return PROTOCOL_LOCAL; }
+  enum enum_protocol_type type() const {
+    assert(m_type == PROTOCOL_LOCAL);
+    return PROTOCOL_LOCAL;
+  }
   enum enum_vio_type connection_type() const override { return VIO_TYPE_LOCAL; }
 
   bool send_ok(uint server_status, uint statement_warn_count,
@@ -316,7 +320,6 @@ class Protocol_local final : public Protocol {
   Ed_column *m_current_column;
   Ed_row *m_fields;
   bool m_send_metadata;
-  THD *m_thd;
 };
 
 /******************************************************************************
@@ -3843,8 +3846,10 @@ Protocol_local::Protocol_local(THD *thd, Ed_connection *ed_connection)
       m_column_count(0),
       m_current_row(nullptr),
       m_current_column(nullptr),
-      m_send_metadata(false),
-      m_thd(thd) {}
+      m_send_metadata(false) {
+  m_type = PROTOCOL_LOCAL;
+  m_thd = thd;
+}
 
 /**
   A helper function to add the current row to the current result

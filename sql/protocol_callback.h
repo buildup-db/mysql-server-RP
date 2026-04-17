@@ -1,4 +1,5 @@
 /* Copyright (c) 2015, 2025, Oracle and/or its affiliates.
+   Copyright (c) 2026, buildup-db.
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License, version 2.0,
@@ -58,7 +59,9 @@ class Protocol_callback final : public Protocol {
         client_capabilities(0),
         client_capabilities_set(false),
         text_or_binary(t_or_b),
-        in_meta_sending(false) {}
+        in_meta_sending(false) {
+    m_type = PROTOCOL_PLUGIN;
+  }
 
   /**
     Forces read of packet from the connection
@@ -82,7 +85,10 @@ class Protocol_callback final : public Protocol {
     @retval false  success
     @retval true   failure
   */
-  enum enum_protocol_type type() const override { return PROTOCOL_PLUGIN; }
+  enum enum_protocol_type type() const {
+    assert(m_type == PROTOCOL_PLUGIN);
+    return PROTOCOL_PLUGIN;
+  }
 
   /**
     Returns the type of the connection
@@ -287,7 +293,7 @@ class Protocol_callback final : public Protocol {
     this is the best guess that can be made as there is no callback for
     get_rw_status().
   */
-  uint get_rw_status() override;
+  uint get_rw_status();
 
   /**
     Checks if compression is enabled

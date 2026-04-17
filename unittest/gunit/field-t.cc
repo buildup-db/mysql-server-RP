@@ -81,7 +81,7 @@ class Mock_protocol : public Protocol {
   uint p;
 
  public:
-  Mock_protocol(THD *) {}
+  Mock_protocol(THD *) { m_type = PROTOCOL_LOCAL; }
 
   bool store_time(const MYSQL_TIME &time, uint precision) override {
     t = time;
@@ -107,7 +107,7 @@ class Mock_protocol : public Protocol {
   bool end_row() override { return false; }
   bool connection_alive() const override { return false; }
   void abort_row() override {}
-  uint get_rw_status() override { return 0; }
+  uint get_rw_status() { return 0; }
   bool get_compression() override { return false; }
   bool start_result_metadata(uint, uint, const CHARSET_INFO *) override {
     return false;
@@ -146,7 +146,10 @@ class Mock_protocol : public Protocol {
   bool store_datetime(const MYSQL_TIME &, uint) override { return false; }
   bool store_date(const MYSQL_TIME &) override { return false; }
   bool store_field(const Field *) override { return false; }
-  enum enum_protocol_type type() const override { return PROTOCOL_LOCAL; }
+  enum enum_protocol_type type() const {
+    assert(m_type == PROTOCOL_LOCAL);
+    return PROTOCOL_LOCAL;
+  }
   enum enum_vio_type connection_type() const override { return NO_VIO_TYPE; }
   int get_command(COM_DATA *, enum_server_command *) override { return -1; }
   bool flush() override { return true; }
