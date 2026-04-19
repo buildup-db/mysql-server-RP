@@ -245,7 +245,7 @@ static inline int inline_mysql_mutex_lock(mysql_mutex_t *that,
   int result;
 
 #ifdef HAVE_PSI_MUTEX_INTERFACE
-  if (that->m_psi != nullptr) {
+  if (unlikely(that->m_psi != nullptr)) {
     if (that->m_psi->m_enabled) {
       /* Instrumentation start */
       PSI_mutex_locker *locker;
@@ -333,7 +333,7 @@ static inline int inline_mysql_mutex_unlock(mysql_mutex_t *that,
   int result;
 
 #ifdef HAVE_PSI_MUTEX_INTERFACE
-  if (that->m_psi != nullptr) {
+  if (unlikely(that->m_psi != nullptr)) {
     PSI_MUTEX_CALL(unlock_mutex)(that->m_psi);
   }
 #endif

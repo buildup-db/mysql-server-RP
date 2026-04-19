@@ -312,11 +312,11 @@ class Internal_error_handler_holder {
  public:
   Internal_error_handler_holder(THD *thd, bool activate, Error_handler_arg *arg)
       : m_thd(thd), m_activate(activate), m_error_handler(arg) {
-    if (activate) thd->push_internal_handler(&m_error_handler);
+    if (unlikely(activate)) thd->push_internal_handler(&m_error_handler);
   }
 
   ~Internal_error_handler_holder() {
-    if (m_activate) m_thd->pop_internal_handler();
+    if (unlikely(m_activate)) m_thd->pop_internal_handler();
   }
 };
 

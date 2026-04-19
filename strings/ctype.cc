@@ -1,4 +1,5 @@
 /* Copyright (c) 2000, 2025, Oracle and/or its affiliates.
+   Copyright (c) 2026, buildup-db.
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License, version 2.0,
@@ -274,8 +275,9 @@ static struct my_cs_file_section_st sec[] = {
 
 static struct my_cs_file_section_st *cs_file_sec(const char *attr, size_t len) {
   struct my_cs_file_section_st *s;
-  for (s = sec; s->str; s++) {
-    if (!strncmp(attr, s->str, len) && s->str[len] == 0) return s;
+  for (s = sec; likely(s->str); s++) {
+    if (unlikely(!strncmp(attr, s->str, len)) && likely(s->str[len] == 0))
+      return s;
   }
   return nullptr;
 }
@@ -914,7 +916,7 @@ size_t my_convert(char *to, size_t to_length, const CHARSET_INFO *to_cs,
     If any of the character sets is not ASCII compatible,
     immediately switch to slow mb_wc->wc_mb method.
   */
-  if ((to_cs->state | from_cs->state) & MY_CS_NONASCII)
+  if (unlikely(to_cs->state | from_cs->state) & MY_CS_NONASCII)
     return my_convert_internal(to, to_length, to_cs, from, from_length, from_cs,
                                errors);
 
@@ -928,8 +930,8 @@ size_t my_convert(char *to, size_t to_length, const CHARSET_INFO *to_cs,
     gives about 10% performance improvement comparing
     to byte-by-byte loop.
   */
-  for (; length >= 4; length -= 4, from += 4, to += 4) {
-    if (uint4korr(from) & 0x80808080) break;
+  for (; likely(length >= 4); length -= 4, from += 4, to += 4) {
+    if (unlikely(uint4korr(from) & 0x80808080)) break;
     int4store(to, uint4korr(from));
   }
 #endif /* __i386__ */
@@ -939,7 +941,8 @@ size_t my_convert(char *to, size_t to_length, const CHARSET_INFO *to_cs,
       *errors = 0;
       return length2;
     }
-    if ((static_cast<uchar>(*from)) > 0x7F) /* A non-ASCII character */
+    if (unlikely((static_cast<uchar>(*from)) >
+                 0x7F)) /* A non-ASCII character */
     {
       size_t copied_length = length2 - length;
       to_length -= copied_length;

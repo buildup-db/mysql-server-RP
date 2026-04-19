@@ -2,6 +2,7 @@
 #define MY_COMPILER_INCLUDED
 
 /* Copyright (c) 2010, 2025, Oracle and/or its affiliates.
+   Copyright (c) 2026, buildup-db.
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License, version 2.0,
@@ -53,6 +54,7 @@
 // __builtin_expect() might not affect for the caller code. should #define
 #define likely(x) __builtin_expect(!!(x), 1)
 #define unlikely(x) __builtin_expect(!!(x), 0)
+#define my_expect(x, c) __builtin_expect(x, c)
 
 #else /* HAVE_BUILTIN_EXPECT */
 
@@ -63,6 +65,7 @@ constexpr bool unlikely(bool expr) { return expr; }
 #define likely(x) (x)
 #define unlikely(x) (x)
 #endif
+#define my_expect(x, c) (x)
 
 #endif /* HAVE_BUILTIN_EXPECT */
 

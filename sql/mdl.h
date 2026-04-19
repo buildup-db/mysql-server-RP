@@ -726,7 +726,7 @@ struct MDL_key {
     m_length = 0;
   }
   bool is_equal(const MDL_key *rhs) const {
-    return (m_length == rhs->m_length &&
+    return (unlikely(m_length == rhs->m_length) &&
             memcmp(m_ptr, rhs->m_ptr, m_length) == 0);
   }
   /**

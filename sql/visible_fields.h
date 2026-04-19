@@ -60,7 +60,7 @@ class VisibleFieldsAdapter {
   VisibleFieldsAdapter &operator++() {
     do {
       ++m_it;
-    } while (m_it != m_end && (*m_it)->hidden);
+    } while (likely(m_it != m_end) && unlikely((*m_it)->hidden));
     return *this;
   }
 

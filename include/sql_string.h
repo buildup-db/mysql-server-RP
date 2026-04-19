@@ -2,6 +2,7 @@
 #define SQL_STRING_INCLUDED
 
 /* Copyright (c) 2000, 2025, Oracle and/or its affiliates.
+   Copyright (c) 2026, buildup-db.
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License, version 2.0,
@@ -377,7 +378,7 @@ class String {
   }
 
   void mem_free() {
-    if (m_is_alloced) {
+    if (unlikely(m_is_alloced)) {
       m_is_alloced = false;
       m_alloced_length = 0;
       my_free(m_ptr);
@@ -538,7 +539,7 @@ class String {
   bool replace(size_t offset, size_t arg_length, const char *to, size_t length);
   bool replace(size_t offset, size_t arg_length, const String &to);
   bool append(char chr) {
-    if (m_length < m_alloced_length) {
+    if (likely(m_length < m_alloced_length)) {
       m_ptr[m_length++] = chr;
     } else {
       if (mem_realloc_exp(m_length + 1)) return true;
@@ -632,8 +633,8 @@ inline bool String::needs_conversion(size_t arg_length,
                                      size_t *offset) {
   *offset = 0;
   if (to_cs == nullptr || (to_cs == &my_charset_bin) || from_cs == to_cs ||
-      my_charset_same(from_cs, to_cs) ||
-      ((from_cs == &my_charset_bin) &&
+      unlikely(my_charset_same(from_cs, to_cs)) ||
+      (unlikely(from_cs == &my_charset_bin) &&
        (0 == (*offset = (arg_length % to_cs->mbminlen)))))
     return false;
   return true;

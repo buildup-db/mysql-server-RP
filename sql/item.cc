@@ -1,5 +1,6 @@
 /*
    Copyright (c) 2000, 2025, Oracle and/or its affiliates.
+   Copyright (c) 2026, buildup-db.
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License, version 2.0,
@@ -629,8 +630,8 @@ void Item::aggregate_type(Bounds_checked_array<Item *> items) {
 }
 
 bool Item::itemize(Parse_context *pc, Item **res) {
-  if (skip_itemize(res)) return false;
-  if (super::contextualize(pc)) return true;
+  if (unlikely(skip_itemize(res))) return false;
+  if (unlikely(super::contextualize(pc))) return true;
 
   // Add item to global list
   pc->thd->add_item(this);
@@ -638,10 +639,10 @@ bool Item::itemize(Parse_context *pc, Item **res) {
     Item constructor can be called during execution other then SQL_COM
     command => we should check pc->select on zero
   */
-  if (pc->select) {
+  if (likely(pc->select)) {
     const enum_parsing_context place = pc->select->parsing_place;
-    if (place == CTX_SELECT_LIST || place == CTX_HAVING ||
-        place == CTX_ORDER_BY) {
+    if (unlikely(place == CTX_SELECT_LIST || place == CTX_HAVING ||
+                 place == CTX_ORDER_BY)) {
       pc->select->select_n_having_items++;
     }
   }
@@ -1225,7 +1226,7 @@ bool Item::may_evaluate_const(const THD *thd) const {
 }
 
 bool Item::check_cols(uint c) {
-  if (c != 1) {
+  if (unlikely(c != 1)) {
     my_error(ER_OPERAND_COLUMNS, MYF(0), c);
     return true;
   }

@@ -117,11 +117,11 @@ class Stateless_allocator {
   Stateless_allocator &operator=(const Stateless_allocator_type<U> &) {}
 
   pointer allocate(size_type n, const_pointer hint [[maybe_unused]] = nullptr) {
-    if (n == 0) return nullptr;
-    if (n > max_size()) throw std::bad_alloc();
+    if (unlikely(n == 0)) return nullptr;
+    if (unlikely(n > max_size())) throw std::bad_alloc();
 
     pointer p = static_cast<pointer>(ALLOC_FUN()(n * sizeof(T)));
-    if (p == nullptr) throw std::bad_alloc();
+    if (unlikely(p == nullptr)) throw std::bad_alloc();
     return p;
   }
 

@@ -4652,8 +4652,8 @@ MDL_ticket_store::MDL_ticket_handle MDL_ticket_store::find_in_lists(
 
     List_iterator it(m_durations[di].m_ticket_list);
 
-    for (MDL_ticket *ticket = it++; ticket != nullptr; ticket = it++) {
-      if (req.key.is_equal(ticket->get_key()) &&
+    for (MDL_ticket *ticket = it++; likely(ticket != nullptr); ticket = it++) {
+      if (unlikely(req.key.is_equal(ticket->get_key())) &&
           ticket->has_stronger_or_equal_type(req.type)) {
         return {ticket, static_cast<enum_mdl_duration>(di)};
       }

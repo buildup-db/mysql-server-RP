@@ -648,7 +648,7 @@ static inline bool my_charset_is_ascii_based(const CHARSET_INFO *cs) {
 inline bool my_charset_same(const CHARSET_INFO *cs1, const CHARSET_INFO *cs2) {
   assert(0 != strcmp(cs1->csname, "utf8"));
   assert(0 != strcmp(cs2->csname, "utf8"));
-  return ((cs1 == cs2) || !strcmp(cs1->csname, cs2->csname));
+  return (unlikely(cs1 == cs2) || !strcmp(cs1->csname, cs2->csname));
 }
 
 bool my_charset_is_8bit_pure_ascii(const CHARSET_INFO *cs);
@@ -688,7 +688,7 @@ uint my_mbcharlen_utf8mb3(const CHARSET_INFO *cs, uint c);
 uint my_mbcharlen_utf8mb4(const CHARSET_INFO *cs, uint c);
 
 static ALWAYS_INLINE uint my_mbcharlen_utf8mb3_inline(uint c) {
-  if (c < 0x80)
+  if (likely(c < 0x80))
     return 1;
   else if (c < 0xc2)
     return 0; /* Illegal mb head */
@@ -701,7 +701,7 @@ static ALWAYS_INLINE uint my_mbcharlen_utf8mb3_inline(uint c) {
 }
 
 static ALWAYS_INLINE uint my_mbcharlen_utf8mb4_inline(uint c) {
-  if (c < 0x80) return 1;
+  if (likely(c < 0x80)) return 1;
   if (c < 0xc2) return 0; /* Illegal mb head */
   if (c < 0xe0) return 2;
   if (c < 0xf0) return 3;
@@ -804,9 +804,9 @@ static inline uint my_ismbchar(const CHARSET_INFO *cs, const uchar *str,
   @param[in] i possible leading byte
   @return    true if it is, otherwise false
 */
-#define my_ismb1st(s, i)         \
-  (my_mbcharlen((s), (i)) > 1 || \
-   (my_mbmaxlenlen((s)) == 2 && my_mbcharlen((s), (i)) == 0))
+#define my_ismb1st(s, i)                   \
+  (unlikely(my_mbcharlen((s), (i)) > 1) || \
+   (unlikely(my_mbmaxlenlen((s)) == 2) && my_mbcharlen((s), (i)) == 0))
 
 #define my_caseup_str(s, a) ((s)->cset->caseup_str((s), (a)))
 #define my_casedn_str(s, a) ((s)->cset->casedn_str((s), (a)))

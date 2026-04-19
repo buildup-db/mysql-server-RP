@@ -179,8 +179,9 @@ class DTCollation {
   uint repertoire;
 
   void set_repertoire_from_charset(const CHARSET_INFO *cs) {
-    repertoire = cs->state & MY_CS_PUREASCII ? MY_REPERTOIRE_ASCII
-                                             : MY_REPERTOIRE_UNICODE30;
+    repertoire = unlikely(cs->state & MY_CS_PUREASCII)
+                     ? MY_REPERTOIRE_ASCII
+                     : MY_REPERTOIRE_UNICODE30;
   }
   DTCollation() {
     collation = &my_charset_bin;

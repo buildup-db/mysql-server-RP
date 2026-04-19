@@ -179,7 +179,7 @@ class I_P_List_iterator {
   }
   inline T *operator++(int) {
     T *result = current;
-    if (result) current = *L::Adapter::next_ptr(current);
+    if (likely(result)) current = *L::Adapter::next_ptr(current);
     return result;
   }
   inline T *operator++() {

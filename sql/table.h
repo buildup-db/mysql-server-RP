@@ -3054,7 +3054,9 @@ class Table_ref {
   bool is_view() const { return view != nullptr; }
 
   /// Return true if this represents a derived table (an unnamed view)
-  bool is_derived() const { return derived != nullptr && view == nullptr; }
+  bool is_derived() const {
+    return unlikely(derived != nullptr) && view == nullptr;
+  }
 
   /// Return true if this represents a named view or a derived table
   bool is_view_or_derived() const { return derived != nullptr; }
@@ -4308,7 +4310,7 @@ bool update_generated_read_fields(uchar *buf, TABLE *table,
 */
 
 inline bool is_temporary_table(const Table_ref *tl) {
-  if (tl->is_view() || tl->schema_table) return false;
+  if (unlikely(tl->is_view()) || unlikely(tl->schema_table)) return false;
 
   if (!tl->table) return false;
 

@@ -3267,7 +3267,7 @@ class Lex_input_stream {
   unsigned char yyGet() {
     assert(m_ptr <= m_end_of_query);
     char c = *m_ptr++;
-    if (m_echo) *m_cpp_ptr++ = c;
+    if (likely(m_echo)) *m_cpp_ptr++ = c;
     return c;
   }
 
@@ -3301,7 +3301,7 @@ class Lex_input_stream {
   */
   void yyUnget() {
     m_ptr--;
-    if (m_echo) m_cpp_ptr--;
+    if (likely(m_echo)) m_cpp_ptr--;
   }
 
   /**
@@ -3309,7 +3309,7 @@ class Lex_input_stream {
   */
   void yySkip() {
     assert(m_ptr <= m_end_of_query);
-    if (m_echo)
+    if (likely(m_echo))
       *m_cpp_ptr++ = *m_ptr++;
     else
       m_ptr++;

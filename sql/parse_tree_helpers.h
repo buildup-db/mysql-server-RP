@@ -126,7 +126,7 @@ class PT_item_list : public Parse_tree_node {
      Item may be NULL in case of OOM: just ignore it and check thd->is_error()
      in the caller code.
     */
-    if (item == nullptr) return true;
+    if (unlikely(item == nullptr)) return true;
     value.push_back(item);
     return false;
   }

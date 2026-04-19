@@ -1,4 +1,5 @@
 /* Copyright (c) 2013, 2025, Oracle and/or its affiliates.
+   Copyright (c) 2026, buildup-db.
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License, version 2.0,
@@ -83,7 +84,7 @@ class Prealloced_array {
     Gets the buffer in use.
   */
   Element_type *buffer() {
-    return using_inline_buffer() ? m_buff : m_ext.m_array_ptr;
+    return likely(using_inline_buffer()) ? m_buff : m_ext.m_array_ptr;
   }
   const Element_type *buffer() const {
     return using_inline_buffer() ? m_buff : m_ext.m_array_ptr;
@@ -97,7 +98,7 @@ class Prealloced_array {
     }
   }
   void adjust_size(int delta) {
-    if (using_inline_buffer()) {
+    if (likely(using_inline_buffer())) {
       m_inline_size += delta;
     } else {
       m_ext.m_alloced_size += delta;
@@ -220,12 +221,12 @@ class Prealloced_array {
   }
 
   size_t capacity() const {
-    return using_inline_buffer() ? Prealloc : m_ext.m_alloced_capacity;
+    return likely(using_inline_buffer()) ? Prealloc : m_ext.m_alloced_capacity;
   }
   size_t element_size() const { return sizeof(Element_type); }
   bool empty() const { return size() == 0; }
   size_t size() const {
-    return using_inline_buffer() ? m_inline_size : m_ext.m_alloced_size;
+    return likely(using_inline_buffer()) ? m_inline_size : m_ext.m_alloced_size;
   }
 
   Element_type &at(size_t n) {
@@ -341,9 +342,10 @@ class Prealloced_array {
     @return true if out-of-memory, false otherwise
   */
   template <typename... Args>
-  bool emplace_back(Args &&...args) {
+  bool emplace_back(Args &&... args) {
     const size_t expansion_factor = 2;
-    if (size() == capacity() && reserve(capacity() * expansion_factor))
+    if (unlikely(size() == capacity()) &&
+        reserve(capacity() * expansion_factor))
       return true;
     Element_type *p = &buffer()[size()];
     adjust_size(1);

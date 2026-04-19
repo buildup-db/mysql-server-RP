@@ -1,4 +1,5 @@
 /* Copyright (c) 2000, 2025, Oracle and/or its affiliates.
+   Copyright (c) 2026, buildup-db.
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License, version 2.0,
    as published by the Free Software Foundation.
@@ -285,8 +286,8 @@ char *safe_strdup_root(MEM_ROOT *root, const char *str) {
 
 char *strmake_root(MEM_ROOT *root, const char *str, size_t len) {
   char *pos;
-  if ((pos = static_cast<char *>(root->Alloc(len + 1)))) {
-    if (len > 0) memcpy(pos, str, len);
+  if (likely(pos = static_cast<char *>(root->Alloc(len + 1)))) {
+    if (likely(len > 0)) memcpy(pos, str, len);
     pos[len] = 0;
   }
   return pos;

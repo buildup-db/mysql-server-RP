@@ -39,6 +39,7 @@
 
 #include <stddef.h>
 #include "m_string.h"  // IWYU pragma: keep
+#include "my_compiler.h"
 
 char *strmake(char *dst, const char *src, size_t length) {
 #ifdef EXTRA_DEBUG
@@ -59,8 +60,8 @@ char *strmake(char *dst, const char *src, size_t length) {
   memset(dst + n, (int)'Z', length - n + 1);
 #endif
 
-  while (length--)
-    if (!(*dst++ = *src++)) return dst - 1;
+  while (likely(length--))
+    if (unlikely(!(*dst++ = *src++))) return dst - 1;
   *dst = 0;
   return dst;
 }

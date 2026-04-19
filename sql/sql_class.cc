@@ -1,5 +1,6 @@
 /*
    Copyright (c) 2000, 2025, Oracle and/or its affiliates.
+   Copyright (c) 2026, buildup-db.
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License, version 2.0,
@@ -543,12 +544,12 @@ void THD::enter_stage(const PSI_stage_info *new_stage,
              ("'%s' %s:%d", new_stage ? new_stage->m_name : "", calling_file,
               calling_line));
 
-  if (old_stage != nullptr) {
+  if (unlikely(old_stage != nullptr)) {
     old_stage->m_key = m_current_stage_key;
     old_stage->m_name = proc_info();
   }
 
-  if (new_stage != nullptr) {
+  if (likely(new_stage != nullptr)) {
     const char *msg = new_stage->m_name;
 
 #if defined(ENABLED_PROFILING)
@@ -852,14 +853,14 @@ void THD::store_cached_properties(cached_properties prop_mask) {
                   { assert(current_thd == this); });
 
   auto is_selected = [this, prop_mask](cached_properties property) -> bool {
-    return (this->m_protocol != nullptr &&
+    return (likely(this->m_protocol != nullptr) &&
             static_cast<int>(prop_mask) & static_cast<int>(property));
   };
 
   if (is_selected(cached_properties::IS_ALIVE))
     m_cached_is_connection_alive.store(m_protocol->connection_alive());
 
-  if (is_selected(cached_properties::RW_STATUS))
+  if (likely(is_selected(cached_properties::RW_STATUS)))
     m_cached_rw_status.store(m_protocol->get_rw_status());
 }
 
@@ -2033,7 +2034,7 @@ void Query_arena::free_items() {
   Item *next;
   DBUG_TRACE;
   /* This works because items are allocated with (*THR_MALLOC)->Alloc() */
-  for (; m_item_list; m_item_list = next) {
+  for (; likely(m_item_list); m_item_list = next) {
     next = m_item_list->next_free;
     m_item_list->delete_self();
   }

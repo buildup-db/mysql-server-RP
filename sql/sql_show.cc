@@ -1442,7 +1442,7 @@ static const char *require_quotes(const char *name, size_t name_length) {
 
   const bool is_utf8mb3 =
       (system_charset_info->cset->mbcharlen == my_mbcharlen_utf8mb3);
-  for (; name < end; name++) {
+  for (; likely(name < end); name++) {
     uchar chr = (uchar)*name;
     uint length;
     if (likely(is_utf8mb3)) {
@@ -1450,9 +1450,10 @@ static const char *require_quotes(const char *name, size_t name_length) {
     } else {
       length = my_mbcharlen(system_charset_info, chr);
     }
-    if (length == 0 || (length == 1 && !system_charset_info->ident_map[chr]))
+    if (unlikely(length == 0) ||
+        (length == 1 && unlikely(!system_charset_info->ident_map[chr])))
       return name;
-    if (length == 1 && (chr < '0' || chr > '9')) pure_digit = false;
+    if (length == 1 && unlikely(chr < '0' || chr > '9')) pure_digit = false;
   }
   if (pure_digit) return name;
   return nullptr;
@@ -1559,7 +1560,7 @@ void append_identifier(const THD *thd, String *packet, const char *name,
   quote_char = (char)q;
   packet->append(&quote_char, 1, system_charset_info);
 
-  for (name_end = to_name + to_length; to_name < name_end;
+  for (name_end = to_name + to_length; likely(to_name < name_end);
        to_name += to_length) {
     uchar chr = static_cast<uchar>(*to_name);
     to_length = my_mbcharlen(cs_info, chr);
@@ -1570,8 +1571,9 @@ void append_identifier(const THD *thd, String *packet, const char *name,
       The manual says it does not work. So we'll just
       change length to 1 not to hang in the endless loop.
     */
-    if (!to_length) to_length = 1;
-    if (to_length == 1 && chr == static_cast<uchar>(quote_char))
+    if (unlikely(!to_length)) to_length = 1;
+    if (likely(to_length == 1) &&
+        unlikely(chr == static_cast<uchar>(quote_char)))
       packet->append(&quote_char, 1, system_charset_info);
     packet->append(to_name,
                    std::min(to_length, static_cast<size_t>(name_end - to_name)),

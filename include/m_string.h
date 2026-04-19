@@ -1,5 +1,6 @@
 /*
    Copyright (c) 2000, 2025, Oracle and/or its affiliates.
+   Copyright (c) 2026, buildup-db.
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License, version 2.0,
@@ -41,6 +42,7 @@
 
 #include "decimal.h"
 #include "lex_string.h"
+#include "my_compiler.h"
 #include "my_config.h"
 #include "my_inttypes.h"
 #include "my_macros.h"
@@ -90,7 +92,7 @@ static inline void bchange(uchar *dst, size_t old_length, const uchar *src,
   be used instead, but this is clearer and faster.
 */
 static inline const char *strend(const char *s) {
-  while (*s++) {
+  while (likely(*s++)) {
   }
   return s - 1;
 }
@@ -144,7 +146,7 @@ static inline char *my_stpmov(char *dst, const char *src) {
 */
 static inline char *my_stpnmov(char *dst, const char *src, size_t n) {
   while (n-- != 0) {
-    if (!(*dst++ = *src++)) return (char *)dst - 1;
+    if (unlikely(!(*dst++ = *src++))) return (char *)dst - 1;
   }
   return dst;
 }

@@ -1,4 +1,5 @@
 /* Copyright (c) 2000, 2025, Oracle and/or its affiliates.
+   Copyright (c) 2026, buildup-db.
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License, version 2.0,
@@ -532,8 +533,8 @@ static CHARSET_INFO *get_internal_charset(MY_CHARSET_LOADER *loader_arg,
 
   assert(cs_number < array_elements(all_charsets));
 
-  if ((cs = all_charsets[cs_number])) {
-    if (cs->state & MY_CS_READY) /* if CS is already initialized */
+  if (likely(cs = all_charsets[cs_number])) {
+    if (likely(cs->state & MY_CS_READY)) /* if CS is already initialized */
       return cs;
 
     /*
@@ -570,15 +571,16 @@ CHARSET_INFO *get_charset(uint cs_number, myf flags) {
   CHARSET_INFO *cs;
   MY_CHARSET_LOADER loader;
 
-  if (cs_number == default_charset_info->number) return default_charset_info;
+  if (unlikely(cs_number == default_charset_info->number))
+    return default_charset_info;
 
   std::call_once(charsets_initialized, init_available_charsets);
 
-  if (cs_number >= array_elements(all_charsets)) return nullptr;
+  if (unlikely(cs_number >= array_elements(all_charsets))) return nullptr;
 
   cs = get_internal_charset(&loader, cs_number, flags);
 
-  if (!cs && (flags & MY_WME)) {
+  if (unlikely(!cs) && (flags & MY_WME)) {
     char index_file[FN_REFLEN + sizeof(MY_CHARSET_INDEX)], cs_string[23];
     my_stpcpy(get_charsets_dir(index_file), MY_CHARSET_INDEX);
     cs_string[0] = '#';

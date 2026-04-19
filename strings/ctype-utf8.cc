@@ -1,4 +1,5 @@
 /* Copyright (c) 2000, 2025, Oracle and/or its affiliates.
+   Copyright (c) 2026, buildup-db.
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License, version 2.0,
@@ -4784,11 +4785,11 @@ MY_UNICASE_INFO my_unicase_unicode520 = {0x10FFFF, my_unicase_pages_unicode520};
 
 static inline void my_tosort_unicode(const MY_UNICASE_INFO *uni_plane,
                                      my_wc_t *wc, uint flags) {
-  if (*wc <= uni_plane->maxchar) {
+  if (likely(*wc <= uni_plane->maxchar)) {
     const MY_UNICASE_CHARACTER *page;
-    if ((page = uni_plane->page[*wc >> 8]))
-      *wc = (flags & MY_CS_LOWER_SORT) ? page[*wc & 0xFF].tolower
-                                       : page[*wc & 0xFF].sort;
+    if (likely(page = uni_plane->page[*wc >> 8]))
+      *wc = unlikely(flags & MY_CS_LOWER_SORT) ? page[*wc & 0xFF].tolower
+                                               : page[*wc & 0xFF].sort;
   } else {
     *wc = MY_CS_REPLACEMENT_CHARACTER;
   }
@@ -5260,9 +5261,9 @@ static int my_uni_utf8mb3(const CHARSET_INFO *cs [[maybe_unused]], my_wc_t wc,
                           uchar *r, uchar *e) {
   int count;
 
-  if (r >= e) return MY_CS_TOOSMALL;
+  if (unlikely(r >= e)) return MY_CS_TOOSMALL;
 
-  if (wc < 0x80)
+  if (likely(wc < 0x80))
     count = 1;
   else if (wc < 0x800)
     count = 2;
@@ -5275,9 +5276,9 @@ static int my_uni_utf8mb3(const CHARSET_INFO *cs [[maybe_unused]], my_wc_t wc,
     e is a character after the string r, not the last character of it.
     Because of it (r+count > e), not (r+count-1 >e )
    */
-  if (r + count > e) return MY_CS_TOOSMALLN(count);
+  if (unlikely(r + count > e)) return MY_CS_TOOSMALLN(count);
 
-  switch (count) {
+  switch (my_expect(count, 1)) {
     case 3:
       r[2] = (uchar)(0x80 | (wc & 0x3f));
       wc = wc >> 6;
@@ -5380,7 +5381,7 @@ static void my_hash_sort_utf8mb3(const CHARSET_INFO *cs, const uchar *s,
   tmp1 = *n1;
   tmp2 = *n2;
 
-  while ((s < e) && (res = my_mb_wc_utf8mb3(&wc, s, e)) > 0) {
+  while (likely(s < e) && likely((res = my_mb_wc_utf8mb3(&wc, s, e)) > 0)) {
     my_tosort_unicode(uni_plane, &wc, cs->state);
     tmp1 ^= (((tmp1 & 63) + tmp2) * (wc & 0xFF)) + (tmp1 << 8);
     tmp2 += 3;
@@ -5527,11 +5528,11 @@ int my_strnncollsp_utf8mb3(const CHARSET_INFO *cs, const uchar *s, size_t slen,
   const uchar *se = s + slen, *te = t + tlen;
   const MY_UNICASE_INFO *uni_plane = cs->caseinfo;
 
-  while (s < se && t < te) {
+  while (likely(s < se) && likely(t < te)) {
     s_res = my_mb_wc_utf8mb3(&s_wc, s, se);
     t_res = my_mb_wc_utf8mb3(&t_wc, t, te);
 
-    if (s_res <= 0 || t_res <= 0) {
+    if (unlikely(s_res <= 0 || t_res <= 0)) {
       /* Incorrect string, compare byte by byte value */
       return bincmp(s, se, t, te);
     }
@@ -5539,8 +5540,8 @@ int my_strnncollsp_utf8mb3(const CHARSET_INFO *cs, const uchar *s, size_t slen,
     my_tosort_unicode(uni_plane, &s_wc, cs->state);
     my_tosort_unicode(uni_plane, &t_wc, cs->state);
 
-    if (s_wc != t_wc) {
-      return s_wc > t_wc ? 1 : -1;
+    if (unlikely(s_wc != t_wc)) {
+      return unlikely(s_wc > t_wc) ? 1 : -1;
     }
 
     s += s_res;
@@ -5551,7 +5552,7 @@ int my_strnncollsp_utf8mb3(const CHARSET_INFO *cs, const uchar *s, size_t slen,
   tlen = (size_t)(te - t);
   res = 0;
 
-  if (slen != tlen) {
+  if (unlikely(slen != tlen)) {
     int swap = 1;
     if (slen < tlen) {
       slen = tlen;
@@ -5597,10 +5598,10 @@ int my_strnncollsp_utf8mb3(const CHARSET_INFO *cs, const uchar *s, size_t slen,
 int my_strcasecmp_utf8mb3(const CHARSET_INFO *cs, const char *s,
                           const char *t) {
   const MY_UNICASE_INFO *uni_plane = cs->caseinfo;
-  while (s[0] && t[0]) {
+  while (likely(s[0]) && likely(t[0])) {
     my_wc_t s_wc, t_wc;
 
-    if ((uchar)s[0] < 128) {
+    if (unlikely((uchar)s[0] < 128)) {
       /*
         s[0] is between 0 and 127.
         It represents a single byte character.
@@ -5633,7 +5634,7 @@ int my_strcasecmp_utf8mb3(const CHARSET_INFO *cs, const char *s,
          In the case of wrong multibyte sequence we will
          call strcmp() for byte-to-byte comparison.
       */
-      if (res <= 0) return strcmp(s, t);
+      if (unlikely(res <= 0)) return strcmp(s, t);
       s += res;
 
       /* Convert Unicode code into weight according to collation */
@@ -5642,13 +5643,13 @@ int my_strcasecmp_utf8mb3(const CHARSET_INFO *cs, const char *s,
 
     /* Do the same for the second string */
 
-    if ((uchar)t[0] < 128) {
+    if (unlikely((uchar)t[0] < 128)) {
       /* Convert single byte character into weight */
       t_wc = plane00[(uchar)t[0]].tolower;
       t++;
     } else {
       int res = my_mb_wc_utf8mb3(&t_wc, (const uchar *)t, (const uchar *)t + 3);
-      if (res <= 0) return strcmp(s, t);
+      if (unlikely(res <= 0)) return strcmp(s, t);
       t += res;
 
       /* Convert code into weight */
@@ -5656,7 +5657,7 @@ int my_strcasecmp_utf8mb3(const CHARSET_INFO *cs, const char *s,
     }
 
     /* Now we have two weights, let's compare them */
-    if (s_wc != t_wc) return ((int)s_wc) - ((int)t_wc);
+    if (unlikely(s_wc != t_wc)) return ((int)s_wc) - ((int)t_wc);
   }
   return ((int)(uchar)s[0]) - ((int)(uchar)t[0]);
 }
@@ -5683,12 +5684,12 @@ static size_t my_well_formed_len_utf8mb3(const CHARSET_INFO *, const char *b,
                                          int *error) {
   const char *b_start = b;
   *error = 0;
-  while (pos) {
+  while (likely(pos)) {
     int mb_len;
 
-    if ((mb_len = my_valid_mbcharlen_utf8mb3(pointer_cast<const uchar *>(b),
-                                             pointer_cast<const uchar *>(e))) <=
-        0) {
+    if (unlikely((mb_len = my_valid_mbcharlen_utf8mb3(
+                      pointer_cast<const uchar *>(b),
+                      pointer_cast<const uchar *>(e))) <= 0)) {
       *error = b < e ? 1 : 0;
       break;
     }
@@ -7635,7 +7636,7 @@ static size_t my_well_formed_len_utf8mb4(const CHARSET_INFO *cs, const char *b,
                                          int *error) {
   const char *b_start = b;
   *error = 0;
-  while (pos) {
+  while (likely(pos)) {
     int mb_len;
 
     if ((mb_len = my_valid_mbcharlen_utf8mb4(cs, pointer_cast<const uchar *>(b),

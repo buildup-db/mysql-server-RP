@@ -1,5 +1,6 @@
 /*
    Copyright (c) 2015, 2025, Oracle and/or its affiliates.
+   Copyright (c) 2026, buildup-db.
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License, version 2.0,
@@ -67,7 +68,8 @@ static const uchar to_upper_lex[] = {
     255};
 
 inline int lex_casecmp(const char *s, const char *t, uint len) {
-  while (len-- != 0 && to_upper_lex[(uchar)*s++] == to_upper_lex[(uchar)*t++])
+  while (likely(len-- != 0) &&
+         likely(to_upper_lex[(uchar)*s++] == to_upper_lex[(uchar)*t++]))
     ;
   return (int)len + 1;
 }
@@ -75,14 +77,14 @@ inline int lex_casecmp(const char *s, const char *t, uint len) {
 const SYMBOL *Lex_hash::get_hash_symbol(const char *s, unsigned int len) const {
   const char *cur_str = s;
 
-  if (len == 0) {
+  if (unlikely(len == 0)) {
     DBUG_PRINT("warning",
                ("get_hash_symbol() received a request for a zero-length symbol,"
                 " which is probably a mistake."));
     return nullptr;
   }
 
-  if (len > entry_max_len) return nullptr;
+  if (unlikely(len > entry_max_len)) return nullptr;
 
   uint32 cur_struct = uint4korr(hash_map + ((len - 1) * 4));
 
@@ -91,17 +93,18 @@ const SYMBOL *Lex_hash::get_hash_symbol(const char *s, unsigned int len) const {
 
     if (first_char == 0) {
       uint16 ires = (uint16)(cur_struct >> 16);
-      if (ires == array_elements(symbols)) return nullptr;
+      if (unlikely(ires == array_elements(symbols))) return nullptr;
       const SYMBOL *res = symbols + ires;
       uint count = (uint)(cur_str - s);
-      return lex_casecmp(cur_str, res->name + count, len - count) ? nullptr
-                                                                  : res;
+      return unlikely(lex_casecmp(cur_str, res->name + count, len - count))
+                 ? nullptr
+                 : res;
     }
 
     uchar cur_char = (uchar)to_upper_lex[(uchar)*cur_str];
-    if (cur_char < first_char) return nullptr;
+    if (unlikely(cur_char < first_char)) return nullptr;
     cur_struct >>= 8;
-    if (cur_char > (uchar)cur_struct) return nullptr;
+    if (unlikely(cur_char > (uchar)cur_struct)) return nullptr;
 
     cur_struct >>= 8;
     cur_struct = uint4korr(hash_map +

@@ -2689,14 +2689,16 @@ err:
 
 void handler::ha_statistic_increment(
     ulonglong System_status_var::*offset) const {
-  if (table && table->in_use) (table->in_use->status_var.*offset)++;
+  if (likely(table) && likely(table->in_use))
+    (table->in_use->status_var.*offset)++;
 }
 
 THD *handler::ha_thd() const {
   assert(table == nullptr || table->in_use == nullptr ||
          table->in_use == current_thd);
-  return table != nullptr && table->in_use != nullptr ? table->in_use
-                                                      : current_thd;
+  return likely(table != nullptr) && likely(table->in_use != nullptr)
+             ? table->in_use
+             : current_thd;
 }
 
 void handler::unbind_psi() {
@@ -8495,7 +8497,7 @@ bool handler::filter_dup_records() {
 }
 
 int handler::ha_extra(enum ha_extra_function operation) {
-  if (operation == HA_EXTRA_ENABLE_UNIQUE_RECORD_FILTER) {
+  if (unlikely(operation == HA_EXTRA_ENABLE_UNIQUE_RECORD_FILTER)) {
     // This operation should be called only for active multi-valued index
     assert(inited == INDEX &&
            (table->key_info[active_index].flags & HA_MULTI_VALUED_KEY));
@@ -8511,7 +8513,7 @@ int handler::ha_extra(enum ha_extra_function operation) {
     }
     m_unique->reset(true);
     return 0;
-  } else if (operation == HA_EXTRA_DISABLE_UNIQUE_RECORD_FILTER) {
+  } else if (unlikely(operation == HA_EXTRA_DISABLE_UNIQUE_RECORD_FILTER)) {
     if (m_unique) {
       m_unique->cleanup();
       destroy(m_unique);

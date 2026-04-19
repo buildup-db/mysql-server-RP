@@ -5089,7 +5089,7 @@ static bool open_and_process_table(THD *thd, LEX *lex, Table_ref *const tables,
       error = open_table(thd, tables, ot_ctx);
   }
 
-  if (error) {
+  if (unlikely(error)) {
     if (!ot_ctx->can_recover_from_failed_open() && safe_to_ignore_table) {
       DBUG_PRINT("info", ("open_table: ignoring table '%s'.'%s'", tables->db,
                           tables->alias));
@@ -7693,15 +7693,15 @@ Field *find_field_in_table(TABLE *table, const char *name, bool allow_rowid,
   if (!(field_ptr = table->field)) return nullptr;
   const bool is_utf8mb3 =
       (system_charset_info->coll->strcasecmp == my_strcasecmp_utf8mb3);
-  for (; *field_ptr; ++field_ptr) {
+  for (; likely(*field_ptr); ++field_ptr) {
     // NOTE: This should probably be strncollsp() instead of my_strcasecmp();
     // in particular, Ñ != N for my_strcasecmp(), which is not according to the
     // usual ai_ci rules. However, changing it would risk breaking existing
     // table definitions (which don't distinguish between N and Ñ), so we can
     // only do this when actually changing the system collation.
     if (likely(is_utf8mb3)) {
-      if (!my_strcasecmp_utf8mb3(system_charset_info, (*field_ptr)->field_name,
-                                 name))
+      if (likely(!my_strcasecmp_utf8mb3(system_charset_info,
+                                        (*field_ptr)->field_name, name)))
         break;
     } else if (!my_strcasecmp(system_charset_info, (*field_ptr)->field_name,
                               name)) {
@@ -7709,7 +7709,7 @@ Field *find_field_in_table(TABLE *table, const char *name, bool allow_rowid,
     }
   }
 
-  if (field_ptr && *field_ptr) {
+  if (likely(field_ptr) && likely(*field_ptr)) {
     *field_index_ptr = field_ptr - table->field;
     field = *field_ptr;
   } else {
@@ -8502,7 +8502,8 @@ static bool mark_common_columns(THD *thd, Table_ref *table_ref_1,
         here. These columns must be checked only on unqualified reference
         by name (e.g. in SELECT list).
       */
-      if (!my_strcasecmp(system_charset_info, field_name_1, cur_field_name_2)) {
+      if (unlikely(!my_strcasecmp(system_charset_info, field_name_1,
+                                  cur_field_name_2))) {
         DBUG_PRINT("info", ("match c1.is_common=%d", nj_col_1->is_common));
         if (cur_nj_col_2->is_common ||
             (found && (!using_fields || is_using_column_1))) {
@@ -9055,13 +9056,13 @@ bool setup_fields(THD *thd, Access_bitmask want_privilege, bool allow_sum_func,
   if (typed_items != nullptr) {
     typed_it = typed_items->begin();
   }
-  for (auto it = fields->begin(); it != fields->end(); ++it) {
+  for (auto it = fields->begin(); likely(it != fields->end()); ++it) {
     const size_t old_size = fields->size();
     Item *item = *it;
     assert(!item->hidden);
     Item **item_pos = &*it;
-    if ((!item->fixed && item->fix_fields(thd, item_pos)) ||
-        (item = *item_pos)->check_cols(1)) {
+    if ((!item->fixed && unlikely(item->fix_fields(thd, item_pos))) ||
+        unlikely((item = *item_pos)->check_cols(1))) {
       DBUG_PRINT("info",
                  ("thd->mark_used_columns: %d", thd->mark_used_columns));
       return true; /* purecov: inspected */
@@ -9073,7 +9074,7 @@ bool setup_fields(THD *thd, Access_bitmask want_privilege, bool allow_sum_func,
         item->type() != Item::FIELD_ITEM ||
         !static_cast<const Item_field *>(item)->field->is_hidden_by_system());
 
-    if (!ref.is_null()) {
+    if (unlikely(!ref.is_null())) {
       ref[0] = item;
       ref.pop_front();
       /*
@@ -9145,7 +9146,7 @@ bool setup_fields(THD *thd, Access_bitmask want_privilege, bool allow_sum_func,
       }
     }
 
-    if (split_sum_funcs) {
+    if (unlikely(split_sum_funcs)) {
       /*
         (1) Contains a grouped aggregate but is not one. If it is one, we do
         not split, but in create_tmp_table() we look at its arguments and add
@@ -9166,7 +9167,7 @@ bool setup_fields(THD *thd, Access_bitmask want_privilege, bool allow_sum_func,
 
     select->select_list_tables |= item->used_tables();
 
-    if (old_size != fields->size()) {
+    if (unlikely(old_size != fields->size())) {
       // Items have been added (either by fix_fields or by split_sum_func), so
       // our iterator is invalidated. Reconstruct it.
       it = std::find(fields->begin(), fields->end(), item);

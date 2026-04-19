@@ -80,7 +80,7 @@ int initialize_stack_direction() {
 
 namespace {
 long used_stack(const char *a_ptr, const char *b_ptr) {
-  if (stack_direction < 0) return a_ptr - b_ptr;
+  if (likely(stack_direction < 0)) return a_ptr - b_ptr;
   return b_ptr - a_ptr;
 }
 }  // namespace
@@ -124,7 +124,8 @@ bool check_stack_overrun(const THD *thd, long margin, unsigned char *buf) {
 
   long stack_used =
       used_stack(thd->thread_stack, reinterpret_cast<char *>(&stack_used));
-  if (stack_used >= static_cast<long>(my_thread_stack_size - margin) ||
+  if (unlikely(stack_used >=
+               static_cast<long>(my_thread_stack_size - margin)) ||
       DBUG_EVALUATE_IF("simulate_stack_overrun", true, false)) {
     // Touch the buffer, so that it is not optimized away by -flto.
     if (buf != nullptr) buf[0] = '\0';

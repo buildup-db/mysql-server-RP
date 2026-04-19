@@ -142,7 +142,7 @@ longlong my_strtoll10(const char *nptr, const char **endptr, int *error) {
 
   /* Handle first 9 digits and store them in i */
   if (n_end > end) n_end = end;
-  for (; s != n_end; s++) {
+  for (; likely(s != n_end); s++) {
     if ((c = (*s - '0')) > 9) goto end_i;
     i = i * 10 + c;
   }

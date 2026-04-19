@@ -322,9 +322,9 @@ size_t my_numchars_mb(const CHARSET_INFO *cs, const char *pos,
                       const char *end) {
   size_t count = 0;
   if (likely(cs->cset->ismbchar == my_ismbchar_utf8mb4)) {
-    while (pos < end) {
+    while (likely(pos < end)) {
       uint mb_len;
-      pos += (mb_len = my_ismbchar_utf8mb4(cs, pos, end)) ? mb_len : 1;
+      pos += unlikely(mb_len = my_ismbchar_utf8mb4(cs, pos, end)) ? mb_len : 1;
       count++;
     }
   } else if (likely(cs->cset->ismbchar == my_ismbchar_utf8mb3)) {
@@ -348,9 +348,9 @@ size_t my_charpos_mb3(const CHARSET_INFO *cs, const char *pos, const char *end,
   const char *start = pos;
 
   if (likely(cs->cset->ismbchar == my_ismbchar_utf8mb3)) {
-    while (length && pos < end) {
+    while (likely(length) && likely(pos < end)) {
       uint mb_len;
-      pos += (mb_len = my_ismbchar_utf8mb3(cs, pos, end)) ? mb_len : 1;
+      pos += unlikely(mb_len = my_ismbchar_utf8mb3(cs, pos, end)) ? mb_len : 1;
       length--;
     }
   } else {
@@ -468,8 +468,8 @@ int my_strnncollsp_mb_bin(const CHARSET_INFO *cs [[maybe_unused]],
   int res;
 
   end = a + (length = std::min(a_length, b_length));
-  while (a < end) {
-    if (*a++ != *b++) return ((int)a[-1] - (int)b[-1]);
+  while (likely(a < end)) {
+    if (unlikely(*a++ != *b++)) return ((int)a[-1] - (int)b[-1]);
   }
   res = 0;
   if (a_length != b_length) {

@@ -115,10 +115,10 @@ class Mb_wc_through_function_pointer {
 template <bool RANGE_CHECK, bool SUPPORT_MB4>
 static ALWAYS_INLINE int my_mb_wc_utf8_prototype(my_wc_t *pwc, const uchar *s,
                                                  const uchar *e) {
-  if (RANGE_CHECK && s >= e) return MY_CS_TOOSMALL;
+  if (RANGE_CHECK && unlikely(s >= e)) return MY_CS_TOOSMALL;
 
   uchar c = s[0];
-  if (c < 0x80) {
+  if (likely(c < 0x80)) {
     *pwc = c;
     return 1;
   }

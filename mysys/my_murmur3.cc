@@ -94,7 +94,7 @@ uint32 murmur3_32(const uchar *key, size_t len, uint32 seed) {
 
   /* Body: process all 32-bit blocks in the key. */
 
-  for (const uchar *data = key; data != tail; data += 4) {
+  for (const uchar *data = key; likely(data != tail); data += 4) {
     uint32 k1 = uint4korr(data);
 
     k1 *= c1;

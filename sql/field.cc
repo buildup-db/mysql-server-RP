@@ -1776,7 +1776,7 @@ void Field::set_notnull(ptrdiff_t row_offset) {
   if (is_nullable()) {
     assert(m_null_ptr != &dummy_null_buffer);
     m_null_ptr[row_offset] &= (uchar)~null_bit;
-  } else if (is_tmp_nullable()) {
+  } else if (unlikely(is_tmp_nullable())) {
     reset_tmp_null();
   }
 }

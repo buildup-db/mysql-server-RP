@@ -3676,9 +3676,9 @@ Ident_name_check check_table_name(const char *name, size_t length) {
   const bool is_utf8mb3 =
       (system_charset_info->cset->ismbchar == my_ismbchar_utf8mb3);
 
-  while (name != end) {
+  while (likely(name != end)) {
     last_char_is_space = my_isspace(system_charset_info, *name);
-    if (use_mb(system_charset_info)) {
+    if (likely(use_mb(system_charset_info))) {
       int len;
       if (likely(is_utf8mb3)) {
         len = my_ismbchar_utf8mb3(system_charset_info, name, end);

@@ -383,7 +383,7 @@ void Lex_input_stream::body_utf8_append_literal(THD *thd, const LEX_STRING *txt,
 }
 
 void Lex_input_stream::add_digest_token(uint token, Lexer_yystype *yylval) {
-  if (m_digest != nullptr) {
+  if (unlikely(m_digest != nullptr)) {
     m_digest = digest_add_token(m_digest, token, yylval);
   }
 }
@@ -907,10 +907,11 @@ static int find_keyword(Lex_input_stream *lip, uint len, bool function) {
   const char *tok = lip->get_tok_start();
 
   const SYMBOL *symbol =
-      function ? Lex_hash::sql_keywords_and_funcs.get_hash_symbol(tok, len)
-               : Lex_hash::sql_keywords.get_hash_symbol(tok, len);
+      unlikely(function)
+          ? Lex_hash::sql_keywords_and_funcs.get_hash_symbol(tok, len)
+          : Lex_hash::sql_keywords.get_hash_symbol(tok, len);
 
-  if (symbol) {
+  if (likely(symbol)) {
     lip->yylval->keyword.symbol = symbol;
     lip->yylval->keyword.str = const_cast<char *>(tok);
     lip->yylval->keyword.length = len;
@@ -1029,30 +1030,31 @@ static char *get_text(Lex_input_stream *lip, int pre_skip, int post_skip) {
   lip->tok_bitmap = 0;
   sep = lip->yyGetLast();  // String should end with this
   const bool is_utf8mb4 = (cs->cset->ismbchar == my_ismbchar_utf8mb4);
-  while (!lip->eof()) {
+  while (likely(!lip->eof())) {
     c = lip->yyGet();
     lip->tok_bitmap |= c;
     {
       int l;
-      if (use_mb(cs)) {
+      if (likely(use_mb(cs))) {
         if (likely(is_utf8mb4)) {
           l = my_ismbchar_utf8mb4(cs, lip->get_ptr() - 1,
                                   lip->get_end_of_query());
         } else {
           l = my_ismbchar(cs, lip->get_ptr() - 1, lip->get_end_of_query());
         }
-        if (l) {
+        if (unlikely(l)) {
           lip->skip_binary(l - 1);
           continue;
         }
       }
     }
-    if (c == '\\' && !(lip->m_thd->variables.sql_mode &
-                       MODE_NO_BACKSLASH_ESCAPES)) {  // Escaped character
+    if (unlikely(c == '\\') &&
+        !(lip->m_thd->variables.sql_mode &
+          MODE_NO_BACKSLASH_ESCAPES)) {  // Escaped character
       found_escape = 1;
       if (lip->eof()) return nullptr;
       lip->yySkip();
-    } else if (c == sep) {
+    } else if (unlikely(c == sep)) {
       if (c == lip->yyGet())  // Check if two separators in a row
       {
         found_escape = 1;  // duplicate. Remember for delete
@@ -1085,22 +1087,23 @@ static char *get_text(Lex_input_stream *lip, int pre_skip, int post_skip) {
       } else {
         char *to;
 
-        for (to = start; str != end; str++) {
+        for (to = start; likely(str != end); str++) {
           int l;
-          if (use_mb(cs)) {
+          if (likely(use_mb(cs))) {
             if (likely(is_utf8mb4)) {
               l = my_ismbchar_utf8mb4(cs, str, end);
             } else {
               l = my_ismbchar(cs, str, end);
             }
-            if (l) {
+            if (unlikely(l)) {
               while (l--) *to++ = *str++;
               str--;
               continue;
             }
           }
-          if (!(lip->m_thd->variables.sql_mode & MODE_NO_BACKSLASH_ESCAPES) &&
-              *str == '\\' && str + 1 != end) {
+          if (likely(!(lip->m_thd->variables.sql_mode &
+                       MODE_NO_BACKSLASH_ESCAPES)) &&
+              unlikely(*str == '\\') && str + 1 != end) {
             switch (*++str) {
               case 'n':
                 *to++ = '\n';
@@ -1128,7 +1131,7 @@ static char *get_text(Lex_input_stream *lip, int pre_skip, int post_skip) {
                 *to++ = *str;
                 break;
             }
-          } else if (*str == sep)
+          } else if (unlikely(*str == sep))
             *to++ = *str++;  // Two ' or "
           else
             *to++ = *str;
@@ -1320,12 +1323,12 @@ int MYSQLlex(YYSTYPE *yacc_yylval, YYLTYPE *yylloc, THD *thd) {
   Lex_input_stream *lip = &thd->m_parser_state->m_lip;
   int token;
 
-  if (thd->is_error()) {
+  if (unlikely(thd->is_error())) {
     if (thd->get_parser_da()->has_sql_condition(ER_CAPACITY_EXCEEDED))
       return ABORT_SYM;
   }
 
-  if (lip->lookahead_token >= 0) {
+  if (unlikely(lip->lookahead_token >= 0)) {
     /*
       The next token was already parsed in advance,
       return it.
@@ -1346,40 +1349,38 @@ int MYSQLlex(YYSTYPE *yacc_yylval, YYLTYPE *yylloc, THD *thd) {
   yylloc->cpp.start = lip->get_cpp_tok_start();
   yylloc->raw.start = lip->get_tok_start();
 
-  switch (token) {
-    case WITH:
-      /*
-        Parsing 'WITH' 'ROLLUP' requires 2 look ups,
-        which makes the grammar LALR(2).
-        Replace by a single 'WITH_ROLLUP' token,
-        to transform the grammar into a LALR(1) grammar,
-        which sql_yacc.yy can process.
-      */
-      token = lex_one_token(yylval, thd);
-      switch (token) {
-        case ROLLUP_SYM:
-          yylloc->cpp.end = lip->get_cpp_ptr();
-          yylloc->raw.end = lip->get_ptr();
-          lip->add_digest_token(WITH_ROLLUP_SYM, yylval);
-          return WITH_ROLLUP_SYM;
-        default:
-          /*
-            Save the token following 'WITH'
-          */
-          lip->lookahead_yylval = lip->yylval;
-          lip->yylval = nullptr;
-          lip->lookahead_token = token;
-          yylloc->cpp.end = lip->get_cpp_ptr();
-          yylloc->raw.end = lip->get_ptr();
-          lip->add_digest_token(WITH, yylval);
-          return WITH;
-      }
-      break;
+  if (unlikely(token == WITH)) {
+    /*
+      Parsing 'WITH' 'ROLLUP' requires 2 look ups,
+      which makes the grammar LALR(2).
+      Replace by a single 'WITH_ROLLUP' token,
+      to transform the grammar into a LALR(1) grammar,
+      which sql_yacc.yy can process.
+    */
+    token = lex_one_token(yylval, thd);
+    switch (token) {
+      case ROLLUP_SYM:
+        yylloc->cpp.end = lip->get_cpp_ptr();
+        yylloc->raw.end = lip->get_ptr();
+        lip->add_digest_token(WITH_ROLLUP_SYM, yylval);
+        return WITH_ROLLUP_SYM;
+      default:
+        /*
+          Save the token following 'WITH'
+        */
+        lip->lookahead_yylval = lip->yylval;
+        lip->yylval = nullptr;
+        lip->lookahead_token = token;
+        yylloc->cpp.end = lip->get_cpp_ptr();
+        yylloc->raw.end = lip->get_ptr();
+        lip->add_digest_token(WITH, yylval);
+        return WITH;
+    }
   }
 
   yylloc->cpp.end = lip->get_cpp_ptr();
   yylloc->raw.end = lip->get_ptr();
-  if (!lip->skip_digest) lip->add_digest_token(token, yylval);
+  if (likely(!lip->skip_digest)) lip->add_digest_token(token, yylval);
   lip->skip_digest = false;
   return token;
 }
@@ -1404,8 +1405,8 @@ static int lex_one_token(Lexer_yystype *yylval, THD *thd) {
     switch (state) {
       case MY_LEX_START:  // Start of token
         // Skip starting whitespace
-        while (state_map[c = lip->yyPeek()] == MY_LEX_SKIP) {
-          if (c == '\n') lip->yylineno++;
+        while (likely(state_map[c = lip->yyPeek()] == MY_LEX_SKIP)) {
+          if (unlikely(c == '\n')) lip->yylineno++;
 
           lip->yySkip();
         }
@@ -1417,14 +1418,14 @@ static int lex_one_token(Lexer_yystype *yylval, THD *thd) {
         break;
       case MY_LEX_CHAR:  // Unknown or single char token
       case MY_LEX_SKIP:  // This should not happen
-        if (c == '-' && lip->yyPeek() == '-' &&
+        if (unlikely(c == '-') && lip->yyPeek() == '-' &&
             (my_isspace(cs, lip->yyPeekn(1)) ||
              my_iscntrl(cs, lip->yyPeekn(1)))) {
           state = MY_LEX_COMMENT;
           break;
         }
 
-        if (c == '-' && lip->yyPeek() == '>')  // '->'
+        if (unlikely(c == '-') && lip->yyPeek() == '>')  // '->'
         {
           lip->yySkip();
           lip->next_state = MY_LEX_START;
@@ -1435,7 +1436,8 @@ static int lex_one_token(Lexer_yystype *yylval, THD *thd) {
           return JSON_SEPARATOR_SYM;
         }
 
-        if (c != ')') lip->next_state = MY_LEX_START;  // Allow signed numbers
+        if (likely(c != ')'))
+          lip->next_state = MY_LEX_START;  // Allow signed numbers
 
         /*
           Check for a placeholder: it should not precede a possible identifier
@@ -1481,7 +1483,7 @@ static int lex_one_token(Lexer_yystype *yylval, THD *thd) {
         [[fallthrough]];
       case MY_LEX_IDENT:
         const char *start;
-        if (use_mb(cs)) {
+        if (likely(use_mb(cs))) {
           result_state = IDENT_QUOTED;
           uint charlen;
           const bool is_utf8mb4 = (cs->cset->mbcharlen == my_mbcharlen_utf8mb4);
@@ -1505,7 +1507,7 @@ static int lex_one_token(Lexer_yystype *yylval, THD *thd) {
               }
               lip->skip_binary(l - 1);
           }
-          while (ident_map[c = lip->yyGet()]) {
+          while (likely(ident_map[c = lip->yyGet()])) {
             uint charlen;
             if (likely(is_utf8mb4)) {
               charlen = my_mbcharlen_utf8mb4_inline(c);
@@ -1534,7 +1536,7 @@ static int lex_one_token(Lexer_yystype *yylval, THD *thd) {
         }
         length = lip->yyLength();
         start = lip->get_ptr();
-        if (lip->ignore_space) {
+        if (unlikely(lip->ignore_space)) {
           /*
             If we find a space then this can't be an identifier. We notice this
             below by checking start != lex->ptr.
@@ -1543,7 +1545,8 @@ static int lex_one_token(Lexer_yystype *yylval, THD *thd) {
             if (c == '\n') lip->yylineno++;
           }
         }
-        if (start == lip->get_ptr() && c == '.' && ident_map[lip->yyPeek()])
+        if (unlikely(start == lip->get_ptr() && c == '.') &&
+            ident_map[lip->yyPeek()])
           lip->next_state = MY_LEX_IDENT_SEP;
         else {  // '(' must follow directly if function
           lip->yyUnget();
@@ -1666,7 +1669,7 @@ static int lex_one_token(Lexer_yystype *yylval, THD *thd) {
         if (use_mb(cs)) {
           result_state = IDENT_QUOTED;
           const bool is_utf8mb4 = (cs->cset->mbcharlen == my_mbcharlen_utf8mb4);
-          while (ident_map[c = lip->yyGet()]) {
+          while (likely(ident_map[c = lip->yyGet()])) {
             uint charlen;
             if (likely(is_utf8mb4)) {
               charlen = my_mbcharlen_utf8mb4_inline(c);
@@ -1856,7 +1859,7 @@ static int lex_one_token(Lexer_yystype *yylval, THD *thd) {
 
       case MY_LEX_COMMENT:  //  Comment
         thd->m_parser_state->add_comment();
-        while ((c = lip->yyGet()) != '\n' && c)
+        while (likely((c = lip->yyGet()) != '\n') && likely(c))
           ;
         lip->yyUnget();        // Safety against eof
         state = MY_LEX_START;  // Try again

@@ -176,7 +176,7 @@ class mem_root_deque {
     @returns true on OOM (no change is done if so)
    */
   bool push_back(const Element_type &element) {
-    if (m_end_idx == m_capacity) {
+    if (unlikely(m_end_idx == m_capacity)) {
       if (add_block_back()) {
         return true;
       }

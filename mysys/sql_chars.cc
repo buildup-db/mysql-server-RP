@@ -40,7 +40,7 @@
 static void hint_lex_init_maps(CHARSET_INFO *cs,
                                enum hint_lex_char_classes *hint_map) {
   size_t i;
-  for (i = 0; i < 256; i++) {
+  for (i = 0; likely(i < 256); i++) {
     if (my_ismb1st(cs, i))
       hint_map[i] = HINT_CHR_MB;
     else if (my_isalpha(cs, i))
@@ -84,7 +84,7 @@ bool init_state_maps(CHARSET_INFO *cs) {
   hint_lex_init_maps(cs, lex_state_maps->hint_map);
 
   /* Fill state_map with states to get a faster parser */
-  for (i = 0; i < 256; i++) {
+  for (i = 0; likely(i < 256); i++) {
     if (my_isalpha(cs, i))
       state_map[i] = MY_LEX_IDENT;
     else if (my_isdigit(cs, i))

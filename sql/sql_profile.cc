@@ -350,10 +350,10 @@ void PROFILING::status_change(const char *status_arg, const char *function_arg,
                               const char *file_arg, unsigned int line_arg) {
   DBUG_TRACE;
 
-  if (status_arg == nullptr) /* We don't know how to handle that */
+  if (unlikely(status_arg == nullptr)) /* We don't know how to handle that */
     return;
 
-  if (current == nullptr) /* This profile was already discarded. */
+  if (likely(current == nullptr)) /* This profile was already discarded. */
     return;
 
   if (unlikely(enabled))

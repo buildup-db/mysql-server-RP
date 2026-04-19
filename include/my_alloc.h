@@ -155,8 +155,8 @@ struct MEM_ROOT {
     //
     // but it would invoke undefined behavior, and in particular be prone
     // to wraparound on 32-bit platforms.
-    if (static_cast<size_t>(m_current_free_end - m_current_free_start) >=
-        length) {
+    if (likely(static_cast<size_t>(m_current_free_end - m_current_free_start) >=
+               length)) {
       void *ret = m_current_free_start;
       m_current_free_start += length;
       return ret;
@@ -184,7 +184,7 @@ struct MEM_ROOT {
       return nullptr;
     }
     T *ret = static_cast<T *>(Alloc(num * sizeof(T)));
-    if (ret == nullptr) {
+    if (unlikely(ret == nullptr)) {
       // Out of memory.
       return nullptr;
     }

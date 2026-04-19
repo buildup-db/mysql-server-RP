@@ -267,7 +267,7 @@ static void my_hash_sort_8bit_bin(const CHARSET_INFO *cs [[maybe_unused]],
   tmp1 = *nr1;
   tmp2 = *nr2;
 
-  for (; pos < key; pos++) {
+  for (; likely(pos < key); pos++) {
     tmp1 ^= (uint64)((((uint)tmp1 & 63) + tmp2) * ((uint)*pos)) + (tmp1 << 8);
     tmp2 += 3;
   }
@@ -288,7 +288,7 @@ static void my_hash_sort_bin(const CHARSET_INFO *cs [[maybe_unused]],
   tmp1 = *nr1;
   tmp2 = *nr2;
 
-  for (; pos < key; pos++) {
+  for (; likely(pos < key); pos++) {
     tmp1 ^= (uint64)((((uint)tmp1 & 63) + tmp2) * ((uint)*pos)) + (tmp1 << 8);
     tmp2 += 3;
   }

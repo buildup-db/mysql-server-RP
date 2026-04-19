@@ -1,4 +1,5 @@
 /* Copyright (c) 2000, 2025, Oracle and/or its affiliates.
+   Copyright (c) 2026, buildup-db.
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License, version 2.0,
@@ -274,7 +275,7 @@ static inline void *redirecting_allocator(size_t size, myf my_flags) {
                  mysys::detail::init_malloc_pointers);
 #endif  // _WIN32
   void *point;
-  if (my_flags & MY_ZEROFILL)
+  if (unlikely(my_flags & MY_ZEROFILL))
     point = calloc(size, 1);
   else
     point = malloc(size);
@@ -312,7 +313,7 @@ void *my_raw_malloc(size_t size, myf my_flags) {
   void *point;
 
   /* Safety */
-  if (!size) size = 1;
+  if (likely(!size)) size = 1;
 
 #if defined(MY_MSCRT_DEBUG)
   if (my_flags & MY_ZEROFILL)
@@ -332,7 +333,7 @@ void *my_raw_malloc(size_t size, myf my_flags) {
     point = nullptr;
   });
 
-  if (point == nullptr) {
+  if (unlikely(point == nullptr)) {
     set_my_errno(errno);
     if (my_flags & MY_FAE) error_handler_hook = my_message_stderr;
     if (my_flags & (MY_FAE + MY_WME))

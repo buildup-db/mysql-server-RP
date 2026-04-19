@@ -183,8 +183,9 @@ int my_strnncollsp_simple(const CHARSET_INFO *cs, const uchar *a,
   int res;
 
   end = a + (length = std::min(a_length, b_length));
-  while (a < end) {
-    if (map[*a++] != map[*b++]) return ((int)map[a[-1]] - (int)map[b[-1]]);
+  while (likely(a < end)) {
+    if (unlikely(map[*a++] != map[*b++]))
+      return ((int)map[a[-1]] - (int)map[b[-1]]);
   }
   res = 0;
   if (a_length != b_length) {
