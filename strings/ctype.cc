@@ -916,7 +916,7 @@ size_t my_convert(char *to, size_t to_length, const CHARSET_INFO *to_cs,
     If any of the character sets is not ASCII compatible,
     immediately switch to slow mb_wc->wc_mb method.
   */
-  if (unlikely(to_cs->state | from_cs->state) & MY_CS_NONASCII)
+  if (unlikely((to_cs->state | from_cs->state) & MY_CS_NONASCII))
     return my_convert_internal(to, to_length, to_cs, from, from_length, from_cs,
                                errors);
 

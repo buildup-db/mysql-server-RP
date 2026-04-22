@@ -26,6 +26,7 @@
 #include <algorithm>
 
 #include "my_inttypes.h"
+#include "my_compiler.h"
 
 template <typename T, typename L>
 class I_P_List_iterator;
