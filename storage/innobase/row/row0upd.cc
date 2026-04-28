@@ -158,7 +158,7 @@ static bool row_upd_index_is_referenced(dict_index_t *index) /*!< in: index */
   dict_table_t *table = index->table;
   bool is_referenced = false;
 
-  if (table->referenced_set.empty()) {
+  if (UNIV_LIKELY(table->referenced_set.empty())) {
     return false;
   }
 
@@ -385,7 +385,7 @@ bool row_upd_changes_field_size_or_external(
     new_val = &(upd_field->new_val);
     new_len = dfield_get_len(new_val);
 
-    if (dfield_is_null(new_val) && !rec_offs_comp(offsets)) {
+    if (UNIV_UNLIKELY(dfield_is_null(new_val)) && !rec_offs_comp(offsets)) {
       /* A bug fixed on Dec 31st, 2004: we looked at the
       SQL NULL size from the wrong field! We may backport
       this fix also to 4.0. The merge to 5.0 will be made
@@ -399,7 +399,7 @@ bool row_upd_changes_field_size_or_external(
     old_len = rec_offs_nth_size(index, offsets, field_no);
 
     if (rec_offs_comp(offsets)) {
-      if (rec_offs_nth_sql_null(index, offsets, field_no)) {
+      if (UNIV_UNLIKELY(rec_offs_nth_sql_null(index, offsets, field_no))) {
         /* Note that in the compact table format,
         for a variable length field, an SQL NULL
         will use zero bytes in the offset array
@@ -410,7 +410,8 @@ bool row_upd_changes_field_size_or_external(
         varchar to an empty string! */
 
         old_len = UNIV_SQL_NULL;
-      } else if (rec_offs_nth_default(index, offsets, field_no)) {
+      } else if (UNIV_UNLIKELY(
+                     rec_offs_nth_default(index, offsets, field_no))) {
         /* This will force to do pessimistic update,
         since the default value is not inlined,
         so any update to it will extend the record. */
@@ -424,8 +425,10 @@ bool row_upd_changes_field_size_or_external(
       }
     }
 
-    if (dfield_is_ext(new_val) || old_len != new_len ||
-        rec_offs_nth_extern(index, offsets, upd_field->field_no)) {
+    if (UNIV_UNLIKELY(dfield_is_ext(new_val)) ||
+        UNIV_UNLIKELY(old_len != new_len) ||
+        UNIV_UNLIKELY(
+            rec_offs_nth_extern(index, offsets, upd_field->field_no))) {
       return true;
     }
   }
@@ -609,7 +612,7 @@ void row_upd_index_write_log(dict_index_t *index, const upd_t *update,
   mach_write_to_1(log_ptr, update->info_bits);
   log_ptr++;
 
-  for (i = 0; i < n_fields; i++) {
+  for (i = 0; UNIV_LIKELY(i < n_fields); i++) {
     upd_field = upd_get_nth_field(update, i);
 
     /* No need to log virtual columns for non-virtual index, since
@@ -626,7 +629,7 @@ void row_upd_index_write_log(dict_index_t *index, const upd_t *update,
   for (i = 0; i < n_fields; i++) {
     static_assert(MLOG_BUF_MARGIN > 30, "MLOG_BUF_MARGIN <= 30");
 
-    if (log_ptr + 30 > buf_end) {
+    if (UNIV_UNLIKELY(log_ptr + 30 > buf_end)) {
       mlog_close(mtr, log_ptr);
 
       bool success = mlog_open(mtr, MLOG_BUF_MARGIN, log_ptr);
@@ -653,8 +656,8 @@ void row_upd_index_write_log(dict_index_t *index, const upd_t *update,
     log_ptr += mach_write_compressed(log_ptr, field_no);
     log_ptr += mach_write_compressed(log_ptr, len);
 
-    if (len != UNIV_SQL_NULL) {
-      if (log_ptr + len < buf_end) {
+    if (UNIV_LIKELY(len != UNIV_SQL_NULL)) {
+      if (UNIV_LIKELY(log_ptr + len < buf_end)) {
         memcpy(log_ptr, dfield_get_data(new_val), len);
 
         log_ptr += len;
@@ -1443,7 +1446,7 @@ bool row_upd_changes_ord_field_binary_func(dict_index_t *index,
   ut_ad(!index->table->skip_alter_undo);
   ut_ad(non_mv_upd == nullptr || index->is_multi_value());
 
-  if (non_mv_upd != nullptr) {
+  if (UNIV_UNLIKELY(non_mv_upd != nullptr)) {
     *non_mv_upd = false;
   }
 
@@ -1677,7 +1680,7 @@ bool row_upd_changes_some_index_ord_field_binary(
         return true;
       }
     } else {
-      if (index->get_field(upd_field->field_no)->col->ord_part) {
+      if (UNIV_UNLIKELY(index->get_field(upd_field->field_no)->col->ord_part)) {
         return true;
       }
     }
@@ -2711,7 +2714,7 @@ uint64_t row_upd_get_new_autoinc_counter(const upd_t *update,
   for (ulint i = 0; i < n_fields; ++i) {
     upd_field_t *upd_field = upd_get_nth_field(update, i);
 
-    if (upd_field->field_no == autoinc_field_no &&
+    if (UNIV_UNLIKELY(upd_field->field_no == autoinc_field_no) &&
         !upd_fld_is_virtual_col(upd_field)) {
       /* We should double check the field to see if this
       is a virtual column, which is on virtual index
@@ -2738,7 +2741,7 @@ static bool row_upd_check_autoinc_counter(const upd_node_t *node, mtr_t *mtr) {
   dict_table_t *table = node->table;
 
   if (!dict_table_has_autoinc_col(table) || table->is_temporary() ||
-      node->row == nullptr) {
+      UNIV_LIKELY(node->row == nullptr)) {
     return false;
   }
 
@@ -2838,7 +2841,7 @@ static bool row_upd_check_autoinc_counter(const upd_node_t *node, mtr_t *mtr) {
   the page; we do not check locks because we assume the x-lock on the
   record to update */
 
-  if (node->cmpl_info & UPD_NODE_NO_SIZE_CHANGE) {
+  if (UNIV_UNLIKELY(node->cmpl_info & UPD_NODE_NO_SIZE_CHANGE)) {
     err = btr_cur_update_in_place(flags | BTR_NO_LOCKING_FLAG, btr_cur, offsets,
                                   node->update, node->cmpl_info, thr,
                                   thr_get_trx(thr)->id, mtr);
@@ -2848,7 +2851,7 @@ static bool row_upd_check_autoinc_counter(const upd_node_t *node, mtr_t *mtr) {
         node->update, node->cmpl_info, thr, thr_get_trx(thr)->id, mtr);
   }
 
-  if (err == DB_SUCCESS) {
+  if (UNIV_LIKELY(err == DB_SUCCESS)) {
     goto success;
   }
 
@@ -2933,17 +2936,17 @@ static bool row_upd_check_autoinc_counter(const upd_node_t *node, mtr_t *mtr) {
   mtr->commit();
 
 func_exit:
-  if (heap) {
+  if (UNIV_UNLIKELY(heap)) {
     mem_heap_free(heap);
   }
 
-  if (big_rec) {
+  if (UNIV_UNLIKELY(big_rec)) {
     dtuple_big_rec_free(big_rec);
   }
 
   /* Persist auto increment value to DD buffer table if requested. Do it after
   closing the mini transaction and releasing latches. */
-  if (persist_autoinc) {
+  if (UNIV_UNLIKELY(persist_autoinc)) {
     dict_table_persist_to_dd_table_buffer(node->table);
   }
 
@@ -3032,7 +3035,7 @@ func_exit:
   server or connection lifetime and so REDO information is not needed
   on restart for recovery.
   Disable locking as temp-tables are not shared across connection. */
-  if (index->table->is_temporary()) {
+  if (UNIV_UNLIKELY(index->table->is_temporary())) {
     flags |= BTR_NO_LOCKING_FLAG;
     mtr.set_log_mode(MTR_LOG_NO_REDO);
 
@@ -3092,7 +3095,7 @@ func_exit:
 
   /* NOTE: the following function calls will also commit mtr */
 
-  if (node->is_delete) {
+  if (UNIV_UNLIKELY(node->is_delete)) {
     err = row_upd_del_mark_clust_rec(flags, node, index, offsets, thr,
                                      referenced, &mtr);
 
@@ -3114,7 +3117,7 @@ func_exit:
     row_upd_eval_new_vals(node->update);
   }
 
-  if (node->cmpl_info & UPD_NODE_NO_ORD_CHANGE) {
+  if (UNIV_LIKELY(node->cmpl_info & UPD_NODE_NO_ORD_CHANGE)) {
     err = row_upd_clust_rec(flags, node, index, offsets, &heap, thr, &mtr);
     goto exit_func;
   }
@@ -3156,7 +3159,7 @@ func_exit:
   node->index = index->next();
 
 exit_func:
-  if (heap) {
+  if (UNIV_UNLIKELY(heap)) {
     mem_heap_free(heap);
   }
   return (err);
@@ -3188,23 +3191,24 @@ static dberr_t row_upd(upd_node_t *node, /*!< in: row update node */
     /* We do not get the cmpl_info value from the MySQL
     interpreter: we must calculate it on the fly: */
 
-    if (node->is_delete || row_upd_changes_some_index_ord_field_binary(
-                               node->table, node->update)) {
+    if (UNIV_UNLIKELY(node->is_delete) ||
+        row_upd_changes_some_index_ord_field_binary(node->table,
+                                                    node->update)) {
       node->cmpl_info = 0;
     } else {
       node->cmpl_info = UPD_NODE_NO_ORD_CHANGE;
     }
   }
 
-  switch (node->state) {
+  switch (UNIV_EXPECT(node->state, UPD_NODE_UPDATE_CLUSTERED)) {
     case UPD_NODE_UPDATE_CLUSTERED:
     case UPD_NODE_INSERT_CLUSTERED:
-      if (!node->table->is_intrinsic()) {
+      if (UNIV_LIKELY(!node->table->is_intrinsic())) {
         log_free_check();
       }
       err = row_upd_clust_step(node, thr);
 
-      if (err != DB_SUCCESS) {
+      if (UNIV_UNLIKELY(err != DB_SUCCESS)) {
         return err;
       }
   }
@@ -3212,7 +3216,7 @@ static dberr_t row_upd(upd_node_t *node, /*!< in: row update node */
   ut_ad(trx_can_be_handled_by_current_thread(thr_get_trx(thr)));
   DEBUG_SYNC(thr_get_trx(thr)->mysql_thd, "after_row_upd_clust");
 
-  if (node->index == nullptr ||
+  if (UNIV_LIKELY(node->index == nullptr) ||
       (!node->is_delete && (node->cmpl_info & UPD_NODE_NO_ORD_CHANGE))) {
     return DB_SUCCESS;
   }
@@ -3281,11 +3285,11 @@ que_thr_t *row_upd_step(que_thr_t *thr) /*!< in: query thread */
 
   ut_ad(que_node_get_type(node) == QUE_NODE_UPDATE);
 
-  if (thr->prev_node == parent) {
+  if (UNIV_UNLIKELY(thr->prev_node == parent)) {
     node->state = UPD_NODE_SET_IX_LOCK;
   }
 
-  if (node->state == UPD_NODE_SET_IX_LOCK) {
+  if (UNIV_UNLIKELY(node->state == UPD_NODE_SET_IX_LOCK)) {
     if (!node->has_clust_rec_x_lock) {
       /* It may be that the current session has not yet
       started its transaction, or it has been committed: */
@@ -3313,7 +3317,7 @@ que_thr_t *row_upd_step(que_thr_t *thr) /*!< in: query thread */
 
   /* sel_node is NULL if we are in the MySQL interface */
 
-  if (sel_node && (sel_node->state != SEL_NODE_FETCH)) {
+  if (UNIV_UNLIKELY(sel_node) && (sel_node->state != SEL_NODE_FETCH)) {
     if (!node->searched_update) {
       /* An explicit cursor should be positioned on a row
       to update */

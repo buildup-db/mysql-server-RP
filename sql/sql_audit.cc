@@ -1093,7 +1093,7 @@ int mysql_audit_acquire_plugins(THD *thd, mysql_event_class_t event_class,
 
   unsigned long global_mask = mysql_global_audit_mask[event_class];
 
-  if (thd && !check_audit_mask(global_mask, event_subclass) &&
+  if (thd && unlikely(!check_audit_mask(global_mask, event_subclass)) &&
       check_audit_mask(thd->audit_class_mask[event_class], event_subclass)) {
     /*
       There is a plugin registered for the subclass, but THD has not

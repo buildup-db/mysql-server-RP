@@ -886,7 +886,7 @@ class Field {
              of hidden.
   */
   bool is_field_for_functional_index() const {
-    return hidden() == dd::Column::enum_hidden_type::HT_HIDDEN_SQL &&
+    return unlikely(hidden() == dd::Column::enum_hidden_type::HT_HIDDEN_SQL) &&
            gcol_info != nullptr;
   }
 

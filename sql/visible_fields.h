@@ -51,7 +51,7 @@ template <class Iterator>
 class VisibleFieldsAdapter {
  public:
   VisibleFieldsAdapter(Iterator base, Iterator end) : m_it(base), m_end(end) {
-    while (m_it != m_end && (*m_it)->hidden) {
+    while (likely(m_it != m_end) && unlikely((*m_it)->hidden)) {
       ++m_it;
     }
   }
@@ -69,7 +69,7 @@ class VisibleFieldsAdapter {
     VisibleFieldsAdapter ret = *this;
     do {
       m_it++;
-    } while (m_it != m_end && (*m_it)->hidden);
+    } while (likely(m_it != m_end) && unlikely((*m_it)->hidden));
     return ret;
   }
 

@@ -286,13 +286,13 @@ bool is_hidden_by_user(const Create_field *create_field);
   (i.e. it returns the maximum size of the field in a row of the table,
   which is located in RAM).
 */
-inline uint32 Field::pack_length() const {
+ALWAYS_INLINE uint32 Field::pack_length() const {
   if (unlikely(m_is_wrapper_field)) {
     return m_field->pack_length();
   } else if (unlikely(m_is_array)) {
     return (uint32)(packlength + portable_sizeof_char_ptr);
   }
-  switch (m_real_type) {
+  switch (my_expect(m_real_type, MYSQL_TYPE_LONGLONG)) {
     case MYSQL_TYPE_TINY:
     case MYSQL_TYPE_YEAR:
       return 1;

@@ -743,7 +743,7 @@ void que_thr_move_to_run_state_for_mysql(
 {
   ut_a(thr->magic_n == QUE_THR_MAGIC_N);
 
-  if (!thr->is_active) {
+  if (UNIV_LIKELY(!thr->is_active)) {
     thr->graph->n_active_thrs++;
 
     trx->lock.n_active_thrs++;

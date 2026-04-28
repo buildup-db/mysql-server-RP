@@ -643,7 +643,7 @@ static void log_index_column_counts(const dict_index_t *index, uint16_t n,
 
   /* log n_uniq */
   uint16_t n_uniq;
-  if (page_is_leaf(page_align(rec))) {
+  if (UNIV_LIKELY(page_is_leaf(page_align(rec)))) {
     n_uniq = dict_index_get_n_unique_in_tree(index);
   } else {
     n_uniq = dict_index_get_n_unique_in_tree_nonleaf(index);
@@ -701,7 +701,7 @@ static bool log_index_fields(const dict_index_t *index, uint16_t n,
     ulint len = field->fixed_len;
     ut_ad(len < 0x7fff);
 
-    if (len == 0 && (DATA_BIG_COL(col))) {
+    if (UNIV_UNLIKELY(len == 0) && (DATA_BIG_COL(col))) {
       /* variable-length field with maximum length > 255 */
       len = 0x7fff;
     }
@@ -917,7 +917,7 @@ bool mlog_open_and_write_index(mtr_t *mtr, const byte *rec,
     delete[] fields_with_changed_order;
   }
 
-  if (!instant_fields_to_log.empty()) {
+  if (UNIV_UNLIKELY(!instant_fields_to_log.empty())) {
     ut_ad(is_versioned);
     /* Log INSTANT ADD/DROP fields */
     if (!log_index_versioned_fields(instant_fields_to_log, log_ptr, f, index)) {
@@ -925,10 +925,10 @@ bool mlog_open_and_write_index(mtr_t *mtr, const byte *rec,
     }
   }
 
-  if (size == 0) {
+  if (UNIV_UNLIKELY(size == 0)) {
     mlog_close(mtr, log_ptr);
     log_ptr = nullptr;
-  } else if (log_ptr + size > log_end) {
+  } else if (UNIV_UNLIKELY(log_ptr + size > log_end)) {
     mlog_close(mtr, log_ptr);
     bool success = mlog_open(mtr, size, log_ptr);
     ut_a(success);

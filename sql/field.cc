@@ -6109,7 +6109,7 @@ type_conversion_status Field_longstr::check_string_copy_error(
 
 type_conversion_status Field_longstr::report_if_important_data(
     const char *pstr, const char *end, bool count_spaces) {
-  if (pstr < end)  // String is truncated
+  if (unlikely(pstr < end))  // String is truncated
   {
     THD *thd = current_thd;
 
@@ -6149,10 +6149,16 @@ type_conversion_status Field_string::store(const char *from, size_t length,
       &cannot_convert_error_pos, &from_end_pos);
 
   /* Append spaces if the string was shorter than the field. */
-  if (copy_length < field_length)
-    field_charset->cset->fill(field_charset, (char *)ptr + copy_length,
-                              field_length - copy_length,
-                              field_charset->pad_char);
+  if (likely(copy_length < field_length)) {
+    if (likely(field_charset->cset->fill == my_fill_8bit)) {
+      my_fill_8bit(field_charset, (char *)ptr + copy_length,
+                   field_length - copy_length, field_charset->pad_char);
+    } else {
+      field_charset->cset->fill(field_charset, (char *)ptr + copy_length,
+                                field_length - copy_length,
+                                field_charset->pad_char);
+    }
+  }
 
   return check_string_copy_error(well_formed_error_pos,
                                  cannot_convert_error_pos, from_end_pos,

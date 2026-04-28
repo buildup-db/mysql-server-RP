@@ -254,7 +254,7 @@ static inline const ReadView *trx_get_read_view(const trx_t *trx) {
 @param[in] trx          Transaction to check
 @return true if the transaction is a high priority transaction.*/
 static inline bool trx_is_high_priority(const trx_t *trx) {
-  if (trx->mysql_thd == nullptr) {
+  if (UNIV_UNLIKELY(trx->mysql_thd == nullptr)) {
     return (false);
   }
 

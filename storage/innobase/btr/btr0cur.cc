@@ -350,62 +350,55 @@ bool btr_cur_optimistic_latch_leaves(buf_block_t *block, uint64_t modify_clock,
   ut_ad(block->page.buf_fix_count > 0);
   ut_ad(buf_block_get_state(block) == BUF_BLOCK_FILE_PAGE);
 
-  switch (*latch_mode) {
-    case BTR_SEARCH_LEAF:
-    case BTR_MODIFY_LEAF:
-      return (buf_page_optimistic_get(*latch_mode, block, modify_clock,
-                                      cursor->m_fetch_mode, file, line, mtr));
-    case BTR_SEARCH_PREV:
-    case BTR_MODIFY_PREV:
-      mode = *latch_mode == BTR_SEARCH_PREV ? RW_S_LATCH : RW_X_LATCH;
-
-      rw_lock_s_lock(&block->lock, UT_LOCATION_HERE);
-      if (block->modify_clock != modify_clock) {
-        rw_lock_s_unlock(&block->lock);
-        return false;
-      }
-      left_page_no = btr_page_get_prev(buf_block_get_frame(block), mtr);
-      rw_lock_s_unlock(&block->lock);
-
-      if (left_page_no != FIL_NULL) {
-        const page_id_t page_id(dict_index_get_space(cursor->index),
-                                left_page_no);
-
-        cursor->left_block = buf_page_get_gen(
-            page_id, dict_table_page_size(cursor->index->table), mode, nullptr,
-            Page_fetch::POSSIBLY_FREED, UT_LOCATION_HERE, mtr);
-      } else {
-        cursor->left_block = nullptr;
-      }
-      if (buf_page_optimistic_get(mode, block, modify_clock,
-                                  cursor->m_fetch_mode, file, line, mtr)) {
-        if (btr_page_get_prev(buf_block_get_frame(block), mtr) ==
-            left_page_no) {
-          /* We've entered this function with the block already buffer-fixed,
-          and buf_page_optimistic_get() buffer-fixes it again. The caller should
-          unfix the block once (to undo their buffer-fixing). */
-          ut_ad(2 <= block->page.buf_fix_count);
-          *latch_mode = mode;
-          return true;
-        } else {
-          /* release the block, which will also decrement the buf_fix_count once
-          undoing the increment in successful buf_page_optimistic_get() */
-          btr_leaf_page_release(block, mode, mtr);
-        }
-      }
-      /* If we are still here then buf_page_optimistic_get() did not buffer-fix
-      the page, but it should still be buffer-fixed as it was before the call.*/
-      ut_ad(0 < block->page.buf_fix_count);
-      /* release the left block */
-      if (cursor->left_block != nullptr) {
-        btr_leaf_page_release(cursor->left_block, mode, mtr);
-      }
-
-      return false;
-
-    default:
-      ut_error;
+  if (UNIV_LIKELY(*latch_mode == BTR_SEARCH_LEAF) ||
+      UNIV_LIKELY(*latch_mode == BTR_MODIFY_LEAF)) {
+    return (buf_page_optimistic_get(*latch_mode, block, modify_clock,
+                                    cursor->m_fetch_mode, file, line, mtr));
   }
+  ut_a(*latch_mode == BTR_SEARCH_PREV || *latch_mode == BTR_MODIFY_PREV);
+  mode = *latch_mode == BTR_SEARCH_PREV ? RW_S_LATCH : RW_X_LATCH;
+
+  rw_lock_s_lock(&block->lock, UT_LOCATION_HERE);
+  if (block->modify_clock != modify_clock) {
+    rw_lock_s_unlock(&block->lock);
+    return false;
+  }
+  left_page_no = btr_page_get_prev(buf_block_get_frame(block), mtr);
+  rw_lock_s_unlock(&block->lock);
+
+  if (left_page_no != FIL_NULL) {
+    const page_id_t page_id(dict_index_get_space(cursor->index), left_page_no);
+
+    cursor->left_block = buf_page_get_gen(
+        page_id, dict_table_page_size(cursor->index->table), mode, nullptr,
+        Page_fetch::POSSIBLY_FREED, UT_LOCATION_HERE, mtr);
+  } else {
+    cursor->left_block = nullptr;
+  }
+  if (buf_page_optimistic_get(mode, block, modify_clock, cursor->m_fetch_mode,
+                              file, line, mtr)) {
+    if (btr_page_get_prev(buf_block_get_frame(block), mtr) == left_page_no) {
+      /* We've entered this function with the block already buffer-fixed,
+      and buf_page_optimistic_get() buffer-fixes it again. The caller should
+      unfix the block once (to undo their buffer-fixing). */
+      ut_ad(2 <= block->page.buf_fix_count);
+      *latch_mode = mode;
+      return true;
+    } else {
+      /* release the block, which will also decrement the buf_fix_count once
+      undoing the increment in successful buf_page_optimistic_get() */
+      btr_leaf_page_release(block, mode, mtr);
+    }
+  }
+  /* If we are still here then buf_page_optimistic_get() did not buffer-fix
+  the page, but it should still be buffer-fixed as it was before the call.*/
+  ut_ad(0 < block->page.buf_fix_count);
+  /* release the left block */
+  if (cursor->left_block != nullptr) {
+    btr_leaf_page_release(cursor->left_block, mode, mtr);
+  }
+
+  return false;
 }
 
 /**
@@ -3109,7 +3102,7 @@ dberr_t btr_cur_pessimistic_insert(
 
   ut_ad(rec_offs_validate(rec, index, offsets));
 
-  if (!index->is_clustered()) {
+  if (UNIV_UNLIKELY(!index->is_clustered())) {
     ut_ad(dict_index_is_online_ddl(index) == !!(flags & BTR_CREATE_FLAG));
 
     /* We do undo logging only when we update a clustered index
@@ -3171,7 +3164,7 @@ void btr_cur_update_in_place_log(ulint flags, const rec_t *rec,
   mach_write_to_1(log_ptr, flags);
   log_ptr++;
 
-  if (index->is_clustered()) {
+  if (UNIV_LIKELY(index->is_clustered())) {
     log_ptr =
         row_upd_write_sys_vals_to_log(index, trx_id, roll_ptr, log_ptr, mtr);
   } else {
@@ -3399,7 +3392,8 @@ dberr_t btr_cur_update_in_place(ulint flags, btr_cur_t *cursor, ulint *offsets,
     goto func_exit;
   }
 
-  if (!(flags & BTR_KEEP_SYS_FLAG) && !index->table->is_intrinsic()) {
+  if (UNIV_LIKELY(!(flags & BTR_KEEP_SYS_FLAG)) &&
+      UNIV_LIKELY(!index->table->is_intrinsic())) {
     row_upd_rec_sys_fields(rec, nullptr, index, offsets, thr_get_trx(thr),
                            roll_ptr);
   }
@@ -3409,7 +3403,7 @@ dberr_t btr_cur_update_in_place(ulint flags, btr_cur_t *cursor, ulint *offsets,
 
   is_hashed = (block->index != nullptr);
 
-  if (is_hashed) {
+  if (UNIV_LIKELY(is_hashed)) {
     /* TO DO: Can we skip this if none of the fields
     index->search_info->curr_n_fields
     are being updated? */
@@ -3418,7 +3412,7 @@ dberr_t btr_cur_update_in_place(ulint flags, btr_cur_t *cursor, ulint *offsets,
     if the update vector was built for a clustered index, we must
     NOT call it if index is secondary */
 
-    if (!index->is_clustered() ||
+    if (UNIV_UNLIKELY(!index->is_clustered()) ||
         row_upd_changes_ord_field_binary(index, update, thr, nullptr, nullptr,
                                          nullptr)) {
       /* Remove possible hash index pointer to this record */
@@ -3437,7 +3431,7 @@ dberr_t btr_cur_update_in_place(ulint flags, btr_cur_t *cursor, ulint *offsets,
 
   btr_cur_update_in_place_log(flags, rec, index, update, trx_id, roll_ptr, mtr);
 
-  if (was_delete_marked &&
+  if (UNIV_UNLIKELY(was_delete_marked) &&
       !rec_get_deleted_flag(rec, page_is_comp(buf_block_get_frame(block)))) {
     /* The new updated record owns its possible externally
     stored fields */

@@ -252,7 +252,7 @@ lsn_t log_free_check_capacity(const log_t &log);
 @param[in]  log   redo log
 @return true iff log_free_check should be executed */
 inline bool log_free_check_is_required(const log_t &log) {
-  if (srv_read_only_mode) {
+  if (UNIV_UNLIKELY(srv_read_only_mode)) {
     return false;
   }
   const lsn_t lsn = log_get_lsn(log);
@@ -280,7 +280,7 @@ inline void log_free_check(log_t &log) {
   /** We prefer to wait now for the space in log file, because now
   are not holding any latches of dirty pages. */
 
-  if (log_free_check_is_required(log)) {
+  if (UNIV_UNLIKELY(log_free_check_is_required(log))) {
     /* We need to wait, because the concurrency margin could be violated
     if we let all threads to go forward after making this check now.
 

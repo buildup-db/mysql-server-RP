@@ -4748,7 +4748,7 @@ bool Table_ref::prepare_replace_filter(THD *thd) {
 */
 
 int Table_ref::view_check_option(THD *thd) const {
-  if (check_option && check_option->val_int() == 0) {
+  if (unlikely(check_option) && check_option->val_int() == 0) {
     const Table_ref *main_view = top_table();
     my_error(ER_VIEW_CHECK_FAILED, MYF(0), main_view->db,
              main_view->table_name);
@@ -7621,7 +7621,7 @@ String *TABLE::get_partial_update_buffer() {
 
 void TABLE::clear_partial_update_diffs() {
   DBUG_TRACE;
-  if (m_partial_update_info != nullptr) {
+  if (unlikely(m_partial_update_info != nullptr)) {
     for (auto v : m_partial_update_info->m_binary_diff_vectors)
       if (v != nullptr) v->clear();
 

@@ -361,7 +361,7 @@ int IndexRangeScanIterator::Read() {
   MY_BITMAP *const save_write_set = table()->write_set;
   DBUG_TRACE;
 
-  if (in_ror_merged_scan) {
+  if (unlikely(in_ror_merged_scan)) {
     /*
       We don't need to signal the bitmap change as the bitmap is always the
       same for this table()->file
@@ -372,15 +372,15 @@ int IndexRangeScanIterator::Read() {
   char *dummy;
   int result = file->ha_multi_range_read_next(&dummy);
 
-  if (in_ror_merged_scan) {
+  if (unlikely(in_ror_merged_scan)) {
     /* Restore bitmaps set on entry */
     table()->column_bitmaps_set_no_signal(save_read_set, save_write_set);
     if (result == 0) {
       file->position(table()->record[0]);
     }
   }
-  if (result == 0) {
-    if (m_examined_rows != nullptr) {
+  if (likely(result == 0)) {
+    if (unlikely(m_examined_rows != nullptr)) {
       ++*m_examined_rows;
     }
     return 0;

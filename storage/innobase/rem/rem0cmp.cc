@@ -702,7 +702,7 @@ int cmp_dtuple_rec_with_match_low(const dtuple_t *dtuple, const rec_t *rec,
                      dtuple_b_ptr, dtuple_f_len, rec_b_ptr, rec_f_len);
     }
 
-    if (ret) {
+    if (UNIV_UNLIKELY(ret)) {
       *matched_fields = i;
       return (ret);
     }
@@ -1111,7 +1111,7 @@ int cmp_rec_rec_with_match(const rec_t *rec1, const rec_t *rec2,
 
     auto ret = cmp_data(mtype, prtype, is_asc, r1, r1_len, r2, r2_len);
 
-    if (UNIV_LIKELY(ret != 0)) {
+    if (UNIV_UNLIKELY(ret != 0)) {
       *matched_fields = i;
       return (ret);
     }

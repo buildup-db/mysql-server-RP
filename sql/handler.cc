@@ -135,6 +135,10 @@
 
 /** InnoDB direct calls to avoid indirect calls for virtual functions */
 int innobase_extra(handler *file, enum ha_extra_function operation);
+bool innobase_is_innopart(handler *file);
+int innobase_update_row(handler *file, const uchar *old_row, uchar *new_row);
+int innobase_index_next(handler *file, uchar *buf);
+int innobase_multi_range_read_next(handler *file, char **range_info);
 
 /**
   @def MYSQL_TABLE_IO_WAIT
@@ -3337,9 +3341,14 @@ int handler::ha_index_next(uchar *buf) {
   // Set status for the need to update generated fields
   m_update_generated_read_fields = table->has_gcol();
 
-  MYSQL_TABLE_IO_WAIT(PSI_TABLE_FETCH_ROW, active_index, result,
-                      { result = index_next(buf); })
-  if (!result && m_update_generated_read_fields) {
+  MYSQL_TABLE_IO_WAIT(PSI_TABLE_FETCH_ROW, active_index, result, {
+    if (likely(ht && ht->db_type == DB_TYPE_INNODB)) {
+      result = innobase_index_next(this, buf);
+    } else {
+      result = index_next(buf);
+    }
+  })
+  if (!result && unlikely(m_update_generated_read_fields)) {
     result = update_generated_read_fields(buf, table, active_index);
     m_update_generated_read_fields = false;
   }
@@ -3347,7 +3356,8 @@ int handler::ha_index_next(uchar *buf) {
   // (m_unique != nullptr in case of multi-value index read)
   // In case of range scan, duplicate records are filtered in
   // multi_range_read_next()
-  if (!result && !mrr_have_range && m_unique != nullptr && filter_dup_records())
+  if (!result && unlikely(!mrr_have_range) && m_unique != nullptr &&
+      filter_dup_records())
     result = HA_ERR_KEY_NOT_FOUND;
 
   table->set_row_status_from_handler(result);
@@ -4719,13 +4729,14 @@ void handler::mark_trx_read_write() {
     Unfortunately here we can't know for sure if the engine
     has registered the transaction or not, so we must check.
   */
-  if (ha_info->is_started()) {
+  if (likely(ha_info->is_started())) {
     assert(has_transactions());
     /*
       table_share can be NULL in ha_delete_table(). See implementation
       of standalone function ha_delete_table() in sql_base.cc.
     */
-    if (table_share == nullptr || table_share->tmp_table == NO_TMP_TABLE) {
+    if (table_share == nullptr ||
+        likely(table_share->tmp_table == NO_TMP_TABLE)) {
       /* TempTable and Heap tables don't use/support transactions. */
       ha_info->set_trx_read_write();
     }
@@ -6416,8 +6427,12 @@ int handler::ha_multi_range_read_next(char **range_info) {
   // Set status for the need to update generated fields
   m_update_generated_read_fields = table->has_gcol();
 
-  result = multi_range_read_next(range_info);
-  if (!result && m_update_generated_read_fields) {
+  if (likely(ht && ht->db_type == DB_TYPE_INNODB)) {
+    result = innobase_multi_range_read_next(this, range_info);
+  } else {
+    result = multi_range_read_next(range_info);
+  }
+  if (!result && unlikely(m_update_generated_read_fields)) {
     result =
         update_generated_read_fields(table->record[0], table, active_index);
     m_update_generated_read_fields = false;
@@ -6448,6 +6463,8 @@ int handler::multi_range_read_next(char **range_info) {
   // result
   assert(!(table->key_info[active_index].flags & HA_MULTI_VALUED_KEY) ||
          m_unique);
+  const bool is_innobase =
+      (ht && ht->db_type == DB_TYPE_INNODB && !innobase_is_innopart(this));
 
   if (!mrr_have_range) {
     mrr_have_range = true;
@@ -6459,17 +6476,22 @@ int handler::multi_range_read_next(char **range_info) {
       Do not call read_range_next() if its equality on a unique
       index.
     */
-    if (!((mrr_cur_range.range_flag & UNIQUE_RANGE) &&
-          (mrr_cur_range.range_flag & EQ_RANGE))) {
+    if (likely(!((mrr_cur_range.range_flag & UNIQUE_RANGE) &&
+                 (mrr_cur_range.range_flag & EQ_RANGE)))) {
       assert(!result || result == HA_ERR_END_OF_FILE);
-      result = read_range_next();
+      if (likely(is_innobase)) {
+        /* InnoDB doesn't have read_range_next() */
+        result = handler::read_range_next();
+      } else {
+        result = read_range_next();
+      }
       DBUG_EXECUTE_IF("bug20162055_DEADLOCK", result = HA_ERR_LOCK_DEADLOCK;);
       /*
         On success check loop condition to filter duplicates, if needed.
         Exit on non-EOF error. Use next range on EOF error.
       */
-      if (!result) continue;
-      if (result != HA_ERR_END_OF_FILE) break;
+      if (likely(!result)) continue;
+      if (unlikely(result != HA_ERR_END_OF_FILE)) break;
     } else {
       if (was_semi_consistent_read()) goto scan_it_again;
     }
@@ -6494,7 +6516,7 @@ int handler::multi_range_read_next(char **range_info) {
     Last found record was a duplicate and we retrieved records from all
     ranges, so no more records can be returned.
   */
-  if (dup_found && range_res) result = HA_ERR_END_OF_FILE;
+  if (unlikely(dup_found && range_res)) result = HA_ERR_END_OF_FILE;
 
   DBUG_PRINT("exit", ("handler::multi_range_read_next result %d", result));
   return result;
@@ -6829,7 +6851,8 @@ int DsMrr_impl::dsmrr_next(char **range_info) {
   uchar *cur_range_info = nullptr;
   uchar *rowid;
 
-  if (use_default_impl) return h->handler::multi_range_read_next(range_info);
+  if (likely(use_default_impl))
+    return h->handler::multi_range_read_next(range_info);
 
   do {
     if (rowids_buf_cur == rowids_buf_last) {
@@ -7396,7 +7419,7 @@ int handler::read_range_next() {
   DBUG_TRACE;
 
   int result;
-  if (eq_range) {
+  if (unlikely(eq_range)) {
     /* We trust that index_next_same always gives a row in range */
     result =
         ha_index_next_same(table->record[0], end_range->key, end_range->length);
@@ -7404,7 +7427,7 @@ int handler::read_range_next() {
     result = ha_index_next(table->record[0]);
     if (result) return result;
 
-    if (compare_key(end_range) > 0) {
+    if (unlikely(compare_key(end_range) > 0)) {
       /*
         The last read row does not fall in the range. So request
         storage engine to release row lock if possible.
@@ -7475,9 +7498,10 @@ void handler::set_end_range(const key_range *range,
 */
 int handler::compare_key(key_range *range) {
   int cmp = -1;
-  if (!range || in_range_check_pushed_down) return 0;  // No max range
+  if (unlikely(!range) || unlikely(in_range_check_pushed_down))
+    return 0;  // No max range
 
-  if ((table->key_info[active_index].flags & HA_MULTI_VALUED_KEY) &&
+  if (unlikely(table->key_info[active_index].flags & HA_MULTI_VALUED_KEY) &&
       table->key_read) {
     // For multi-valued indexes, key_cmp() needs to read the virtual column
     // backing the index. See Field_typed_array::key_cmp(). The virtual column
@@ -7490,7 +7514,7 @@ int handler::compare_key(key_range *range) {
   }
   cmp = key_cmp(range_key_part, range->key, range->length,
                 /*is_reverse_multi_valued_index_scan=*/false);
-  if (!cmp) cmp = key_compare_result_on_equal;
+  if (unlikely(!cmp)) cmp = key_compare_result_on_equal;
   return cmp;
 }
 
@@ -7728,7 +7752,7 @@ bool ha_show_status(THD *thd, handlerton *db_type, enum ha_stat_type stat) {
 */
 
 static bool check_table_binlog_row_based(THD *thd, TABLE *table) {
-  if (table->s->cached_row_logging_check == -1) {
+  if (unlikely(table->s->cached_row_logging_check == -1)) {
     int const check(table->s->tmp_table == NO_TMP_TABLE &&
                     !table->no_replicate &&
                     binlog_filter->db_ok(table->s->db.str));
@@ -8057,8 +8081,13 @@ int handler::ha_update_row(const uchar *old_data, uchar *new_data) {
       my_error(HA_ERR_CRASHED, MYF(ME_ERRORLOG), table_share->table_name.str);
       set_my_errno(HA_ERR_CRASHED); return (HA_ERR_CRASHED););
 
-  MYSQL_TABLE_IO_WAIT(PSI_TABLE_UPDATE_ROW, active_index, error,
-                      { error = update_row(old_data, new_data); })
+  MYSQL_TABLE_IO_WAIT(PSI_TABLE_UPDATE_ROW, active_index, error, {
+    if (likely(ht && ht->db_type == DB_TYPE_INNODB)) {
+      error = innobase_update_row(this, old_data, new_data);
+    } else {
+      error = update_row(old_data, new_data);
+    }
+  })
 
   if (unlikely(error)) return error;
   if (unlikely((error = binlog_log_row(table, old_data, new_data, log_func))))

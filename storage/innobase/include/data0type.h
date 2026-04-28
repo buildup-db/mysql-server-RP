@@ -274,8 +274,8 @@ inline bool DATA_GEOMETRY_MTYPE(ulint mtype) {
 /* For checking if mtype is BLOB or GEOMETRY, since we use BLOB as
 the underling datatype of GEOMETRY(not DATA_POINT) data. */
 inline bool DATA_LARGE_MTYPE(ulint mtype) {
-  return mtype == DATA_BLOB || mtype == DATA_VAR_POINT ||
-         mtype == DATA_GEOMETRY;
+  return mtype == DATA_BLOB || UNIV_UNLIKELY(mtype == DATA_VAR_POINT) ||
+         UNIV_UNLIKELY(mtype == DATA_GEOMETRY);
 }
 
 /* For checking if data type is big length data type. */

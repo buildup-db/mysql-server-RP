@@ -147,7 +147,7 @@ inline bool log_is_data_lsn(lsn_t lsn) {
 /** @return consistent sn value for locked state */
 static inline sn_t log_get_sn(const log_t &log) {
   const sn_t sn = log.sn.load();
-  if ((sn & SN_LOCKED) != 0) {
+  if (UNIV_UNLIKELY((sn & SN_LOCKED) != 0)) {
     return log.sn_locked.load();
   } else {
     return sn;

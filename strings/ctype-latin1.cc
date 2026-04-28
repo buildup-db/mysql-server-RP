@@ -317,10 +317,10 @@ static const uchar *uni_to_cs[256] = {
 extern "C" {
 static int my_mb_wc_latin1(const CHARSET_INFO *cs [[maybe_unused]], my_wc_t *wc,
                            const uchar *str, const uchar *end) {
-  if (str >= end) return MY_CS_TOOSMALL;
+  if (unlikely(str >= end)) return MY_CS_TOOSMALL;
 
   *wc = cs_to_uni[*str];
-  return (!wc[0] && str[0]) ? -1 : 1;
+  return (unlikely(!wc[0]) && str[0]) ? -1 : 1;
 }
 
 static int my_wc_mb_latin1(const CHARSET_INFO *cs [[maybe_unused]], my_wc_t wc,

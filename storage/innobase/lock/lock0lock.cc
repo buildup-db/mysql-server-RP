@@ -1579,8 +1579,9 @@ static void lock_rec_add_to_queue(ulint type_mode, const buf_block_t *block,
           lock_hash_get(type_mode).find_on_block(block, [&](lock_t *lock) {
             ut_ad(locksys::owns_page_shard(lock->rec_lock.page_id));
 
-            if (lock->trx == trx && lock->type_mode == type_mode &&
-                heap_no < lock_rec_get_n_bits(lock)) {
+            if (UNIV_LIKELY(lock->trx == trx) &&
+                UNIV_LIKELY(lock->type_mode == type_mode) &&
+                UNIV_LIKELY(heap_no < lock_rec_get_n_bits(lock))) {
               return true;
             }
             if (lock->is_waiting()) {
@@ -1682,7 +1683,7 @@ static inline lock_rec_req_status lock_rec_lock_fast(
 
   lock_rec_req_status status = LOCK_REC_SUCCESS;
 
-  if (lock == nullptr) {
+  if (UNIV_UNLIKELY(lock == nullptr)) {
     if (!impl) {
       RecLock rec_lock(index, block, heap_no, mode);
 
@@ -1695,15 +1696,16 @@ static inline lock_rec_req_status lock_rec_lock_fast(
   } else {
     trx_mutex_enter(trx);
 
-    if (other_lock != nullptr || lock->trx != trx ||
-        lock->type_mode != (mode | LOCK_REC) ||
-        lock_rec_get_n_bits(lock) <= heap_no) {
+    if (UNIV_UNLIKELY(other_lock != nullptr) ||
+        UNIV_UNLIKELY(lock->trx != trx) ||
+        UNIV_UNLIKELY(lock->type_mode != (mode | LOCK_REC)) ||
+        UNIV_UNLIKELY(lock_rec_get_n_bits(lock) <= heap_no)) {
       status = LOCK_REC_FAIL;
     } else if (!impl) {
       /* If the nth bit of the record lock is already set
       then we do not set a new lock bit, otherwise we do
       set */
-      if (!lock_rec_get_nth_bit(lock, heap_no)) {
+      if (UNIV_LIKELY(!lock_rec_get_nth_bit(lock, heap_no))) {
         lock_rec_set_nth_bit(lock, heap_no);
         status = LOCK_REC_SUCCESS_CREATED;
       }
@@ -5535,13 +5537,14 @@ dberr_t lock_clust_rec_read_check_and_lock(
         gap_mode == LOCK_REC_NOT_GAP);
   ut_ad(rec_offs_validate(rec, index, offsets));
 
-  if (srv_read_only_mode || index->table->is_temporary()) {
+  if (UNIV_UNLIKELY(srv_read_only_mode) ||
+      UNIV_UNLIKELY(index->table->is_temporary())) {
     return (DB_SUCCESS);
   }
 
   heap_no = page_rec_get_heap_no(rec);
 
-  if (heap_no != PAGE_HEAP_NO_SUPREMUM) {
+  if (UNIV_LIKELY(heap_no != PAGE_HEAP_NO_SUPREMUM)) {
     lock_rec_convert_impl_to_expl(block, rec, index, offsets);
   }
 

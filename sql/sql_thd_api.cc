@@ -407,7 +407,8 @@ int thd_tx_isolation(const MYSQL_THD thd) { return (int)thd->tx_isolation; }
 int thd_tx_is_read_only(const MYSQL_THD thd) { return (int)thd->tx_read_only; }
 
 int thd_tx_priority(const MYSQL_THD thd) {
-  return (thd->thd_tx_priority != 0 ? thd->thd_tx_priority : thd->tx_priority);
+  return (unlikely(thd->thd_tx_priority != 0) ? thd->thd_tx_priority
+                                              : thd->tx_priority);
 }
 
 MYSQL_THD thd_tx_arbitrate(MYSQL_THD requestor, MYSQL_THD holder) {
@@ -548,7 +549,7 @@ void thd_get_xid(const MYSQL_THD thd, MYSQL_XID *xid) {
 
 int thd_killed(const void *v_thd) {
   const THD *thd = static_cast<const THD *>(v_thd);
-  if (thd == nullptr) thd = current_thd;
+  if (unlikely(thd == nullptr)) thd = current_thd;
   if (thd == nullptr) return 0;
   return thd->killed;
 }

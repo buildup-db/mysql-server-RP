@@ -232,7 +232,7 @@ Functional_index_error_handler::Functional_index_error_handler(
     : m_thd(thd), m_pop_error_handler(false), m_force_error_code(-1) {
   assert(field != nullptr);
 
-  if (field->is_field_for_functional_index()) {
+  if (unlikely(field->is_field_for_functional_index())) {
     m_thd->push_internal_handler(this);
     m_pop_error_handler = true;
 
@@ -282,7 +282,7 @@ Functional_index_error_handler::Functional_index_error_handler(
 }
 
 Functional_index_error_handler::~Functional_index_error_handler() {
-  if (m_pop_error_handler) {
+  if (unlikely(m_pop_error_handler)) {
     m_thd->pop_internal_handler();
   }
 }

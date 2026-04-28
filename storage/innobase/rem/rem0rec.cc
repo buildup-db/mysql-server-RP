@@ -1293,7 +1293,7 @@ rec_t *rec_copy_prefix_to_buf(const rec_t *rec, const dict_index_t *index,
 
   status = rec_get_status(rec);
 
-  switch (status) {
+  switch (UNIV_EXPECT(status, REC_STATUS_ORDINARY)) {
     case REC_STATUS_ORDINARY:
       ut_ad(n_fields <= dict_index_get_n_fields(index));
       break;
@@ -1333,14 +1333,14 @@ rec_t *rec_copy_prefix_to_buf(const rec_t *rec, const dict_index_t *index,
   null_mask = 1;
 
   /* read the lengths of fields 0..n */
-  for (i = 0; i < n_fields; i++) {
+  for (i = 0; UNIV_LIKELY(i < n_fields); i++) {
     const dict_field_t *field;
     const dict_col_t *col;
 
     field = index->get_field(i);
     col = field->col;
 
-    if (!(col->prtype & DATA_NOT_NULL)) {
+    if (UNIV_UNLIKELY(!(col->prtype & DATA_NOT_NULL))) {
       /* nullable field => read the null flag */
       if (UNIV_UNLIKELY(!(byte)null_mask)) {
         nulls--;
@@ -1355,11 +1355,11 @@ rec_t *rec_copy_prefix_to_buf(const rec_t *rec, const dict_index_t *index,
       null_mask <<= 1;
     }
 
-    if (is_rtr_node_ptr && i == 1) {
+    if (UNIV_UNLIKELY(is_rtr_node_ptr) && i == 1) {
       /* For rtree node ptr rec, we need to
       copy the page no field with 4 bytes len. */
       prefix_len += 4;
-    } else if (field->fixed_len) {
+    } else if (UNIV_LIKELY(field->fixed_len)) {
       prefix_len += field->fixed_len;
     } else {
       ulint len = *lens--;

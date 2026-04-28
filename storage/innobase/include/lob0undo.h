@@ -189,7 +189,7 @@ struct undo_vers_t {
 
   /** Empty the collected LOB undo information from cache. */
   void reset() {
-    if (m_versions != nullptr) {
+    if (UNIV_UNLIKELY(m_versions != nullptr)) {
       for (auto iter = m_versions->begin(); iter != m_versions->end(); ++iter) {
         (*iter)->destroy();
         ut::delete_(*iter);

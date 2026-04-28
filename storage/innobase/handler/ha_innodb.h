@@ -470,7 +470,6 @@ class ha_innobase : public handler {
              HA_DUPLICATE_POS | HA_READ_BEFORE_WRITE_REMOVAL)) == 0;
   }
 
- private:
   /** @name Multi Range Read interface
   @{ */
 
@@ -482,6 +481,7 @@ class ha_innobase : public handler {
   /** Process next multi range read @see DsMrr_impl::dsmrr_next */
   int multi_range_read_next(char **range_info) override;
 
+ private:
   /** Initialize multi range read and get information.
   @see ha_myisam::multi_range_read_info_const
   @see DsMrr_impl::dsmrr_info_const */

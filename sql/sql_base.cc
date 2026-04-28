@@ -9578,9 +9578,9 @@ bool fill_record(THD *thd, TABLE *table, const mem_root_deque<Item *> &fields,
       bitmap_set_bit(insert_into_fields_bitmap, rfield->field_index());
 
     /* Generated columns will be filled after all base columns are done. */
-    if (rfield->is_gcol()) continue;
+    if (unlikely(rfield->is_gcol())) continue;
 
-    if (raise_autoinc_has_expl_non_null_val &&
+    if (unlikely(raise_autoinc_has_expl_non_null_val) &&
         rfield == table->next_number_field)
       table->autoinc_field_has_explicit_non_null_value = true;
     /*
@@ -9595,14 +9595,14 @@ bool fill_record(THD *thd, TABLE *table, const mem_root_deque<Item *> &fields,
       set_field_to_null_with_conversions()). So evaluation of this flag can't
       be moved outside of fill_record(), to be done once per statement.
     */
-    if (value->save_in_field(rfield, false) < 0) {
+    if (unlikely(value->save_in_field(rfield, false) < 0)) {
       my_error(ER_UNKNOWN_ERROR, MYF(0));
       return true;
     }
     if (thd->is_error()) return true;
   }
 
-  if (table->has_gcol() &&
+  if (unlikely(table->has_gcol()) &&
       update_generated_write_fields(bitmap ? bitmap : table->write_set, table))
     return true;
 
@@ -9627,7 +9627,7 @@ bool fill_record(THD *thd, TABLE *table, const mem_root_deque<Item *> &fields,
 static bool check_record(THD *thd, const mem_root_deque<Item *> &fields) {
   for (Item *fld : VisibleFields(fields)) {
     Item_field *field = fld->field_for_view_update();
-    if (field &&
+    if (likely(field) &&
         field->field->check_constraints(ER_BAD_NULL_ERROR) != TYPE_OK) {
       my_error(ER_UNKNOWN_ERROR, MYF(0));
       return true;
@@ -9686,7 +9686,7 @@ static bool check_inserting_record(THD *thd, Field **ptr) {
 */
 
 bool invoke_table_check_constraints(THD *thd, const TABLE *table) {
-  if (table->table_check_constraint_list != nullptr) {
+  if (unlikely(table->table_check_constraint_list != nullptr)) {
     for (auto &table_cc : *table->table_check_constraint_list) {
       if (table_cc.is_enforced()) {
         /*
@@ -9838,15 +9838,17 @@ bool fill_record_n_invoke_before_triggers(
       and new records to determine whether function defaults have to be
       evaluated.
     */
-    if (optype_info->get_operation_type() == COPY_INFO::UPDATE_OPERATION) {
+    if (likely(optype_info->get_operation_type() ==
+               COPY_INFO::UPDATE_OPERATION)) {
       *is_row_changed =
-          (!records_are_comparable(table) || compare_records(table));
+          (likely(!records_are_comparable(table)) || compare_records(table));
       /*
         Evaluate function defaults for columns with ON UPDATE clause only
         if any other column of the row is updated.
       */
       if (*is_row_changed &&
-          (optype_info->function_defaults_apply_on_columns(table->write_set))) {
+          (unlikely(optype_info->function_defaults_apply_on_columns(
+              table->write_set)))) {
         if (optype_info->set_function_defaults(table)) return true;
       }
     } else if (optype_info->function_defaults_apply_on_columns(
@@ -9862,7 +9864,7 @@ bool fill_record_n_invoke_before_triggers(
   */
 
   Trigger_chain *tc =
-      table->triggers != nullptr
+      unlikely(table->triggers != nullptr)
           ? table->triggers->get_triggers(event, TRG_ACTION_BEFORE)
           : nullptr;
 

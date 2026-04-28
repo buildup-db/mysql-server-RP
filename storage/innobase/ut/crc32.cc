@@ -657,7 +657,7 @@ and the results are combined together at the end to compute correct result.
 template <size_t slice_len, size_t slices_count, typename algo_to_use>
 static inline void consume_chunks(uint32_t &crc, const byte *&data,
                                   size_t &len) {
-  while (len >= slice_len * slices_count) {
+  while (UNIV_UNLIKELY(len >= slice_len * slices_count)) {
     crc = consume_chunk<slice_len, slices_count, algo_to_use>(crc, data);
     len -= slice_len * slices_count;
     data += slice_len * slices_count;
@@ -675,7 +675,7 @@ which starts at position aligned  mod 8, but has less than 8 bytes.
 @param[in,out]  len     data length, allowed to be processed. */
 template <typename Chunk, typename algo_to_use>
 static inline void consume_pow2(uint32_t &crc, const byte *&data, size_t len) {
-  if (UNIV_UNLIKELY(len & sizeof(Chunk))) {
+  if (UNIV_EXPECT(len & sizeof(Chunk), sizeof(Chunk) & 4)) {
     crc = algo_to_use::update(crc, *(Chunk *)data);
     data += sizeof(Chunk);
   }
@@ -693,7 +693,7 @@ any len and alignment.
 template <typename algo_to_use>
 static uint32_t crc32(uint32_t crc, const byte *data, size_t len) {
   crc = ~crc;
-  if (8 <= len) {
+  if (UNIV_UNLIKELY(8 <= len)) {
     /* For performance, the main loop will operate on uint64_t[].
     On some  platforms unaligned reads are not allowed, on others they are
     slower, so we start by consuming the unaligned prefix of the data. */

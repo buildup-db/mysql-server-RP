@@ -69,7 +69,7 @@ void btr_pcur_t::store_position(mtr_t *mtr) {
   }
 #endif /* UNIV_DEBUG */
 
-  if (page_is_empty(page)) {
+  if (UNIV_UNLIKELY(page_is_empty(page))) {
     /* It must be an empty index tree; NOTE that in this case
     we do not store the modify_clock, but always do a search
     if we restore the cursor position */
@@ -90,12 +90,12 @@ void btr_pcur_t::store_position(mtr_t *mtr) {
     return;
   }
 
-  if (page_rec_is_supremum_low(offs)) {
+  if (UNIV_UNLIKELY(page_rec_is_supremum_low(offs))) {
     rec = page_rec_get_prev(rec);
 
     m_rel_pos = BTR_PCUR_AFTER;
 
-  } else if (page_rec_is_infimum_low(offs)) {
+  } else if (UNIV_UNLIKELY(page_rec_is_infimum_low(offs))) {
     rec = page_rec_get_next(rec);
 
     m_rel_pos = BTR_PCUR_BEFORE;
@@ -124,14 +124,15 @@ void btr_pcur_t::copy_stored_position(btr_pcur_t *dst, const btr_pcur_t *src) {
     dst->m_buf_size = dst_buf_size;
   }
 
-  if (src->m_old_rec != nullptr) {
+  if (UNIV_LIKELY(src->m_old_rec != nullptr)) {
     /* We have an old buffer, but it is too small. */
-    if (dst->m_old_rec_buf != nullptr && dst->m_buf_size < src->m_buf_size) {
+    if (dst->m_old_rec_buf != nullptr &&
+        UNIV_UNLIKELY(dst->m_buf_size < src->m_buf_size)) {
       ut::free(dst->m_old_rec_buf);
       dst->m_old_rec_buf = nullptr;
     }
     /* We don't have a buffer, but we should have one. */
-    if (dst->m_old_rec_buf == nullptr) {
+    if (UNIV_UNLIKELY(dst->m_old_rec_buf == nullptr)) {
       dst->m_old_rec_buf = static_cast<byte *>(
           ut::malloc_withkey(UT_NEW_THIS_FILE_PSI_KEY, src->m_buf_size));
       dst->m_buf_size = src->m_buf_size;
@@ -155,8 +156,8 @@ bool btr_pcur_t::restore_position(ulint latch_mode, mtr_t *mtr,
 
   auto index = get_btr_cur()->index;
 
-  if (m_rel_pos == BTR_PCUR_AFTER_LAST_IN_TREE ||
-      m_rel_pos == BTR_PCUR_BEFORE_FIRST_IN_TREE) {
+  if (UNIV_UNLIKELY(m_rel_pos == BTR_PCUR_AFTER_LAST_IN_TREE ||
+                    m_rel_pos == BTR_PCUR_BEFORE_FIRST_IN_TREE)) {
     /* In these cases we do not try an optimistic restoration,
     but always do a search */
 
@@ -178,9 +179,10 @@ bool btr_pcur_t::restore_position(ulint latch_mode, mtr_t *mtr,
 
   /* Optimistic latching involves S/X latch not required for
   intrinsic table instead we would prefer to search fresh. */
-  if ((latch_mode == BTR_SEARCH_LEAF || latch_mode == BTR_MODIFY_LEAF ||
-       latch_mode == BTR_SEARCH_PREV || latch_mode == BTR_MODIFY_PREV) &&
-      !m_btr_cur.index->table->is_intrinsic()) {
+  if (UNIV_LIKELY(
+          latch_mode == BTR_SEARCH_LEAF || latch_mode == BTR_MODIFY_LEAF ||
+          latch_mode == BTR_SEARCH_PREV || latch_mode == BTR_MODIFY_PREV) &&
+      UNIV_LIKELY(!m_btr_cur.index->table->is_intrinsic())) {
     /* Try optimistic restoration. */
     if (m_block_when_stored.run_with_hint([&](buf_block_t *hint) {
           return hint != nullptr &&
@@ -196,7 +198,7 @@ bool btr_pcur_t::restore_position(ulint latch_mode, mtr_t *mtr,
                                                ? SYNC_IBUF_TREE_NODE
                                                : SYNC_TREE_NODE);
 
-      if (m_rel_pos == BTR_PCUR_ON) {
+      if (UNIV_LIKELY(m_rel_pos == BTR_PCUR_ON)) {
 #ifdef UNIV_DEBUG
         const rec_t *rec;
         const ulint *offsets1;

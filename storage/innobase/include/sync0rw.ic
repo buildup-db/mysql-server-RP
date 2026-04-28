@@ -307,7 +307,7 @@ static inline bool rw_lock_x_lock_func_nowait(rw_lock_t *lock,
                                               ut::Location location) {
   int32_t x_lock_decr = X_LOCK_DECR;
 
-  if (lock->lock_word.compare_exchange_strong(x_lock_decr, 0)) {
+  if (UNIV_LIKELY(lock->lock_word.compare_exchange_strong(x_lock_decr, 0))) {
     rw_lock_set_writer_id_and_recursion_flag(lock, true);
   } else if (lock->recursive.load(std::memory_order_acquire) &&
              lock->writer_thread.load(std::memory_order_relaxed) ==

@@ -1154,13 +1154,13 @@ static inline dberr_t sel_set_rec_lock(btr_pcur_t *pcur, const rec_t *rec,
   trx = thr_get_trx(thr);
   ut_ad(trx_can_be_handled_by_current_thread(trx));
 
-  if (UT_LIST_GET_LEN(trx->lock.trx_locks) > 10000) {
+  if (UNIV_UNLIKELY(UT_LIST_GET_LEN(trx->lock.trx_locks) > 10000)) {
     if (buf_LRU_buf_pool_running_out()) {
       return (DB_LOCK_TABLE_FULL);
     }
   }
 
-  if (index->is_clustered()) {
+  if (UNIV_LIKELY(index->is_clustered())) {
     err = lock_clust_rec_read_check_and_lock(
         lock_duration_t::REGULAR, block, rec, index, offsets, sel_mode,
         static_cast<lock_mode>(mode), type, thr);
@@ -2529,7 +2529,7 @@ static ALWAYS_INLINE void row_sel_field_store_in_mysql_format_func_inline(
   UNIV_MEM_ASSERT_W(dest, mysql_col_len);
   UNIV_MEM_INVALID(dest, mysql_col_len);
 
-  switch (templ->type) {
+  switch (UNIV_EXPECT(templ->type, DATA_INT)) {
     const byte *field_end;
     byte *pad;
     case DATA_INT:
@@ -2541,13 +2541,13 @@ static ALWAYS_INLINE void row_sel_field_store_in_mysql_format_func_inline(
       for (;;) {
         ptr--;
         *ptr = *data;
-        if (ptr == dest) {
+        if (UNIV_UNLIKELY(ptr == dest)) {
           break;
         }
         data++;
       }
 
-      if (!templ->is_unsigned) {
+      if (UNIV_LIKELY(!templ->is_unsigned)) {
         dest[len - 1] = (byte)(dest[len - 1] ^ 128);
       }
 
@@ -2899,7 +2899,7 @@ static ALWAYS_INLINE void row_sel_field_store_in_mysql_format_inline(
 
   ut_ad(rec_field_not_null_not_add_col_def(len));
 
-  if (templ->mysql_null_bit_mask) {
+  if (UNIV_UNLIKELY(templ->mysql_null_bit_mask)) {
     /* It is a nullable column with a non-NULL value */
     mysql_rec[templ->mysql_null_byte_offset] &=
         ~(byte)templ->mysql_null_bit_mask;
@@ -2923,7 +2923,7 @@ static ALWAYS_INLINE bool row_sel_store_mysql_rec_inline(
 
   /* If blob_heap provided by the caller is not that of prebuilt's blob heap
   then the onus would be on the caller to empty the blob heap if required. */
-  if (blob_heap != nullptr && blob_heap == prebuilt->blob_heap) {
+  if (UNIV_UNLIKELY(blob_heap != nullptr) && blob_heap == prebuilt->blob_heap) {
     mem_heap_empty(blob_heap);
   }
 
@@ -3451,7 +3451,7 @@ static ALWAYS_INLINE bool sel_restore_position_for_mysql(
 
   /* The position may need be adjusted for rel_pos and moves_up. */
 
-  switch (pcur->m_rel_pos) {
+  switch (UNIV_EXPECT(pcur->m_rel_pos, BTR_PCUR_BEFORE)) {
     case BTR_PCUR_UNSET:
       ut_d(ut_error);
       ut_o(return (true));
@@ -3577,7 +3577,7 @@ void row_sel_copy_cached_fields_for_mysql(byte *buf, const byte *cached_rec,
 @return the record buffer, or nullptr if none was provided */
 static Record_buffer *row_sel_get_record_buffer(
     const row_prebuilt_t *prebuilt) {
-  if (prebuilt->m_mysql_handler == nullptr) {
+  if (UNIV_UNLIKELY(prebuilt->m_mysql_handler == nullptr)) {
     return nullptr;
   }
   return prebuilt->m_mysql_handler->ha_get_record_buffer();
@@ -3811,7 +3811,7 @@ row_search_idx_cond_check(byte *mysql_rec,          /*!< out: record
 
   ut_ad(rec_offs_validate(rec, prebuilt->index, offsets));
 
-  if (!prebuilt->idx_cond) {
+  if (UNIV_LIKELY(!prebuilt->idx_cond)) {
     return (ICP_MATCH);
   }
 
@@ -4448,7 +4448,7 @@ dberr_t row_search_mvcc(byte *buf, page_cur_mode_t mode,
   } else {
     trx->op_info = "fetching rows";
 
-    if (prebuilt->n_rows_fetched == 0) {
+    if (UNIV_UNLIKELY(prebuilt->n_rows_fetched == 0)) {
       prebuilt->fetch_direction = direction;
     }
 
@@ -4470,14 +4470,14 @@ dberr_t row_search_mvcc(byte *buf, page_cur_mode_t mode,
       Otherwise, it would have to be reset here too. */
       ut_ad(record_buffer == nullptr);
 
-    } else if (UNIV_LIKELY(prebuilt->n_fetch_cached > 0)) {
+    } else if (UNIV_UNLIKELY(prebuilt->n_fetch_cached > 0)) {
       row_sel_dequeue_cached_row_for_mysql(buf, prebuilt);
 
       prebuilt->n_rows_fetched++;
 
       err = DB_SUCCESS;
       goto func_exit;
-    } else if (prebuilt->m_end_range) {
+    } else if (UNIV_UNLIKELY(prebuilt->m_end_range)) {
       err = DB_RECORD_NOT_FOUND;
       goto func_exit;
     }
@@ -4486,7 +4486,8 @@ dberr_t row_search_mvcc(byte *buf, page_cur_mode_t mode,
     should point to the beginning of the cache. */
     ut_ad(prebuilt->fetch_cache_first == 0);
 
-    if (record_buffer != nullptr && record_buffer->is_out_of_range()) {
+    if (UNIV_UNLIKELY(record_buffer != nullptr) &&
+        record_buffer->is_out_of_range()) {
       /* The previous returned row was popped from
       the fetch cache, but the end of the range was
       reached while filling the cache, so there are
@@ -4498,7 +4499,7 @@ dberr_t row_search_mvcc(byte *buf, page_cur_mode_t mode,
 
     prebuilt->n_rows_fetched++;
 
-    if (prebuilt->n_rows_fetched > 1000000000) {
+    if (UNIV_UNLIKELY(prebuilt->n_rows_fetched > 1000000000)) {
       /* Prevent wrap-over */
       prebuilt->n_rows_fetched = 500000000;
     }
@@ -4515,7 +4516,8 @@ dberr_t row_search_mvcc(byte *buf, page_cur_mode_t mode,
   values differ: thus in a secondary index we must use next-key
   locks when locking delete-marked records. */
 
-  if (match_mode == ROW_SEL_EXACT && dict_index_is_unique(index) &&
+  if (UNIV_UNLIKELY(match_mode == ROW_SEL_EXACT) &&
+      dict_index_is_unique(index) &&
       dtuple_get_n_fields(search_tuple) == dict_index_get_n_unique(index) &&
       (index->is_clustered() || !dtuple_contains_null(search_tuple))) {
     /* Note above that a UNIQUE secondary index can contain many
@@ -4682,9 +4684,10 @@ dberr_t row_search_mvcc(byte *buf, page_cur_mode_t mode,
 
   trx_start_if_not_started(trx, false, UT_LOCATION_HERE);
 
-  if (prebuilt->table->skip_gap_locks() ||
-      (trx->skip_gap_locks() && prebuilt->select_lock_type != LOCK_NONE &&
-       trx->mysql_thd != nullptr && thd_is_query_block(trx->mysql_thd))) {
+  if (UNIV_UNLIKELY(prebuilt->table->skip_gap_locks()) ||
+      (UNIV_UNLIKELY(trx->skip_gap_locks()) &&
+       prebuilt->select_lock_type != LOCK_NONE && trx->mysql_thd != nullptr &&
+       thd_is_query_block(trx->mysql_thd))) {
     /* It is a plain locking SELECT and the isolation
     level is low: do not lock gaps */
 
@@ -4698,7 +4701,7 @@ dberr_t row_search_mvcc(byte *buf, page_cur_mode_t mode,
   naturally moves upward (in fetch next) in alphabetical order,
   otherwise downward */
 
-  if (direction == 0) {
+  if (UNIV_UNLIKELY(direction == 0)) {
     if (mode == PAGE_CUR_GE || mode == PAGE_CUR_G || mode >= PAGE_CUR_CONTAIN) {
       moves_up = true;
     }
@@ -4714,15 +4717,15 @@ dberr_t row_search_mvcc(byte *buf, page_cur_mode_t mode,
   clust_index = index->table->first_index();
 
   clust_templ_for_sec =
-      index != clust_index && prebuilt->need_to_access_clustered;
+      UNIV_UNLIKELY(index != clust_index) && prebuilt->need_to_access_clustered;
 
   /* Do some start-of-statement preparations */
 
-  if (!prebuilt->sql_stat_start) {
+  if (UNIV_LIKELY(!prebuilt->sql_stat_start)) {
     /* No need to set an intention lock or assign a read view */
 
     if (!MVCC::is_view_active(trx->read_view) && !srv_read_only_mode &&
-        prebuilt->select_lock_type == LOCK_NONE) {
+        UNIV_UNLIKELY(prebuilt->select_lock_type == LOCK_NONE)) {
       ib::error(ER_IB_MSG_1031) << "MySQL is trying to perform a"
                                    " consistent read but the read view is not"
                                    " assigned!";
@@ -4849,7 +4852,7 @@ rec_loop:
 
   prebuilt->lob_undo_reset();
 
-  if (trx_is_interrupted(trx)) {
+  if (UNIV_UNLIKELY(trx_is_interrupted(trx))) {
     if (UNIV_LIKELY(!spatial_search)) {
       pcur->store_position(&mtr);
     }
@@ -4864,7 +4867,7 @@ rec_loop:
 
   ut_ad(page_rec_is_comp(rec) == comp);
 
-  if (page_rec_is_infimum(rec)) {
+  if (UNIV_UNLIKELY(page_rec_is_infimum(rec))) {
     /* The infimum record on a page cannot be in the result set,
     and neither can a record lock be placed on it: we skip such
     a record. */
@@ -4873,7 +4876,7 @@ rec_loop:
     goto next_rec;
   }
 
-  if (page_rec_is_supremum(rec)) {
+  if (UNIV_UNLIKELY(page_rec_is_supremum(rec))) {
     DBUG_EXECUTE_IF(
         "compare_end_range", if (end_loop < 100) { end_loop = 100; });
 
@@ -5044,7 +5047,7 @@ rec_loop:
   we have to recompare rec and search_tuple to determine if they
   match enough. */
 
-  if (match_mode == ROW_SEL_EXACT) {
+  if (UNIV_UNLIKELY(match_mode == ROW_SEL_EXACT)) {
     /* Test if the index record matches completely to search_tuple
     in prebuilt: if not, then we return with DB_RECORD_NOT_FOUND */
 
@@ -5083,7 +5086,7 @@ rec_loop:
       goto normal_return;
     }
 
-  } else if (match_mode == ROW_SEL_EXACT_PREFIX) {
+  } else if (UNIV_UNLIKELY(match_mode == ROW_SEL_EXACT_PREFIX)) {
     if (!cmp_dtuple_is_prefix_of_rec(search_tuple, rec, index, offsets)) {
       if (set_also_gap_locks && !trx->skip_gap_locks() &&
           prebuilt->select_lock_type != LOCK_NONE &&
@@ -5121,7 +5124,7 @@ rec_loop:
   /* We are ready to look at a possible new index entry in the result
   set: the cursor is now placed on a user record */
 
-  if (prebuilt->select_lock_type != LOCK_NONE) {
+  if (UNIV_LIKELY(prebuilt->select_lock_type != LOCK_NONE)) {
     /* Try to place a lock on the index record; note that delete
     marked records are a special case in a unique search. If there
     is a non-delete marked record, then it is enough to lock its
@@ -5129,8 +5132,9 @@ rec_loop:
 
     ulint lock_type;
 
-    if (!set_also_gap_locks || trx->skip_gap_locks() ||
-        (unique_search && !rec_get_deleted_flag(rec, comp)) ||
+    if (UNIV_UNLIKELY(!set_also_gap_locks) ||
+        UNIV_UNLIKELY(trx->skip_gap_locks()) ||
+        (UNIV_UNLIKELY(unique_search) && !rec_get_deleted_flag(rec, comp)) ||
         dict_index_is_spatial(index)) {
       goto no_gap_lock;
     } else {
@@ -5148,7 +5152,8 @@ rec_loop:
     col1 >= 100, and we find a record where col1 = 100, then no
     need to lock the gap before that record. */
 
-    if (index == clust_index && mode == PAGE_CUR_GE && direction == 0 &&
+    if (index == clust_index && mode == PAGE_CUR_GE &&
+        UNIV_UNLIKELY(direction == 0) &&
         dtuple_get_n_fields_cmp(search_tuple) ==
             dict_index_get_n_unique(index) &&
         0 == cmp_dtuple_rec(search_tuple, rec, index, offsets)) {
@@ -5158,7 +5163,8 @@ rec_loop:
     /* in case of semi-consistent read, we use SELECT_SKIP_LOCKED, so we don't
     waste time on creating a WAITING lock, as we won't wait on it anyway */
     const bool use_semi_consistent =
-        prebuilt->row_read_type == ROW_READ_TRY_SEMI_CONSISTENT &&
+        UNIV_UNLIKELY(prebuilt->row_read_type ==
+                      ROW_READ_TRY_SEMI_CONSISTENT) &&
         !unique_search && index == clust_index && !trx_is_high_priority(trx);
     err = sel_set_rec_lock(
         pcur, rec, index, offsets,
@@ -5310,7 +5316,7 @@ rec_loop:
   point that rec is on a buffer pool page. Functions like
   page_rec_is_comp() cannot be used! */
 
-  if (rec_get_deleted_flag(rec, comp)) {
+  if (UNIV_UNLIKELY(rec_get_deleted_flag(rec, comp))) {
     /* The record is delete-marked: we can skip it */
 
     /* No need to keep a lock on a delete-marked record in lower isolation
@@ -5356,7 +5362,8 @@ rec_loop:
   /* Get the clustered index record if needed, if we did not do the
   search using the clustered index. */
 
-  if (index != clust_index && prebuilt->need_to_access_clustered) {
+  if (UNIV_UNLIKELY(index != clust_index) &&
+      prebuilt->need_to_access_clustered) {
   requires_clust_rec:
     ut_ad(index != clust_index);
     /* We use a 'goto' to the preceding label if a consistent
@@ -5505,10 +5512,10 @@ rec_loop:
   by a page latch that was acquired when pcur was positioned.
   The latch will not be released until mtr_commit(&mtr). */
 
-  if (record_buffer != nullptr ||
-      ((match_mode == ROW_SEL_EXACT ||
+  if (UNIV_UNLIKELY(record_buffer != nullptr) ||
+      ((UNIV_UNLIKELY(match_mode == ROW_SEL_EXACT) ||
         prebuilt->n_rows_fetched >= MYSQL_FETCH_CACHE_THRESHOLD) &&
-       prebuilt->can_prefetch_records())) {
+       UNIV_UNLIKELY(prebuilt->can_prefetch_records()))) {
     /* Inside an update, for example, we do not cache rows,
     since we may use the cursor position to do the actual
     update, that is why we require ...lock_type == LOCK_NONE.
@@ -5634,7 +5641,8 @@ rec_loop:
       memcpy(buf + 4, result_rec - rec_offs_extra_size(offsets),
              rec_offs_size(offsets));
       mach_write_to_4(buf, rec_offs_extra_size(offsets) + 4);
-    } else if (!prebuilt->idx_cond && !prebuilt->innodb_api) {
+    } else if (UNIV_LIKELY(!prebuilt->idx_cond) &&
+               UNIV_LIKELY(!prebuilt->innodb_api)) {
       /* The record was not yet converted to MySQL format. */
       if (!row_sel_store_mysql_rec_inline(
               buf, prebuilt, result_rec, vrow, result_rec != rec,
@@ -5652,7 +5660,7 @@ rec_loop:
       }
     }
 
-    if (prebuilt->clust_index_was_generated) {
+    if (UNIV_UNLIKELY(prebuilt->clust_index_was_generated)) {
       row_sel_store_row_id_to_prebuilt(prebuilt, result_rec,
                                        result_rec == rec ? index : clust_index,
                                        offsets);
@@ -5671,7 +5679,7 @@ rec_loop:
   err = DB_SUCCESS;
 
 idx_cond_failed:
-  if (!unique_search || !index->is_clustered() || direction != 0 ||
+  if (UNIV_LIKELY(!unique_search) || !index->is_clustered() || direction != 0 ||
       prebuilt->select_lock_type != LOCK_NONE || prebuilt->used_in_HANDLER ||
       prebuilt->innodb_api) {
     /* Inside an update always store the cursor position */
@@ -5680,7 +5688,8 @@ idx_cond_failed:
       pcur->store_position(&mtr);
     }
 
-    if (prebuilt->innodb_api && (pcur->get_rec() != result_rec)) {
+    if (UNIV_UNLIKELY(prebuilt->innodb_api) &&
+        (pcur->get_rec() != result_rec)) {
       ulint rec_size = rec_offs_size(offsets);
       if (!prebuilt->innodb_api_rec_size ||
           (prebuilt->innodb_api_rec_size < rec_size)) {
@@ -5697,8 +5706,8 @@ idx_cond_failed:
 
 next_rec:
 
-  if (end_loop >= 99 && UNIV_UNLIKELY(need_vrow) && vrow == nullptr &&
-      prev_rec != nullptr) {
+  if (UNIV_UNLIKELY(end_loop >= 99) && UNIV_UNLIKELY(need_vrow) &&
+      vrow == nullptr && prev_rec != nullptr) {
     if (!heap) {
       heap = mem_heap_create(100, UT_LOCATION_HERE);
     }
@@ -5737,7 +5746,8 @@ next_rec:
   For R-tree spatial search, we also commit the mini-transaction
   each time  */
 
-  if (mtr_has_extra_clust_latch || UNIV_UNLIKELY(spatial_search)) {
+  if (UNIV_UNLIKELY(mtr_has_extra_clust_latch) ||
+      UNIV_UNLIKELY(spatial_search)) {
     /* If we have extra cluster latch, we must commit
     mtr if we are moving to the next non-clustered
     index record, because we could break the latching
@@ -5798,7 +5808,7 @@ next_rec:
     }
   }
 
-  if (moves_up) {
+  if (UNIV_LIKELY(moves_up)) {
     bool move;
 
     if (UNIV_UNLIKELY(spatial_search)) {
@@ -5918,7 +5928,7 @@ normal_return:
 
   DEBUG_SYNC_C("row_search_for_mysql_before_return");
 
-  if (prebuilt->idx_cond != 0) {
+  if (UNIV_UNLIKELY(prebuilt->idx_cond != 0)) {
     /* When ICP is active we don't write to the MySQL buffer
     directly, only to buffers that are enqueued in the pre-fetch
     queue. We need to dequeue the first buffer and copy the contents
@@ -5929,7 +5939,7 @@ normal_return:
       err = DB_SUCCESS;
     }
 
-  } else if (next_buf != nullptr) {
+  } else if (UNIV_LIKELY(next_buf != nullptr)) {
     /* We may or may not have enqueued some buffers to the
     pre-fetch queue, but we definitely wrote to the record
     buffer passed to use by MySQL. */
@@ -5950,11 +5960,11 @@ normal_return:
 func_exit:
   trx->op_info = "";
 
-  if (end_range_cache != nullptr) {
+  if (UNIV_UNLIKELY(end_range_cache != nullptr)) {
     ut::free(end_range_cache);
   }
 
-  if (heap != nullptr) {
+  if (UNIV_UNLIKELY(heap != nullptr)) {
     mem_heap_free(heap);
   }
 
@@ -5970,7 +5980,7 @@ func_exit:
   ut_ad(prebuilt->row_read_type != ROW_READ_WITH_LOCKS ||
         !did_semi_consistent_read);
 
-  if (prebuilt->row_read_type != ROW_READ_WITH_LOCKS) {
+  if (UNIV_UNLIKELY(prebuilt->row_read_type != ROW_READ_WITH_LOCKS)) {
     if (did_semi_consistent_read) {
       prebuilt->row_read_type = ROW_READ_DID_SEMI_CONSISTENT;
     } else {

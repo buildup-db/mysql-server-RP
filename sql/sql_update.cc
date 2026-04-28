@@ -235,7 +235,8 @@ bool Sql_cmd_update::check_privileges(THD *thd) {
    compare_records(TABLE*).
  */
 bool records_are_comparable(const TABLE *table) {
-  return ((table->file->ha_table_flags() & HA_PARTIAL_COLUMN_READ) == 0) ||
+  return unlikely((table->file->ha_table_flags() & HA_PARTIAL_COLUMN_READ) ==
+                  0) ||
          bitmap_is_subset(table->write_set, table->read_set);
 }
 
@@ -870,15 +871,15 @@ bool Sql_cmd_update::update_single_table(THD *thd) {
 
     while (true) {
       error = iterator->Read();
-      if (error || thd->killed) break;
+      if (unlikely(error) || unlikely(thd->killed)) break;
       thd->inc_examined_row_count(1);
-      if (conds != nullptr) {
+      if (likely(conds != nullptr)) {
         const bool skip_record = conds->val_int() == 0;
-        if (thd->is_error()) {
+        if (unlikely(thd->is_error())) {
           error = 1;
           break;
         }
-        if (skip_record) {
+        if (unlikely(skip_record)) {
           table->file
               ->unlock_row();  // Row failed condition check, release lock
           thd->get_stmt_da()->inc_current_row_for_condition();
@@ -887,7 +888,7 @@ bool Sql_cmd_update::update_single_table(THD *thd) {
       }
       assert(!thd->is_error());
 
-      if (table->file->was_semi_consistent_read())
+      if (unlikely(table->file->was_semi_consistent_read()))
         /*
           Reviewer: iterator is reading from the to-be-updated table or
           from a tmp file.
@@ -907,15 +908,15 @@ bool Sql_cmd_update::update_single_table(THD *thd) {
 
       store_record(table, record[1]);
       bool is_row_changed = false;
-      if (fill_record_n_invoke_before_triggers(
+      if (unlikely(fill_record_n_invoke_before_triggers(
               thd, &update, query_block->fields, *update_value_list, table,
-              TRG_EVENT_UPDATE, 0, false, &is_row_changed)) {
+              TRG_EVENT_UPDATE, 0, false, &is_row_changed))) {
         error = 1;
         break;
       }
       found_rows++;
 
-      if (is_row_changed) {
+      if (likely(is_row_changed)) {
         /*
           Default function and default expression values are filled before
           evaluating the view check option. Check option on view using table(s)
@@ -926,7 +927,7 @@ bool Sql_cmd_update::update_single_table(THD *thd) {
           the CHECK OPTION.
         */
         int check_result = table_list->view_check_option(thd);
-        if (check_result != VIEW_CHECK_OK) {
+        if (unlikely(check_result != VIEW_CHECK_OK)) {
           if (check_result == VIEW_CHECK_SKIP)
             continue;
           else if (check_result == VIEW_CHECK_ERROR) {
@@ -947,7 +948,7 @@ bool Sql_cmd_update::update_single_table(THD *thd) {
           probably going to be confusing for users. So it makes sense to stick
           to current behavior.
         */
-        if (invoke_table_check_constraints(thd, table)) {
+        if (unlikely(invoke_table_check_constraints(thd, table))) {
           if (thd->is_error()) {
             error = 1;
             break;
@@ -956,7 +957,7 @@ bool Sql_cmd_update::update_single_table(THD *thd) {
           continue;
         }
 
-        if (will_batch) {
+        if (unlikely(will_batch)) {
           /*
             Typically a batched handler can execute the batched jobs when:
             1) When specifically told to do so
@@ -992,7 +993,7 @@ bool Sql_cmd_update::update_single_table(THD *thd) {
           error =
               table->file->ha_update_row(table->record[1], table->record[0]);
         }
-        if (error == 0)
+        if (likely(error == 0))
           updated_rows++;
         else if (error == HA_ERR_RECORD_IS_THE_SAME)
           error = 0;
@@ -1006,14 +1007,14 @@ bool Sql_cmd_update::update_single_table(THD *thd) {
         }
       }
 
-      if (!error && has_after_triggers &&
+      if (!error && unlikely(has_after_triggers) &&
           table->triggers->process_triggers(thd, TRG_EVENT_UPDATE,
                                             TRG_ACTION_AFTER, true)) {
         error = 1;
         break;
       }
 
-      if (!--limit && using_limit) {
+      if (unlikely(!--limit) && using_limit) {
         /*
           We have reached end-of-file in most common situations where no
           batching has occurred and if batching was supposed to occur but

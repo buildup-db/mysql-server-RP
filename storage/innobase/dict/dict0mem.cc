@@ -719,7 +719,7 @@ ulint dict_index_t::get_sys_col_pos(ulint type) const {
   ut_ad(magic_n == DICT_INDEX_MAGIC_N);
   ut_ad(!dict_index_is_ibuf(this));
 
-  if (is_clustered()) {
+  if (UNIV_LIKELY(is_clustered())) {
     return (dict_col_get_clust_pos(table->get_sys_col(type), this));
   }
 

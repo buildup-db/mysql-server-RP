@@ -137,7 +137,7 @@ static inline const upd_field_t *upd_get_field_by_field_no(const upd_t *update,
     const upd_field_t *uf = upd_get_nth_field(update, i);
 
     /* matches only if the field matches that of is_virtual */
-    if ((!is_virtual) != (!upd_fld_is_virtual_col(uf))) {
+    if (UNIV_LIKELY(!is_virtual) != UNIV_LIKELY(!upd_fld_is_virtual_col(uf))) {
       continue;
     }
 
@@ -172,7 +172,7 @@ static inline void row_upd_rec_sys_fields(
   } else {
     ulint offset = index->trx_id_offset;
 
-    if (!offset) {
+    if (UNIV_UNLIKELY(!offset)) {
       offset = row_get_trx_id_offset(index, offsets);
     }
 

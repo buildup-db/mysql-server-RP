@@ -83,7 +83,7 @@ static inline bool lock_rec_get_nth_bit(const lock_t *lock, ulint i) {
   /* When allocating the bitmap we've chosen size good enough at that moment,
   to fit all heap_no's on the page, plus some margin, but the page can allocate
   new heap_no's over time, and we should treat bits at these positions as 0 */
-  if (i >= lock->rec_lock.n_bits) {
+  if (UNIV_UNLIKELY(i >= lock->rec_lock.n_bits)) {
     return (false);
   }
   return lock->bitset().test(i);
@@ -182,7 +182,7 @@ static inline bool lock_table_has(const trx_t *trx, const dict_table_t *table,
 @param[i]       lock            Lock to compare with
 @return true if <space, page_no, heap_no> matches the lock. */
 bool RecID::matches(const lock_t *lock) const {
-  return (lock->rec_lock.page_id == get_page_id() &&
+  return (UNIV_LIKELY(lock->rec_lock.page_id == get_page_id()) &&
           lock_rec_get_nth_bit(lock, m_heap_no));
 }
 

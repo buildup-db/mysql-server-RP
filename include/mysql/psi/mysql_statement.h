@@ -252,7 +252,7 @@ static inline void inline_mysql_set_statement_rows_sent(
 
 static inline void inline_mysql_set_statement_rows_examined(
     PSI_statement_locker *locker, ulonglong count) {
-  if (likely(locker != nullptr)) {
+  if (unlikely(locker != nullptr)) {
     PSI_STATEMENT_CALL(set_statement_rows_examined)(locker, count);
   }
 }
