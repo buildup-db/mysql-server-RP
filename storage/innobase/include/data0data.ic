@@ -610,12 +610,12 @@ static inline uint64_t dtuple_hash(const dtuple_t *tuple, ulint n_fields,
     data = (const byte *)dfield_get_data(field);
     len = dfield_get_len(field);
 
-    if (len != UNIV_SQL_NULL) {
+    if (UNIV_LIKELY(len != UNIV_SQL_NULL)) {
       hash_value = ut::hash_binary(data, len, hash_value);
     }
   }
 
-  if (n_bytes > 0) {
+  if (UNIV_UNLIKELY(n_bytes > 0)) {
     field = dtuple_get_nth_field(tuple, i);
 
     data = (const byte *)dfield_get_data(field);

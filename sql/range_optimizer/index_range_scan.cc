@@ -380,7 +380,7 @@ int IndexRangeScanIterator::Read() {
     }
   }
   if (likely(result == 0)) {
-    if (unlikely(m_examined_rows != nullptr)) {
+    if (likely(m_examined_rows != nullptr)) {
       ++*m_examined_rows;
     }
     return 0;

@@ -454,7 +454,8 @@ void page_cur_search_with_match(const buf_block_t *block,
   }
 #endif
   auto get_mid_rec_offsets = [&]() -> const auto * {
-    if (cached_offsets && UNIV_LIKELY(!page_cur_has_null(mid_rec, index))) {
+    if (UNIV_LIKELY(cached_offsets) &&
+        UNIV_LIKELY(!page_cur_has_null(mid_rec, index))) {
 #ifdef UNIV_DEBUG
       {
         const size_t n = dtuple_get_n_fields_cmp(tuple);

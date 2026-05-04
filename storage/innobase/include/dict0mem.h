@@ -1847,7 +1847,7 @@ std::ostream &operator<<(std::ostream &s, const table_name_t &table_name);
 list has a list node that is embedded in a nested union/structure. We have to
 generate a specific template for it. */
 struct TableLockGetNode;
-typedef ut_list_base<lock_t, TableLockGetNode> table_lock_list_t;
+typedef ut_list_base<lock_t, TableLockGetNode, true> table_lock_list_t;
 #endif /* !UNIV_HOTBACKUP */
 
 /** mysql template structure defined in row0mysql.cc */

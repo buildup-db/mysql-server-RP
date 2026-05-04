@@ -1830,7 +1830,7 @@ THD *thd_trx_arbitrate(THD *requestor, THD *holder) {
 @return the priority */
 
 int thd_trx_priority(THD *thd) {
-  return (thd == nullptr ? 0 : thd_tx_priority(thd));
+  return (UNIV_UNLIKELY(thd == nullptr) ? 0 : thd_tx_priority(thd));
 }
 
 /** Check if the transaction is an auto-commit transaction. true also
@@ -1858,7 +1858,7 @@ allowed, else the thread is put into sleep.
 static inline dberr_t innobase_srv_conc_enter_innodb(row_prebuilt_t *prebuilt) {
   /* We rely on server to do external_lock(F_UNLCK) to reset the
   srv_conc.n_active counter. */
-  if (prebuilt->skip_concurrency_ticket()) {
+  if (UNIV_UNLIKELY(prebuilt->skip_concurrency_ticket())) {
     return DB_SUCCESS;
   }
 
@@ -1895,7 +1895,7 @@ any spare tickets.
 static inline void innobase_srv_conc_exit_innodb(row_prebuilt_t *prebuilt) {
   /* We rely on server to do external_lock(F_UNLCK) to reset the
   srv_conc.n_active counter. */
-  if (prebuilt->skip_concurrency_ticket()) {
+  if (UNIV_UNLIKELY(prebuilt->skip_concurrency_ticket())) {
     return;
   }
 
@@ -3153,7 +3153,8 @@ void innobase_format_name(char *buf, ulint buflen, const char *name) {
  @return true if interrupted */
 bool trx_is_interrupted(const trx_t *trx) /*!< in: transaction */
 {
-  return (trx && trx->mysql_thd && thd_killed(trx->mysql_thd));
+  return (UNIV_LIKELY(trx) && UNIV_LIKELY(trx->mysql_thd) &&
+          thd_killed(trx->mysql_thd));
 }
 
 /** Determines if the currently running transaction is in strict mode.
@@ -10618,11 +10619,11 @@ int ha_innobase::general_fetch(
 
   auto ret = innobase_srv_conc_enter_innodb(m_prebuilt);
 
-  if (ret != DB_SUCCESS) {
+  if (UNIV_UNLIKELY(ret != DB_SUCCESS)) {
     return convert_error_code_to_mysql(DB_FORCED_ABORT, 0, m_user_thd);
   }
 
-  if (!intrinsic) {
+  if (UNIV_LIKELY(!intrinsic)) {
     ret = row_search_mvcc(buf, PAGE_CUR_UNSUPP, m_prebuilt, match_mode,
                           direction);
 
@@ -23592,7 +23593,7 @@ innobase_index_cond(ha_innobase *h) /*!< in/out: pointer to ha_innobase */
   assert(h->pushed_idx_cond);
   assert(h->pushed_idx_cond_keyno != MAX_KEY);
 
-  if (h->end_range && h->compare_key_icp(h->end_range) > 0) {
+  if (h->end_range && UNIV_UNLIKELY(h->compare_key_icp(h->end_range) > 0)) {
     /* caller should return HA_ERR_END_OF_FILE already */
     return ICP_OUT_OF_RANGE;
   }

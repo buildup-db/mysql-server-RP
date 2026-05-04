@@ -212,13 +212,13 @@ static inline trx_t *trx_rw_is_active(trx_id_t trx_id, bool do_ref_count) {
   the trx_sys_rw_trx_add() for the trx_id happens meanwhile. */
   ut_ad(trx_id < trx_sys_get_next_trx_id_or_no());
   auto &shard = trx_sys->get_shard_by_trx_id(trx_id);
-  if (UNIV_LIKELY(trx_id < shard.active_rw_trxs.peek().min_id())) {
+  if (UNIV_UNLIKELY(trx_id < shard.active_rw_trxs.peek().min_id())) {
     return nullptr;
   }
   return trx_sys->latch_and_execute_with_active_trx(
       trx_id,
       [&](trx_t *trx) {
-        if (trx != nullptr && do_ref_count) {
+        if (UNIV_UNLIKELY(trx != nullptr) && do_ref_count) {
           trx_reference(trx);
         }
         return trx;

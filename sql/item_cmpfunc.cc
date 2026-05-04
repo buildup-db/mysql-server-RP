@@ -3118,14 +3118,17 @@ static inline longlong compare_between_int_result(
     bool negated, Item **args, bool *null_value) {
   {
     LLorULL a, b, value;
-    value = compare_as_temporal_times   ? args[0]->val_time_temporal()
-            : compare_as_temporal_dates ? args[0]->val_date_temporal()
-                                        : args[0]->val_int();
-    if ((*null_value = args[0]->null_value)) return 0; /* purecov: inspected */
-    if (compare_as_temporal_times) {
+    value = unlikely(compare_as_temporal_times)
+                ? args[0]->val_time_temporal()
+                : unlikely(compare_as_temporal_dates)
+                      ? args[0]->val_date_temporal()
+                      : args[0]->val_int();
+    if (unlikely(*null_value = args[0]->null_value))
+      return 0; /* purecov: inspected */
+    if (unlikely(compare_as_temporal_times)) {
       a = args[1]->val_time_temporal();
       b = args[2]->val_time_temporal();
-    } else if (compare_as_temporal_dates) {
+    } else if (unlikely(compare_as_temporal_dates)) {
       a = args[1]->val_date_temporal();
       b = args[2]->val_date_temporal();
     } else {
@@ -3153,7 +3156,7 @@ static inline longlong compare_between_int_result(
       }
     } else {
       // Comparing as signed, but a is unsigned and > LLONG_MAX.
-      if (args[1]->unsigned_flag && static_cast<longlong>(a) < 0) {
+      if (args[1]->unsigned_flag && unlikely(static_cast<longlong>(a) < 0)) {
         if (value < 0) {
           /*
             value BETWEEN <large number> AND b
@@ -3174,10 +3177,11 @@ static inline longlong compare_between_int_result(
       }
 
       // Comparing as signed, but b is unsigned, and really large
-      if (args[2]->unsigned_flag && static_cast<longlong>(b) < 0) b = LLONG_MAX;
+      if (args[2]->unsigned_flag && unlikely(static_cast<longlong>(b) < 0))
+        b = LLONG_MAX;
     }
 
-    if (!args[1]->null_value && !args[2]->null_value)
+    if (likely(!args[1]->null_value) && likely(!args[2]->null_value))
       return (longlong)((value >= a && value <= b) != negated);
     if (args[1]->null_value && args[2]->null_value)
       *null_value = true;
@@ -3193,7 +3197,7 @@ static inline longlong compare_between_int_result(
 longlong Item_func_between::val_int() {  // ANSI BETWEEN
   assert(fixed);
   THD *thd = current_thd;
-  if (compare_as_dates_with_strings) {
+  if (unlikely(compare_as_dates_with_strings)) {
     int ge_res = ge_cmp.compare();
     if ((null_value = args[0]->null_value)) return 0;
     int le_res = le_cmp.compare();
@@ -3235,9 +3239,9 @@ longlong Item_func_between::val_int() {  // ANSI BETWEEN
       // Set to not null if false range.
       null_value = sortcmp(value, a, cmp_collation.collation) >= 0;
     }
-  } else if (cmp_type == INT_RESULT) {
+  } else if (likely(cmp_type == INT_RESULT)) {
     longlong value;
-    if (args[0]->unsigned_flag)
+    if (unlikely(args[0]->unsigned_flag))
       value = compare_between_int_result<ulonglong>(compare_as_temporal_dates,
                                                     compare_as_temporal_times,
                                                     negated, args, &null_value);
@@ -3245,8 +3249,9 @@ longlong Item_func_between::val_int() {  // ANSI BETWEEN
       value = compare_between_int_result<longlong>(compare_as_temporal_dates,
                                                    compare_as_temporal_times,
                                                    negated, args, &null_value);
-    if (args[0]->null_value) return 0; /* purecov: inspected */
-    if (!args[1]->null_value && !args[2]->null_value) return value;
+    if (unlikely(args[0]->null_value)) return 0; /* purecov: inspected */
+    if (likely(!args[1]->null_value) && likely(!args[2]->null_value))
+      return value;
   } else if (cmp_type == DECIMAL_RESULT) {
     my_decimal dec_buf, *dec = args[0]->val_decimal(&dec_buf), a_buf, *a_dec,
                         b_buf, *b_dec;

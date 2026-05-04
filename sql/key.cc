@@ -456,12 +456,12 @@ int key_cmp(KEY_PART_INFO *key_part, const uchar *key, uint key_length,
             bool is_reverse_multi_valued_index_scan) {
   uint store_length;
 
-  for (const uchar *end = key + key_length; key < end;
+  for (const uchar *end = key + key_length; likely(key < end);
        key += store_length, key_part++) {
     int cmp;
-    int res = (key_part->key_part_flag & HA_REVERSE_SORT) ? -1 : 1;
+    int res = unlikely(key_part->key_part_flag & HA_REVERSE_SORT) ? -1 : 1;
     store_length = key_part->store_length;
-    if (key_part->null_bit) {
+    if (unlikely(key_part->null_bit)) {
       /* This key part allows null values; NULL is lower than everything */
       bool field_is_null = key_part->field->is_null();
       if (*key)  // If range key is null
@@ -475,7 +475,7 @@ int key_cmp(KEY_PART_INFO *key_part, const uchar *key, uint key_length,
       key++;          // Skip null byte
       store_length--;
     }
-    if ((cmp = key_part->field->key_cmp(key, key_part->length)) < 0)
+    if (likely((cmp = key_part->field->key_cmp(key, key_part->length)) < 0))
       return -res;
     if (cmp > 0) {
       if (is_reverse_multi_valued_index_scan && key_part->field->is_array())

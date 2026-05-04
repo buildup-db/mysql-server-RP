@@ -857,7 +857,7 @@ void THD::store_cached_properties(cached_properties prop_mask) {
             static_cast<int>(prop_mask) & static_cast<int>(property));
   };
 
-  if (is_selected(cached_properties::IS_ALIVE))
+  if (likely(is_selected(cached_properties::IS_ALIVE)))
     m_cached_is_connection_alive.store(m_protocol->connection_alive());
 
   if (likely(is_selected(cached_properties::RW_STATUS)))
@@ -2892,7 +2892,8 @@ bool THD::send_result_set_row(const mem_root_deque<Item *> &row_items) {
                   { assert(current_thd == this); });
 
   for (Item *item : VisibleFields(row_items)) {
-    if (item->send(m_protocol, &str_buffer) || is_error()) return true;
+    if (item->send(m_protocol, &str_buffer) || unlikely(is_error()))
+      return true;
     /*
       Reset str_buffer to its original state, as it may have been altered in
       Item::send().

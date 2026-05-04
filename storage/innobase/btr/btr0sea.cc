@@ -679,7 +679,7 @@ void btr_search_info_update_slow(btr_search_t *info, btr_cur_t *cursor) {
     btr_search_x_unlock(cursor->index);
   }
 
-  if (build_index) {
+  if (UNIV_UNLIKELY(build_index)) {
     /* Note that since we did not protect block->n_fields etc.
     with any semaphore, the values can be inconsistent. We have
     to check inside the function call that they make sense. */
@@ -728,7 +728,7 @@ static ALWAYS_INLINE bool btr_search_check_guess(
                             UT_LOCATION_HERE, &heap);
   cmp = tuple->compare(rec, cursor->index, offsets, &match);
 
-  if (mode == PAGE_CUR_GE) {
+  if (UNIV_UNLIKELY(mode == PAGE_CUR_GE)) {
     if (cmp > 0) {
       goto exit_func;
     }
@@ -739,8 +739,8 @@ static ALWAYS_INLINE bool btr_search_check_guess(
       success = true;
       goto exit_func;
     }
-  } else if (mode == PAGE_CUR_LE) {
-    if (cmp < 0) {
+  } else if (UNIV_LIKELY(mode == PAGE_CUR_LE)) {
+    if (UNIV_UNLIKELY(cmp < 0)) {
       goto exit_func;
     }
 
@@ -756,7 +756,7 @@ static ALWAYS_INLINE bool btr_search_check_guess(
     }
   }
 
-  if (can_only_compare_to_cursor_rec) {
+  if (UNIV_UNLIKELY(can_only_compare_to_cursor_rec)) {
     /* Since we could not determine if our guess is right just by
     looking at the record under the cursor, return false */
     goto exit_func;
@@ -794,7 +794,7 @@ static ALWAYS_INLINE bool btr_search_check_guess(
 
     next_rec = page_rec_get_next(rec);
 
-    if (page_rec_is_supremum(next_rec)) {
+    if (UNIV_UNLIKELY(page_rec_is_supremum(next_rec))) {
       if (btr_page_get_next(page_align(next_rec), mtr) == FIL_NULL) {
         cursor->up_match = 0;
         success = true;
@@ -806,7 +806,7 @@ static ALWAYS_INLINE bool btr_search_check_guess(
     offsets = rec_get_offsets(next_rec, cursor->index, offsets, n_unique,
                               UT_LOCATION_HERE, &heap);
     cmp = tuple->compare(next_rec, cursor->index, offsets, &match);
-    if (mode == PAGE_CUR_LE) {
+    if (UNIV_LIKELY(mode == PAGE_CUR_LE)) {
       success = cmp < 0;
       cursor->up_match = match;
     } else {
@@ -877,14 +877,15 @@ bool btr_search_guess_on_hash(dict_index_t *index, btr_search_t *info,
   /* Note that, for efficiency, the struct info may not be protected by
   any latch here! */
 
-  if (info->n_hash_potential == 0) {
+  if (UNIV_UNLIKELY(info->n_hash_potential == 0)) {
     return false;
   }
 
   cursor->n_fields = info->n_fields;
   cursor->n_bytes = info->n_bytes;
 
-  if (dtuple_get_n_fields(tuple) < btr_search_get_n_fields(cursor)) {
+  if (UNIV_UNLIKELY(dtuple_get_n_fields(tuple) <
+                    btr_search_get_n_fields(cursor))) {
     return false;
   }
 
@@ -897,7 +898,7 @@ bool btr_search_guess_on_hash(dict_index_t *index, btr_search_t *info,
   cursor->hash_value = hash_value;
   cursor->flag = BTR_CUR_HASH;
 
-  if (!has_search_latch) {
+  if (UNIV_LIKELY(!has_search_latch)) {
     btr_search_s_lock_inline(index, UT_LOCATION_HERE);
 
     if (UNIV_UNLIKELY(!btr_search_enabled)) {
@@ -915,7 +916,7 @@ bool btr_search_guess_on_hash(dict_index_t *index, btr_search_t *info,
   rec =
       (rec_t *)ha_search_and_get_data(btr_get_search_table(index), hash_value);
 
-  if (rec == nullptr) {
+  if (UNIV_UNLIKELY(rec == nullptr)) {
     if (!has_search_latch) {
       btr_search_s_unlock(index);
     }
@@ -927,9 +928,10 @@ bool btr_search_guess_on_hash(dict_index_t *index, btr_search_t *info,
 
   buf_block_t *block = buf_block_from_ahi(rec);
 
-  if (!has_search_latch) {
-    if (!buf_page_get_known_nowait(latch_mode, block, Cache_hint::MAKE_YOUNG,
-                                   __FILE__, __LINE__, mtr)) {
+  if (UNIV_LIKELY(!has_search_latch)) {
+    if (UNIV_UNLIKELY(!buf_page_get_known_nowait(latch_mode, block,
+                                                 Cache_hint::MAKE_YOUNG,
+                                                 __FILE__, __LINE__, mtr))) {
       if (!has_search_latch) {
         btr_search_s_unlock(index);
       }
@@ -944,7 +946,7 @@ bool btr_search_guess_on_hash(dict_index_t *index, btr_search_t *info,
     buf_block_dbg_add_level(block, SYNC_TREE_NODE_FROM_HASH);
   }
 
-  if (buf_block_get_state(block) != BUF_BLOCK_FILE_PAGE) {
+  if (UNIV_UNLIKELY(buf_block_get_state(block) != BUF_BLOCK_FILE_PAGE)) {
     ut_ad(buf_block_get_state(block) == BUF_BLOCK_REMOVE_HASH);
 
     if (!has_search_latch) {
@@ -967,9 +969,10 @@ bool btr_search_guess_on_hash(dict_index_t *index, btr_search_t *info,
   is positioned on. We cannot look at the next of the previous
   record to determine if our guess for the cursor position is
   right. */
-  if (index->space != block->page.id.space() ||
-      index->id != btr_page_get_index_id(block->frame) ||
-      !btr_search_check_guess(cursor, has_search_latch, tuple, mode, mtr)) {
+  if (UNIV_UNLIKELY(index->space != block->page.id.space()) ||
+      UNIV_UNLIKELY(index->id != btr_page_get_index_id(block->frame)) ||
+      UNIV_UNLIKELY(!btr_search_check_guess(cursor, has_search_latch, tuple,
+                                            mode, mtr))) {
     if (!has_search_latch) {
       btr_leaf_page_release(block, latch_mode, mtr);
     }
@@ -1021,7 +1024,8 @@ bool btr_search_guess_on_hash(dict_index_t *index, btr_search_t *info,
 #ifdef UNIV_SEARCH_PERF_STAT
   btr_search_n_succ++;
 #endif
-  if (!has_search_latch && buf_page_peek_if_too_old(&block->page)) {
+  if (!has_search_latch &&
+      UNIV_UNLIKELY(buf_page_peek_if_too_old(&block->page))) {
     buf_page_make_young(&block->page);
   }
 

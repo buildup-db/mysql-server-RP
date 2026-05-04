@@ -1810,11 +1810,11 @@ void Field::copy_data(ptrdiff_t src_record_offset) {
 }
 
 bool Field::send_to_protocol(Protocol *protocol) const {
-  if (is_null()) return protocol->store_null();
+  if (unlikely(is_null())) return protocol->store_null();
   char buff[MAX_FIELD_WIDTH];
   String tmp(buff, sizeof(buff), charset());
   String *res = val_str(&tmp);
-  return res ? protocol->store(res) : protocol->store_null();
+  return likely(res) ? protocol->store(res) : protocol->store_null();
 }
 
 /**
@@ -3948,7 +3948,7 @@ double Field_longlong::val_real() const {
 
 longlong Field_longlong::val_int() const {
   ASSERT_COLUMN_MARKED_FOR_READ;
-  if (table->s->db_low_byte_first)
+  if (likely(table->s->db_low_byte_first))
     return sint8korr(ptr);
   else
     return longlongget(ptr);
@@ -3983,17 +3983,17 @@ bool Field_longlong::send_to_protocol(Protocol *protocol) const {
 
 int Field_longlong::cmp(const uchar *a_ptr, const uchar *b_ptr) const {
   longlong a, b;
-  if (table->s->db_low_byte_first) {
+  if (likely(table->s->db_low_byte_first)) {
     a = sint8korr(a_ptr);
     b = sint8korr(b_ptr);
   } else {
     a = longlongget(a_ptr);
     b = longlongget(b_ptr);
   }
-  if (is_unsigned())
-    return ((ulonglong)a < (ulonglong)b)   ? -1
-           : ((ulonglong)a > (ulonglong)b) ? 1
-                                           : 0;
+  if (unlikely(is_unsigned()))
+    return ((ulonglong)a < (ulonglong)b)
+               ? -1
+               : ((ulonglong)a > (ulonglong)b) ? 1 : 0;
   return (a < b) ? -1 : (a > b) ? 1 : 0;
 }
 
@@ -6293,9 +6293,11 @@ longlong Field_string::val_int() const {
 String *Field_string::val_str(String *, String *val_ptr) const {
   ASSERT_COLUMN_MARKED_FOR_READ;
   size_t length;
-  if (current_thd->variables.sql_mode & MODE_PAD_CHAR_TO_FULL_LENGTH)
+  if (unlikely(current_thd->variables.sql_mode & MODE_PAD_CHAR_TO_FULL_LENGTH))
     length = my_charpos(field_charset, ptr, ptr + field_length,
                         field_length / field_charset->mbmaxlen);
+  else if (likely(field_charset->cset->lengthsp == my_lengthsp_8bit))
+    length = my_lengthsp_8bit(field_charset, (const char *)ptr, field_length);
   else
     length = field_charset->cset->lengthsp(field_charset, (const char *)ptr,
                                            field_length);

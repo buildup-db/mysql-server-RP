@@ -2049,7 +2049,7 @@ struct TABLE {
     @param status 0 if row was found, <> 0 if row was not found
   */
   void set_row_status_from_handler(int status) {
-    m_status = status ? STATUS_NOT_FOUND : 0;
+    m_status = unlikely(status) ? STATUS_NOT_FOUND : 0;
     null_row = false;
   }
 

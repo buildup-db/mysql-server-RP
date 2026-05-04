@@ -389,8 +389,8 @@ class Protocol {
   @retval 0       Other(Idle, Killed)
 */
 inline uint Protocol::get_rw_status() {
-  if (likely(m_type == Protocol::PROTOCOL_TEXT ||
-             m_type == Protocol::PROTOCOL_BINARY) &&
+  if ((likely(m_type == Protocol::PROTOCOL_TEXT) ||
+       likely(m_type == Protocol::PROTOCOL_BINARY)) &&
       likely(m_thd)) {
     return m_thd->get_net()->reading_or_writing;
   }

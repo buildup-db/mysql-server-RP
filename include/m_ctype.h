@@ -648,7 +648,7 @@ static inline bool my_charset_is_ascii_based(const CHARSET_INFO *cs) {
 inline bool my_charset_same(const CHARSET_INFO *cs1, const CHARSET_INFO *cs2) {
   assert(0 != strcmp(cs1->csname, "utf8"));
   assert(0 != strcmp(cs2->csname, "utf8"));
-  return (unlikely(cs1 == cs2) || !strcmp(cs1->csname, cs2->csname));
+  return (likely(cs1 == cs2) || !strcmp(cs1->csname, cs2->csname));
 }
 
 bool my_charset_is_8bit_pure_ascii(const CHARSET_INFO *cs);

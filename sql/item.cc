@@ -3050,7 +3050,7 @@ double Item_field::val_real() {
 
 longlong Item_field::val_int() {
   assert(fixed == 1);
-  if ((null_value = field->is_null())) return 0;
+  if (unlikely(null_value = field->is_null())) return 0;
   return field->val_int();
 }
 

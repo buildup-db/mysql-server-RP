@@ -400,7 +400,7 @@ class Trx_by_id_with_min {
   trx_id_t min_id() const { return m_min_id.load(); }
   trx_t *get(trx_id_t trx_id) const {
     const auto it = m_by_id.find(trx_id);
-    trx_t *trx = it == m_by_id.end() ? nullptr : it->second;
+    trx_t *trx = UNIV_LIKELY(it == m_by_id.end()) ? nullptr : it->second;
     /* We remove trx from active_rw_trxs and change state to
     TRX_STATE_COMMITTED_IN_MEMORY in a same critical section protected by
     Trx_shard's mutex, which we happen to hold here, so we expect the state

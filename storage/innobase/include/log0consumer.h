@@ -1,6 +1,7 @@
 /*****************************************************************************
 
 Copyright (c) 2021, 2025, Oracle and/or its affiliates.
+Copyright (c) 2026, buildup-db.
 
 This program is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License, version 2.0, as published by the
@@ -79,15 +80,15 @@ class Log_user_consumer : public Log_consumer {
   lsn_t m_consumed_lsn{};
 };
 
-class Log_checkpoint_consumer : public Log_consumer {
+class Log_checkpoint_consumer final : public Log_consumer {
  public:
   explicit Log_checkpoint_consumer(log_t &log);
 
-  const std::string &get_name() const override;
+  const std::string &get_name() const final;
 
-  lsn_t get_consumed_lsn() const override;
+  lsn_t get_consumed_lsn() const final;
 
-  void consumption_requested() override;
+  void consumption_requested() final;
 
  private:
   log_t &m_log;

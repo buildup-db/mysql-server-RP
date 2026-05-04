@@ -1160,7 +1160,7 @@ static inline dberr_t sel_set_rec_lock(btr_pcur_t *pcur, const rec_t *rec,
     }
   }
 
-  if (UNIV_LIKELY(index->is_clustered())) {
+  if (index->is_clustered()) {
     err = lock_clust_rec_read_check_and_lock(
         lock_duration_t::REGULAR, block, rec, index, offsets, sel_mode,
         static_cast<lock_mode>(mode), type, thr);
@@ -2847,7 +2847,7 @@ static ALWAYS_INLINE void row_sel_field_store_in_mysql_format_inline(
 
     data = rec_get_nth_field_instant(rec, offsets, field_no, index_used, &len);
 
-    if (len == UNIV_SQL_NULL) {
+    if (UNIV_UNLIKELY(len == UNIV_SQL_NULL)) {
       /* MySQL assumes that the field for an SQL
       NULL value is set to the default value. */
       ut_ad(templ->mysql_null_bit_mask);
@@ -2927,7 +2927,7 @@ static ALWAYS_INLINE bool row_sel_store_mysql_rec_inline(
     mem_heap_empty(blob_heap);
   }
 
-  if (clust_templ_for_sec) {
+  if (UNIV_UNLIKELY(clust_templ_for_sec)) {
     /* Store all clustered index column of secondary index record. */
     for (ulint i = 0; i < dict_index_get_n_fields(prebuilt_index); i++) {
       auto sec_field =
@@ -3027,7 +3027,7 @@ static ALWAYS_INLINE bool row_sel_store_mysql_rec_inline(
     row_search_end_range_check(). */
     ut_ad(rec_index->get_field(field_no)->prefix_len == 0);
 
-    if (clust_templ_for_sec) {
+    if (UNIV_UNLIKELY(clust_templ_for_sec)) {
       std::vector<const dict_col_t *>::iterator it;
       const dict_field_t *field = rec_index->get_field(field_no);
       const dict_col_t *col = field->col;
@@ -3187,9 +3187,9 @@ non-clustered index. Does the necessary locking.
   /* Note: only if the search ends up on a non-infimum record is the
   low_match value the real match to the search tuple */
 
-  if (!page_rec_is_user_rec(clust_rec) ||
-      prebuilt->clust_pcur->get_low_match() <
-          dict_index_get_n_unique(clust_index)) {
+  if (UNIV_UNLIKELY(!page_rec_is_user_rec(clust_rec)) ||
+      UNIV_UNLIKELY(prebuilt->clust_pcur->get_low_match() <
+                    dict_index_get_n_unique(clust_index))) {
     btr_cur_t *btr_cur = prebuilt->pcur->get_btr_cur();
 
     /* If this is a spatial index scan, and we are reading
@@ -3295,7 +3295,7 @@ non-clustered index. Does the necessary locking.
   *offsets = rec_get_offsets(clust_rec, clust_index, *offsets, ULINT_UNDEFINED,
                              UT_LOCATION_HERE, offset_heap);
 
-  if (prebuilt->select_lock_type != LOCK_NONE) {
+  if (UNIV_LIKELY(prebuilt->select_lock_type != LOCK_NONE)) {
     /* Try to place a lock on the index record; we are searching
     the clust rec with a unique condition, hence
     we set a LOCK_REC_NOT_GAP type lock */
@@ -3306,7 +3306,7 @@ non-clustered index. Does the necessary locking.
         static_cast<lock_mode>(prebuilt->select_lock_type), LOCK_REC_NOT_GAP,
         thr);
 
-    switch (err) {
+    switch (UNIV_EXPECT(err, DB_SUCCESS_LOCKED_REC)) {
       case DB_SUCCESS:
       case DB_SUCCESS_LOCKED_REC:
         break;
@@ -3405,7 +3405,8 @@ func_exit:
 
   /* Store the current position if select_lock_type is not
   LOCK_NONE or if we are scanning using InnoDB APIs */
-  if (prebuilt->select_lock_type != LOCK_NONE || prebuilt->innodb_api) {
+  if (UNIV_LIKELY(prebuilt->select_lock_type != LOCK_NONE) ||
+      prebuilt->innodb_api) {
     /* We may use the cursor in update or in unlock_row():
     store its position */
 
@@ -3451,12 +3452,12 @@ static ALWAYS_INLINE bool sel_restore_position_for_mysql(
 
   /* The position may need be adjusted for rel_pos and moves_up. */
 
-  switch (UNIV_EXPECT(pcur->m_rel_pos, BTR_PCUR_BEFORE)) {
+  switch (UNIV_EXPECT(pcur->m_rel_pos, BTR_PCUR_ON)) {
     case BTR_PCUR_UNSET:
       ut_d(ut_error);
       ut_o(return (true));
     case BTR_PCUR_ON:
-      if (!success && moves_up) {
+      if (UNIV_UNLIKELY(!success) && moves_up) {
       next:
         pcur->move_to_next(mtr);
         return true;
@@ -3811,7 +3812,7 @@ row_search_idx_cond_check(byte *mysql_rec,          /*!< out: record
 
   ut_ad(rec_offs_validate(rec, prebuilt->index, offsets));
 
-  if (UNIV_LIKELY(!prebuilt->idx_cond)) {
+  if (UNIV_UNLIKELY(!prebuilt->idx_cond)) {
     return (ICP_MATCH);
   }
 
@@ -3820,7 +3821,7 @@ row_search_idx_cond_check(byte *mysql_rec,          /*!< out: record
   /* Convert to MySQL format those fields that are needed for
   evaluating the index condition. */
 
-  if (prebuilt->blob_heap != nullptr) {
+  if (UNIV_UNLIKELY(prebuilt->blob_heap != nullptr)) {
     mem_heap_empty(prebuilt->blob_heap);
   }
 
@@ -3847,13 +3848,13 @@ row_search_idx_cond_check(byte *mysql_rec,          /*!< out: record
   the past, or a record has been deleted and a record
   inserted in a different case. */
   result = innobase_index_cond(prebuilt->m_mysql_handler);
-  switch (result) {
+  switch (UNIV_EXPECT(result, ICP_MATCH)) {
     case ICP_MATCH:
       /* Convert the remaining fields to MySQL format.
       If this is a secondary index record, we must defer
       this until we have fetched the clustered index record. */
-      if (!prebuilt->need_to_access_clustered ||
-          prebuilt->index->is_clustered()) {
+      if (UNIV_UNLIKELY(!prebuilt->need_to_access_clustered) ||
+          UNIV_UNLIKELY(prebuilt->index->is_clustered())) {
         if (!row_sel_store_mysql_rec(mysql_rec, prebuilt, rec, nullptr, false,
                                      prebuilt->index, prebuilt->index, offsets,
                                      false, nullptr, prebuilt->blob_heap)) {
@@ -5171,10 +5172,10 @@ rec_loop:
         use_semi_consistent ? SELECT_SKIP_LOCKED : prebuilt->select_mode,
         prebuilt->select_lock_type, lock_type, thr, &mtr);
 
-    switch (err) {
+    switch (UNIV_EXPECT(err, DB_SUCCESS_LOCKED_REC)) {
       const rec_t *old_vers;
       case DB_SUCCESS_LOCKED_REC:
-        if (trx->releases_non_matching_rows()) {
+        if (UNIV_UNLIKELY(trx->releases_non_matching_rows())) {
           /* Note that a record of
           prebuilt->index was locked. */
           ut_ad(!prebuilt->new_rec_lock[row_prebuilt_t::LOCK_PCUR]);
@@ -5362,8 +5363,8 @@ rec_loop:
   /* Get the clustered index record if needed, if we did not do the
   search using the clustered index. */
 
-  if (UNIV_UNLIKELY(index != clust_index) &&
-      prebuilt->need_to_access_clustered) {
+  if (UNIV_LIKELY(index != clust_index) &&
+      UNIV_LIKELY(prebuilt->need_to_access_clustered)) {
   requires_clust_rec:
     ut_ad(index != clust_index);
     /* We use a 'goto' to the preceding label if a consistent
@@ -5386,7 +5387,7 @@ rec_loop:
         prebuilt, index, rec, thr, &clust_rec, &offsets, &heap,
         UNIV_UNLIKELY(need_vrow) ? &vrow : nullptr, &mtr,
         prebuilt->get_lob_undo());
-    switch (err) {
+    switch (UNIV_EXPECT(err, DB_SUCCESS_LOCKED_REC)) {
       case DB_SUCCESS:
         if (clust_rec == nullptr) {
           /* The record did not exist in the read view */
@@ -5400,7 +5401,7 @@ rec_loop:
         goto next_rec;
       case DB_SUCCESS_LOCKED_REC:
         ut_a(clust_rec != nullptr);
-        if (trx->releases_non_matching_rows()) {
+        if (UNIV_UNLIKELY(trx->releases_non_matching_rows())) {
           /* Note that the clustered index record
           was locked. */
           ut_ad(!prebuilt->new_rec_lock[row_prebuilt_t::LOCK_CLUST_PCUR]);
@@ -5413,7 +5414,7 @@ rec_loop:
         goto lock_wait_or_error;
     }
 
-    if (rec_get_deleted_flag(clust_rec, comp)) {
+    if (UNIV_UNLIKELY(rec_get_deleted_flag(clust_rec, comp))) {
       /* The record is delete marked: we can skip it */
 
       /* No need to keep a lock on a delete-marked record in lower isolation
@@ -5434,7 +5435,7 @@ rec_loop:
     result_rec = clust_rec;
     ut_ad(rec_offs_validate(result_rec, clust_index, offsets));
 
-    if (prebuilt->idx_cond) {
+    if (UNIV_LIKELY(prebuilt->idx_cond)) {
       /* Convert the record to MySQL format. We were
       unable to do this in row_search_idx_cond_check(),
       because the condition is on the secondary index
@@ -5447,9 +5448,9 @@ rec_loop:
       index may be in the wrong case, and the
       authoritative case is in result_rec, the
       appropriate version of the clustered index record. */
-      if (!row_sel_store_mysql_rec(buf, prebuilt, result_rec, vrow, true,
-                                   clust_index, prebuilt->index, offsets, false,
-                                   nullptr, prebuilt->blob_heap)) {
+      if (UNIV_UNLIKELY(!row_sel_store_mysql_rec(
+              buf, prebuilt, result_rec, vrow, true, clust_index,
+              prebuilt->index, offsets, false, nullptr, prebuilt->blob_heap))) {
         goto next_rec;
       }
     }
@@ -5641,8 +5642,7 @@ rec_loop:
       memcpy(buf + 4, result_rec - rec_offs_extra_size(offsets),
              rec_offs_size(offsets));
       mach_write_to_4(buf, rec_offs_extra_size(offsets) + 4);
-    } else if (UNIV_LIKELY(!prebuilt->idx_cond) &&
-               UNIV_LIKELY(!prebuilt->innodb_api)) {
+    } else if (UNIV_UNLIKELY(!prebuilt->idx_cond) && !prebuilt->innodb_api) {
       /* The record was not yet converted to MySQL format. */
       if (!row_sel_store_mysql_rec_inline(
               buf, prebuilt, result_rec, vrow, result_rec != rec,
@@ -5928,13 +5928,13 @@ normal_return:
 
   DEBUG_SYNC_C("row_search_for_mysql_before_return");
 
-  if (UNIV_UNLIKELY(prebuilt->idx_cond != 0)) {
+  if (UNIV_LIKELY(prebuilt->idx_cond != 0)) {
     /* When ICP is active we don't write to the MySQL buffer
     directly, only to buffers that are enqueued in the pre-fetch
     queue. We need to dequeue the first buffer and copy the contents
     to the record buffer that was passed in by MySQL. */
 
-    if (prebuilt->n_fetch_cached > 0) {
+    if (UNIV_UNLIKELY(prebuilt->n_fetch_cached > 0)) {
       row_sel_dequeue_cached_row_for_mysql(buf, prebuilt);
       err = DB_SUCCESS;
     }

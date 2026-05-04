@@ -1,7 +1,7 @@
 /*****************************************************************************
 
 Copyright (c) 1994, 2025, Oracle and/or its affiliates.
-Copyright (c) 2025, buildup-db.
+Copyright (c) 2026, buildup-db.
 
 This program is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License, version 2.0, as published by the
@@ -170,7 +170,7 @@ static inline uint64_t random_64_fast() {
   /* Granularity of my_timer_cycles() might be over 1, to keep constant rate for
   frequency changes of CPU core clocks. Drops lower 5 bits. */
   const uint64_t res = my_timer_cycles();
-  return res != 0 ? res >> 5 : random_64();
+  return UNIV_LIKELY(res != 0) ? res >> 5 : random_64();
 }
 
 template <uint64_t random_64_func()>
@@ -228,7 +228,7 @@ static inline uint64_t hash_binary(const byte *str, size_t len, uint64_t seed) {
   /* Our implementation is slower than CRC32 while the CRC32 implementation is
   super fast, especially for higher lengths as it leverages 3-fold parallelism
   on CPU core pipeline level. */
-  if (len >= 15) {
+  if (UNIV_UNLIKELY(len >= 15)) {
     /* The CRC32 is returning only 32bits of hash. We take out the first 8 bytes
     to seed our 64bit hash just like we do when CRC32 is not used. */
     const auto h = hash_uint64_pair(seed, detail::read_from_8(str));
@@ -242,12 +242,12 @@ static inline uint64_t hash_binary(const byte *str, size_t len, uint64_t seed) {
 
   uint64_t h = seed;
   size_t i = 0;
-  if (len & 8) {
+  if (UNIV_LIKELY(len & 8)) {
     h = hash_uint64_pair(h, detail::read_from_8(str + i));
     i += 8;
   }
   uint64_t last_part = 0;
-  if ((len & 7) == 0) {
+  if (UNIV_LIKELY((len & 7) == 0)) {
     return h;
   }
   if (len & 4) {

@@ -98,7 +98,7 @@ bool Query_result_send::send_data(THD *thd,
   DBUG_TRACE;
 
   protocol->start_row();
-  if (thd->send_result_set_row(items)) {
+  if (unlikely(thd->send_result_set_row(items))) {
     protocol->abort_row();
     return true;
   }

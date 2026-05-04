@@ -1254,9 +1254,9 @@ class Field {
       have a valid m_null_ptr, and this pointer must be checked before
       TABLE::has_null_row().
     */
-    if (is_nullable()) return (m_null_ptr[row_offset] & null_bit);
+    if (unlikely(is_nullable())) return (m_null_ptr[row_offset] & null_bit);
 
-    if (is_tmp_nullable()) return m_is_tmp_null;
+    if (unlikely(is_tmp_nullable())) return m_is_tmp_null;
 
     return table->has_null_row();
   }

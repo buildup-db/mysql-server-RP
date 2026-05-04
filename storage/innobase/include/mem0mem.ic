@@ -150,8 +150,8 @@ static inline void *mem_heap_alloc(mem_heap_t *heap, ulint n) {
   /* Check if there is enough space in block. If not, create a new
   block to the heap */
 
-  if (mem_block_get_len(block) <
-      mem_block_get_free(block) + MEM_SPACE_NEEDED(n)) {
+  if (UNIV_UNLIKELY(mem_block_get_len(block) <
+      mem_block_get_free(block) + MEM_SPACE_NEEDED(n))) {
     block = mem_heap_add_block(heap, n);
 
     if (block == nullptr) {

@@ -160,7 +160,7 @@ int innobase_multi_range_read_next(handler *file, char **range_info);
 #ifdef HAVE_PSI_TABLE_INTERFACE
 #define MYSQL_TABLE_IO_WAIT(OP, INDEX, RESULT, PAYLOAD)                     \
   {                                                                         \
-    if (m_psi != NULL) {                                                    \
+    if (unlikely(m_psi != NULL)) {                                          \
       switch (m_psi_batch_mode) {                                           \
         case PSI_BATCH_MODE_NONE: {                                         \
           PSI_table_locker *sub_locker = NULL;                              \
@@ -6464,9 +6464,10 @@ int handler::multi_range_read_next(char **range_info) {
   assert(!(table->key_info[active_index].flags & HA_MULTI_VALUED_KEY) ||
          m_unique);
   const bool is_innobase =
-      (ht && ht->db_type == DB_TYPE_INNODB && !innobase_is_innopart(this));
+      (likely(ht) && likely(ht->db_type == DB_TYPE_INNODB) &&
+       !innobase_is_innopart(this));
 
-  if (!mrr_have_range) {
+  if (unlikely(!mrr_have_range)) {
     mrr_have_range = true;
     goto start;
   }
@@ -6507,8 +6508,8 @@ int handler::multi_range_read_next(char **range_info) {
           mrr_cur_range.range_flag & EQ_RANGE, mrr_is_output_sorted);
       if (result != HA_ERR_END_OF_FILE) break;
     }
-  } while (((result == HA_ERR_END_OF_FILE) ||
-            (m_unique && (dup_found = filter_dup_records()))) &&
+  } while ((unlikely(result == HA_ERR_END_OF_FILE) ||
+            (unlikely(m_unique) && (dup_found = filter_dup_records()))) &&
            !range_res);
 
   *range_info = mrr_cur_range.ptr;
@@ -7425,7 +7426,7 @@ int handler::read_range_next() {
         ha_index_next_same(table->record[0], end_range->key, end_range->length);
   } else {
     result = ha_index_next(table->record[0]);
-    if (result) return result;
+    if (unlikely(result)) return result;
 
     if (unlikely(compare_key(end_range) > 0)) {
       /*
@@ -7498,7 +7499,7 @@ void handler::set_end_range(const key_range *range,
 */
 int handler::compare_key(key_range *range) {
   int cmp = -1;
-  if (unlikely(!range) || unlikely(in_range_check_pushed_down))
+  if (unlikely(!range) || likely(in_range_check_pushed_down))
     return 0;  // No max range
 
   if (unlikely(table->key_info[active_index].flags & HA_MULTI_VALUED_KEY) &&
@@ -7540,11 +7541,11 @@ int handler::compare_key(key_range *range) {
 
 int handler::compare_key_icp(const key_range *range) const {
   int cmp;
-  if (!range) return 0;  // no max range
+  if (unlikely(!range)) return 0;  // no max range
   cmp = key_cmp(range_key_part, range->key, range->length,
                 /*is_reverse_multi_valued_index_scan=*/false);
-  if (!cmp) cmp = key_compare_result_on_equal;
-  if (range_scan_direction == RANGE_SCAN_DESC) cmp = -cmp;
+  if (unlikely(!cmp)) cmp = key_compare_result_on_equal;
+  if (unlikely(range_scan_direction == RANGE_SCAN_DESC)) cmp = -cmp;
   return cmp;
 }
 

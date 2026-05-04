@@ -127,7 +127,7 @@ uint64_t net_field_length_ll(uchar **packet) {
 */
 
 uchar *net_store_length(uchar *packet, ulonglong length) {
-  if (length < (ulonglong)251LL) {
+  if (likely(length < (ulonglong)251LL)) {
     *packet = (uchar)length;
     return packet + 1;
   }

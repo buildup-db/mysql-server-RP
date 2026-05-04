@@ -372,7 +372,7 @@ and the value are of integer type.
   * GOTO_NEXT_ARRAY -> NOT_FOUND -- not allowed
   * GOTO_NEXT_ARRAY -> DELETED -- not allowed
 */
-class ut_lock_free_hash_t : public ut_hash_interface_t {
+class ut_lock_free_hash_t final : public ut_hash_interface_t {
  public:
   /** Constructor. Not thread safe.
   @param[in]    initial_size    number of elements to allocate
@@ -401,7 +401,7 @@ class ut_lock_free_hash_t : public ut_hash_interface_t {
   }
 
   /** Destructor. Not thread safe. */
-  ~ut_lock_free_hash_t() override {
+  ~ut_lock_free_hash_t() final {
     mutex_destroy(&m_optimize_latch);
 
     arr_node_t *arr = m_data.load();
@@ -424,7 +424,7 @@ class ut_lock_free_hash_t : public ut_hash_interface_t {
   /** Get the value mapped to a given key.
   @param[in]    key     key to look for
   @return the value that corresponds to key or NOT_FOUND. */
-  int64_t get(uint64_t key) const override {
+  int64_t get(uint64_t key) const final {
     ut_ad(key != UNUSED);
     ut_ad(key != AVOID);
 
@@ -472,7 +472,7 @@ class ut_lock_free_hash_t : public ut_hash_interface_t {
   present with value either val_a or val_b.
   @param[in]    key     key whose value to set
   @param[in]    val     value to be set */
-  void set(uint64_t key, int64_t val) override {
+  void set(uint64_t key, int64_t val) final {
     ut_ad(key != UNUSED);
     ut_ad(key != AVOID);
     ut_ad(val != NOT_FOUND);
@@ -500,7 +500,7 @@ class ut_lock_free_hash_t : public ut_hash_interface_t {
   It is undefined which one of [1] or [2] will happen. It is up to the
   caller to accept this behavior or prevent it at a higher level.
   @param[in]    key     key whose pair to delete */
-  void del(uint64_t key) override {
+  void del(uint64_t key) final {
     ut_ad(key != UNUSED);
     ut_ad(key != AVOID);
 
@@ -555,7 +555,7 @@ class ut_lock_free_hash_t : public ut_hash_interface_t {
   Thread 2: set(key, val)
   when both have finished the value will be either val or val + 1.
   @param[in]    key     key whose value to increment or insert as 1 */
-  void inc(uint64_t key) override {
+  void inc(uint64_t key) final {
     ut_ad(key != UNUSED);
     ut_ad(key != AVOID);
 
@@ -569,7 +569,7 @@ class ut_lock_free_hash_t : public ut_hash_interface_t {
   that the calls will execute in isolation, but the order in which they
   will execute is undeterministic.
   @param[in]    key     key whose value to decrement */
-  void dec(uint64_t key) override {
+  void dec(uint64_t key) final {
     ut_ad(key != UNUSED);
     ut_ad(key != AVOID);
 

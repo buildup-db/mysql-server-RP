@@ -84,7 +84,7 @@ void Block_hint::buffer_fix_block_if_still_valid() {
   }
 }
 void Block_hint::buffer_unfix_block_if_needed(buf_block_t *block) {
-  if (block != nullptr) {
+  if (UNIV_LIKELY(block != nullptr)) {
     buf_block_buf_fix_dec(block);
   }
 }

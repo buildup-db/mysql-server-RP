@@ -808,7 +808,7 @@ inline T *new_(Args &&...args) {
  */
 template <typename T>
 inline void delete_(T *ptr) noexcept {
-  if (!ptr) return;
+  if (UNIV_UNLIKELY(!ptr)) return;
   ptr->~T();
   ut::free(ptr);
 }

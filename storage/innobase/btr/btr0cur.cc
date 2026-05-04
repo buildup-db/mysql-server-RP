@@ -773,18 +773,19 @@ void btr_cur_search_to_nth_level(
   /* Use of AHI is disabled for intrinsic table as these tables re-use
   the index-id and AHI validation is based on index-id. */
   if (rw_lock_get_writer(btr_get_search_latch(index)) == RW_LOCK_NOT_LOCKED &&
-      latch_mode <= BTR_MODIFY_LEAF && info->last_hash_succ &&
-      UNIV_LIKELY(!index->disable_ahi) && !estimate
+      UNIV_LIKELY(latch_mode <= BTR_MODIFY_LEAF) &&
+      UNIV_LIKELY(info->last_hash_succ) && UNIV_LIKELY(!index->disable_ahi) &&
+      UNIV_LIKELY(!estimate)
 #ifdef PAGE_CUR_LE_OR_EXTENDS
-      && mode != PAGE_CUR_LE_OR_EXTENDS
+      && UNIV_LIKELY(mode != PAGE_CUR_LE_OR_EXTENDS)
 #endif /* PAGE_CUR_LE_OR_EXTENDS */
       && !dict_index_is_spatial(index)
       /* If !has_search_latch, we do a dirty read of
       btr_search_enabled below, and btr_search_guess_on_hash()
       will have to check it again. */
-      && UNIV_LIKELY(btr_search_enabled) && !modify_external &&
-      btr_search_guess_on_hash(index, info, tuple, mode, latch_mode, cursor,
-                               has_search_latch, mtr)) {
+      && UNIV_LIKELY(btr_search_enabled) && UNIV_LIKELY(!modify_external) &&
+      UNIV_LIKELY(btr_search_guess_on_hash(index, info, tuple, mode, latch_mode,
+                                           cursor, has_search_latch, mtr))) {
 
     /* Search using the hash index succeeded */
 
@@ -939,7 +940,7 @@ search_loop:
         rw_latch = upper_rw_latch;
       }
     }
-  } else if (latch_mode <= BTR_MODIFY_LEAF) {
+  } else if (UNIV_LIKELY(latch_mode <= BTR_MODIFY_LEAF)) {
     rw_latch = latch_mode;
 
     if (btr_op != BTR_NO_OP &&
@@ -1477,8 +1478,9 @@ retry_page_get:
     /* We should consider prev_page of parent page, if the node_ptr
     is the leftmost of the page. because BTR_SEARCH_PREV and
     BTR_MODIFY_PREV latches prev_page of the leaf page. */
-    if ((latch_mode == BTR_SEARCH_PREV || latch_mode == BTR_MODIFY_PREV) &&
-        !retrying_for_search_prev) {
+    if (UNIV_UNLIKELY(latch_mode == BTR_SEARCH_PREV ||
+                      latch_mode == BTR_MODIFY_PREV) &&
+        UNIV_UNLIKELY(!retrying_for_search_prev)) {
       /* block should be latched for consistent
          btr_page_get_prev() */
       ut_ad(mtr_memo_contains_flagged(

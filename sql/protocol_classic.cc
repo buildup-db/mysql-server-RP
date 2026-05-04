@@ -489,7 +489,7 @@ static bool ensure_packet_capacity(size_t length, String *packet) {
      The +9 comes from that strings of length longer than 16M require
      9 bytes to be stored (see net_store_length).
   */
-  return packet_length + 9 + length > packet->alloced_length() &&
+  return unlikely(packet_length + 9 + length > packet->alloced_length()) &&
          packet->mem_realloc(packet_length + 9 + length);
 }
 
@@ -503,10 +503,10 @@ static bool ensure_packet_capacity(size_t length, String *packet) {
 */
 static inline bool net_store_data(const uchar *from, size_t length,
                                   String *packet) {
-  if (ensure_packet_capacity(length, packet)) return true;
+  if (unlikely(ensure_packet_capacity(length, packet))) return true;
   size_t packet_length = packet->length();
   uchar *to = net_store_length((uchar *)packet->ptr() + packet_length, length);
-  if (length > 0) memcpy(to, from, length);
+  if (likely(length > 0)) memcpy(to, from, length);
   packet->length((uint)(to + length - (uchar *)packet->ptr()));
   return false;
 }

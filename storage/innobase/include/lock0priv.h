@@ -1,7 +1,7 @@
 /*****************************************************************************
 
 Copyright (c) 2007, 2025, Oracle and/or its affiliates.
-Copyright (c) 2025, buildup-db.
+Copyright (c) 2026, buildup-db.
 
 This program is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License, version 2.0, as published by the
@@ -816,13 +816,14 @@ class RecLock {
     ut_ad(m_index->is_clustered() || !dict_index_is_online_ddl(m_index));
     ut_ad(m_thr == nullptr || m_trx == thr_get_trx(m_thr));
 
-    m_size = is_predicate_lock(m_mode) ? lock_size(m_mode) : lock_size(page);
+    m_size = UNIV_UNLIKELY(is_predicate_lock(m_mode)) ? lock_size(m_mode)
+                                                      : lock_size(page);
 
     /** If rec is the supremum record, then we reset the
     gap and LOCK_REC_NOT_GAP bits, as all locks on the
     supremum are automatically of the gap type */
 
-    if (m_rec_id.m_heap_no == PAGE_HEAP_NO_SUPREMUM) {
+    if (UNIV_UNLIKELY(m_rec_id.m_heap_no == PAGE_HEAP_NO_SUPREMUM)) {
       ut_ad(!(m_mode & LOCK_REC_NOT_GAP));
 
       m_mode &= ~(LOCK_GAP | LOCK_REC_NOT_GAP);
@@ -1040,7 +1041,7 @@ auto latch_peeked_shard_and_do(const lock_t *peeked_lock, F &&f) {
   hold trx->mutex. Thus it is safe to inspect the peeked_wait_lock's
   rec_lock.page_id and tab_lock.table. We have to make a copy of them, though,
   before releasing trx->mutex. */
-  if (peeked_lock->is_record_lock()) {
+  if (UNIV_LIKELY(peeked_lock->is_record_lock())) {
     const auto sharded_by = peeked_lock->rec_lock.page_id;
     trx_mutex_exit(trx);
     DEBUG_SYNC_C("try_relatch_trx_and_shard_and_do_noted_expected_version");
@@ -1127,7 +1128,7 @@ void run_if_waiting(const TrxVersion trx_version, F &&f) {
 template <typename F>
 lock_t *Locks_hashtable::find_in_cell(size_t cell_id, F &&f) {
   lock_t *lock = (lock_t *)hash_get_first(ht.get(), cell_id);
-  while (lock != nullptr) {
+  while (UNIV_UNLIKELY(lock != nullptr)) {
     ut_ad(locksys::owns_lock_shard(lock));
     // f(lock) might remove the lock from list, so we must save the next pointer
     lock_t *next = lock->hash;
