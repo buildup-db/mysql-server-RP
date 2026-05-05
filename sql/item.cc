@@ -6568,7 +6568,7 @@ void Item_field::make_field(Send_field *tmp_field) {
  */
 static inline type_conversion_status field_conv_with_cache(
     Field *to, Field *from, Field **last_to, uint32_t *to_is_memcpyable) {
-  if (to != *last_to) {
+  if (unlikely(to != *last_to)) {
     *last_to = to;
     if (fields_are_memcpyable(to, from)) {
       *to_is_memcpyable = to->pack_length();
@@ -6615,7 +6615,7 @@ void Item_field::save_org_in_field(Field *to) {
 type_conversion_status Item_field::save_in_field_inner(Field *to,
                                                        bool no_conversions) {
   DBUG_TRACE;
-  if (field->is_null()) {
+  if (unlikely(field->is_null())) {
     null_value = true;
     const type_conversion_status status =
         set_field_to_null_with_conversions(to, no_conversions);
@@ -6628,7 +6628,7 @@ type_conversion_status Item_field::save_in_field_inner(Field *to,
     If we're setting the same field as the one we're reading from there's
     nothing to do. This can happen in 'SET x = x' type of scenarios.
   */
-  if (to == field) {
+  if (unlikely(to == field)) {
     return TYPE_OK;
   }
   return field_conv_with_cache(to, field, &last_destination_field,
@@ -6676,7 +6676,7 @@ type_conversion_status Item::save_in_field(Field *field, bool no_conversions) {
     save_in_field_inner() might not notice and return TYPE_OK. Make
     sure that we return not OK if there was an error.
   */
-  if (ret == TYPE_OK && current_thd->is_error()) {
+  if (ret == TYPE_OK && unlikely(current_thd->is_error())) {
     return TYPE_ERR_BAD_VALUE;
   }
   return ret;

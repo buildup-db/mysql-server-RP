@@ -312,7 +312,7 @@ class dyn_buf_t {
   ALWAYS_INLINE bool for_each_block_in_reverse(Functor &functor) const {
     for (block_t *block = UT_LIST_GET_LAST(m_list); block != nullptr;
          block = UT_LIST_GET_PREV(m_node, block)) {
-      if (!functor(block)) {
+      if (UNIV_UNLIKELY(!functor(block))) {
         return (false);
       }
     }

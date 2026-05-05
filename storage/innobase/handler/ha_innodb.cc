@@ -9220,6 +9220,17 @@ func_exit:
   return error_result;
 }
 
+/** Direct call wrapper for ha_innobase::write_row() */
+int innobase_write_row(handler *file, uchar *record) {
+  ut_a(file->ht->db_type == DB_TYPE_INNODB);
+  ha_innobase *innobase_file = static_cast<ha_innobase *>(file);
+  if (UNIV_LIKELY(!innobase_file->is_innopart())) {
+    return innobase_file->ha_innobase::write_row(record);
+  } else {
+    return innobase_file->write_row(record);
+  }
+}
+
 /** Fill the update vector's "old_vrow" field for those non-updated,
 but indexed columns. Such columns could still present in the virtual
 index rec fields even if they are not updated (some other fields updated),

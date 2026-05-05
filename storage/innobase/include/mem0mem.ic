@@ -462,7 +462,7 @@ static inline void mem_heap_free(mem_heap_t *heap) {
 
 #ifndef UNIV_HOTBACKUP
 #ifndef UNIV_LIBRARY
-  if (heap->free_block) {
+  if (UNIV_UNLIKELY(heap->free_block)) {
     mem_heap_free_block_free(heap);
   }
 #endif /* !UNIV_LIBRARY */

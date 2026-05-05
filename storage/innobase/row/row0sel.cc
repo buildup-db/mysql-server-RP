@@ -2541,7 +2541,7 @@ static ALWAYS_INLINE void row_sel_field_store_in_mysql_format_func_inline(
       for (;;) {
         ptr--;
         *ptr = *data;
-        if (UNIV_UNLIKELY(ptr == dest)) {
+        if (ptr == dest) {
           break;
         }
         data++;
@@ -2747,7 +2747,7 @@ static ALWAYS_INLINE void row_sel_field_store_in_mysql_format_inline(
   ulint clust_field_no = 0;
   bool clust_templ_for_sec = (sec_field_no != ULINT_UNDEFINED);
   const dict_index_t *index_used =
-      (clust_templ_for_sec) ? prebuilt_index : rec_index;
+      UNIV_UNLIKELY(clust_templ_for_sec) ? prebuilt_index : rec_index;
 
   ut_ad(templ);
   ut_ad(prebuilt->default_rec);
@@ -2761,7 +2761,7 @@ static ALWAYS_INLINE void row_sel_field_store_in_mysql_format_inline(
 
   /* If sec_field_no is present then extract the data from record
   using secondary field no. */
-  if (clust_templ_for_sec) {
+  if (UNIV_UNLIKELY(clust_templ_for_sec)) {
     clust_field_no = field_no;
     field_no = sec_field_no;
   }

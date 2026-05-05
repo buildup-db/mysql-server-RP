@@ -3168,7 +3168,7 @@ static ALWAYS_INLINE void buf_page_make_young_if_needed(buf_page_t *bpage) {
   ut_ad(bpage->buf_fix_count > 0);
   ut_a(buf_page_in_file(bpage));
 
-  if (buf_page_peek_if_too_old(bpage)) {
+  if (UNIV_UNLIKELY(buf_page_peek_if_too_old(bpage))) {
     buf_page_make_young(bpage);
   }
 }
@@ -3673,7 +3673,7 @@ dberr_t Buf_fetch_normal::get(buf_block_t *&block) noexcept {
 
     block = lookup();
 
-    if (block != nullptr) {
+    if (UNIV_LIKELY(block != nullptr)) {
       if (UNIV_UNLIKELY(block->page.was_stale())) {
         if (!buf_page_free_stale(m_buf_pool, &block->page, m_hash_lock)) {
           /* The page is during IO and can't be released. We wait some to not go
@@ -3809,7 +3809,7 @@ buf_block_t *Buf_fetch<T>::lookup() {
         buf_page_hash_get_low(m_buf_pool, m_page_id));
   }
 
-  if (block == nullptr) {
+  if (UNIV_UNLIKELY(block == nullptr)) {
     rw_lock_s_unlock(m_hash_lock);
 
     return (nullptr);
@@ -4249,7 +4249,7 @@ buf_block_t *Buf_fetch<T>::single_page() {
   Counter::inc(m_buf_pool->stat.m_n_page_gets, m_page_id.page_no());
 
   for (;;) {
-    if (static_cast<T *>(this)->get(block) == DB_NOT_FOUND) {
+    if (UNIV_UNLIKELY(static_cast<T *>(this)->get(block) == DB_NOT_FOUND)) {
       return (nullptr);
     }
     ut_a(!block->page.was_stale());
@@ -4375,7 +4375,7 @@ buf_block_t *Buf_fetch<T>::single_page() {
 
   mtr_add_page(block);
 
-  if (UNIV_LIKELY(m_mode != Page_fetch::PEEK_IF_IN_POOL) &&
+  if (m_mode != Page_fetch::PEEK_IF_IN_POOL &&
       UNIV_UNLIKELY(access_time == std::chrono::steady_clock::time_point{})) {
     /* In the case of a first access, try to apply linear read-ahead */
 

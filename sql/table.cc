@@ -125,6 +125,10 @@
 #include "sql_string.h"
 #include "template_utils.h"  // down_cast
 #include "thr_mutex.h"
+
+/** InnoDB direct calls to avoid indirect calls for virtual functions */
+bool innobase_is_innopart(handler *file);
+
 /* INFORMATION_SCHEMA name */
 LEX_CSTRING INFORMATION_SCHEMA_NAME = {STRING_WITH_LEN("information_schema")};
 
@@ -5555,7 +5559,13 @@ void TABLE::mark_auto_increment_column() {
   bitmap_set_bit(write_set, found_next_number_field->field_index());
   if (s->next_number_keypart)
     mark_columns_used_by_index_no_reset(s->next_number_index, read_set);
-  file->column_bitmaps_signal();
+  if (likely(file->ht && file->ht->db_type == DB_TYPE_INNODB &&
+             !innobase_is_innopart(file))) {
+    /* InnoDB doesn't have column_bitmaps_signal() */
+    file->handler::column_bitmaps_signal();
+  } else {
+    file->column_bitmaps_signal();
+  }
 }
 
 /*

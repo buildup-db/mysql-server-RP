@@ -82,8 +82,8 @@ struct Iterate {
 
     ut_ad(!(block->used() % sizeof(*slot)));
 
-    while (UNIV_LIKELY(slot-- != start)) {
-      if (!m_functor(slot)) {
+    while (UNIV_UNLIKELY(slot-- != start)) {
+      if (UNIV_UNLIKELY(!m_functor(slot))) {
         return false;
       }
     }
@@ -759,7 +759,7 @@ void mtr_t::release_page(const void *ptr, mtr_memo_type_t type) {
 /** Prepare to write the mini-transaction log to the redo log buffer.
 @return number of bytes to write in finish_write() */
 ulint mtr_t::Command::prepare_write() {
-  switch (m_impl->m_log_mode) {
+  switch (UNIV_EXPECT(m_impl->m_log_mode, MTR_LOG_ALL)) {
     case MTR_LOG_SHORT_INSERTS:
       ut_d(ut_error);
       /* fall through (write no redo log) */

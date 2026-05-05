@@ -423,7 +423,7 @@ ALWAYS_INLINE int cmp_data(ulint mtype, ulint prtype, bool is_asc,
   ulint pad;
   int cmp;
 
-  if (UNIV_LIKELY(mtype == DATA_INT)) {
+  if (UNIV_LIKELY(mtype == DATA_INT) || mtype == DATA_SYS_CHILD) {
     pad = ULINT_UNDEFINED;
   } else {
     switch (UNIV_EXPECT(mtype, DATA_VARMYSQL)) {
@@ -434,7 +434,7 @@ ALWAYS_INLINE int cmp_data(ulint mtype, ulint prtype, bool is_asc,
           break;
         }
         [[fallthrough]];
-      case DATA_SYS_CHILD:
+
       case DATA_SYS:
         pad = ULINT_UNDEFINED;
         break;
@@ -702,7 +702,7 @@ int cmp_dtuple_rec_with_match_low(const dtuple_t *dtuple, const rec_t *rec,
                      dtuple_b_ptr, dtuple_f_len, rec_b_ptr, rec_f_len);
     }
 
-    if (UNIV_UNLIKELY(ret)) {
+    if (UNIV_LIKELY(ret)) {
       *matched_fields = i;
       return (ret);
     }

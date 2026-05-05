@@ -1724,7 +1724,8 @@ type_conversion_status Field::check_constraints(int mysql_errno) {
 
   if (is_nullable()) return TYPE_OK;  // If the field is nullable, we're Ok.
 
-  if (!m_is_tmp_null) return TYPE_OK;  // If the field was not NULL, we're Ok.
+  if (likely(!m_is_tmp_null))
+    return TYPE_OK;  // If the field was not NULL, we're Ok.
 
   // The field has been set to NULL.
 
@@ -1773,7 +1774,7 @@ void Field::set_null(ptrdiff_t row_offset) {
                        and table->record[0]
 */
 void Field::set_notnull(ptrdiff_t row_offset) {
-  if (is_nullable()) {
+  if (unlikely(is_nullable())) {
     assert(m_null_ptr != &dummy_null_buffer);
     m_null_ptr[row_offset] &= (uchar)~null_bit;
   } else if (unlikely(is_tmp_nullable())) {
@@ -3764,11 +3765,11 @@ double Field_long::val_real() const {
 longlong Field_long::val_int() const {
   ASSERT_COLUMN_MARKED_FOR_READ;
   int32 j;
-  if (table->s->db_low_byte_first)
+  if (likely(table->s->db_low_byte_first))
     j = sint4korr(ptr);
   else
     j = longget(ptr);
-  return is_unsigned() ? (longlong)(uint32)j : (longlong)j;
+  return unlikely(is_unsigned()) ? (longlong)(uint32)j : (longlong)j;
 }
 
 String *Field_long::val_str(String *val_buffer, String *) const {

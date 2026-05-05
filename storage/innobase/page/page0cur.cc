@@ -870,7 +870,7 @@ static ALWAYS_INLINE void page_cur_insert_rec_write_log(
 
   /* Avoid REDO logging to save on costly IO because
   temporary tables are not recovered during crash recovery. */
-  if (index->table->is_temporary()) {
+  if (UNIV_UNLIKELY(index->table->is_temporary())) {
     byte *log_ptr = nullptr;
     if (!mlog_open(mtr, 0, log_ptr)) {
       return;
@@ -905,7 +905,7 @@ static ALWAYS_INLINE void page_cur_insert_rec_write_log(
     cur_rec_size = rec_offs_size(cur_offs);
     cur_extra_size = rec_offs_extra_size(cur_offs);
 
-    if (heap != nullptr) {
+    if (UNIV_UNLIKELY(heap != nullptr)) {
       mem_heap_free(heap);
     }
   }
@@ -941,7 +941,7 @@ static ALWAYS_INLINE void page_cur_insert_rec_write_log(
   DBUG_EXECUTE_IF("page_ins_simulate_differing_versions",
                   is_same_version = false;);
 
-  if (is_same_version && cur_extra_size == extra_size) {
+  if (UNIV_LIKELY(is_same_version && cur_extra_size == extra_size)) {
     ulint min_rec_size = std::min(cur_rec_size, rec_size);
 
     const byte *cur_ptr = cursor_rec - cur_extra_size;

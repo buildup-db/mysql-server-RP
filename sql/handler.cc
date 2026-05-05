@@ -137,6 +137,7 @@
 int innobase_extra(handler *file, enum ha_extra_function operation);
 bool innobase_is_innopart(handler *file);
 int innobase_update_row(handler *file, const uchar *old_row, uchar *new_row);
+int innobase_write_row(handler *file, uchar *record);
 int innobase_index_next(handler *file, uchar *buf);
 int innobase_multi_range_read_next(handler *file, char **range_info);
 
@@ -8051,8 +8052,13 @@ int handler::ha_write_row(uchar *buf) {
       my_error(HA_ERR_CRASHED, MYF(ME_ERRORLOG), table_share->table_name.str);
       set_my_errno(HA_ERR_CRASHED); return HA_ERR_CRASHED;);
 
-  MYSQL_TABLE_IO_WAIT(PSI_TABLE_WRITE_ROW, MAX_KEY, error,
-                      { error = write_row(buf); })
+  MYSQL_TABLE_IO_WAIT(PSI_TABLE_WRITE_ROW, MAX_KEY, error, {
+    if (likely(ht && ht->db_type == DB_TYPE_INNODB)) {
+      error = innobase_write_row(this, buf);
+    } else {
+      error = write_row(buf);
+    }
+  })
 
   if (unlikely(error)) return error;
 

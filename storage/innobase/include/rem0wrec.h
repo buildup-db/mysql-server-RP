@@ -68,7 +68,7 @@ path. One must run performance tests if they intend to improve this method.
 ALWAYS_INLINE ulint rec_get_nth_field_offs(const dict_index_t *index,
                                            const ulint *offsets, ulint n,
                                            ulint *len) {
-  if (UNIV_LIKELY(index) && UNIV_UNLIKELY(index->has_row_versions())) {
+  if (index && UNIV_UNLIKELY(index->has_row_versions())) {
     n = index->get_field_off_pos(n);
   }
 
