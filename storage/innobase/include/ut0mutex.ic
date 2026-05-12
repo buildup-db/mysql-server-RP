@@ -190,8 +190,8 @@ bool TTASEventMutex<Policy>::wait(const char *filename, uint32_t line,
 
   /* Try to reserve still a few times. */
 
-  for (uint32_t i = 0; i < spin; ++i) {
-    if (try_lock()) {
+  for (uint32_t i = 0; UNIV_LIKELY(i < spin); ++i) {
+    if (UNIV_UNLIKELY(try_lock())) {
       sync_array_free_cell(sync_arr, cell);
 
       /* Note that in this case we leave

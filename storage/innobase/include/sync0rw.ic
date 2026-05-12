@@ -491,8 +491,8 @@ static inline void pfs_rw_lock_create_func(mysql_pfs_key_t key, rw_lock_t *lock,
  @param[in] location location where requested */
 static inline void pfs_rw_lock_x_lock_func(rw_lock_t *lock, ulint pass,
                                            ut::Location location) {
-  if (UNIV_UNLIKELY(lock->pfs_psi != nullptr)) {
-    if (lock->pfs_psi->m_enabled) {
+  if (UNIV_LIKELY(lock->pfs_psi != nullptr)) {
+    if (UNIV_UNLIKELY(lock->pfs_psi->m_enabled)) {
       PSI_rwlock_locker *locker;
       PSI_rwlock_locker_state state;
 
@@ -525,8 +525,8 @@ static inline bool pfs_rw_lock_x_lock_func_nowait(
 {
   bool ret;
 
-  if (UNIV_UNLIKELY(lock->pfs_psi != nullptr)) {
-    if (lock->pfs_psi->m_enabled) {
+  if (UNIV_LIKELY(lock->pfs_psi != nullptr)) {
+    if (UNIV_UNLIKELY(lock->pfs_psi->m_enabled)) {
       PSI_rwlock_locker *locker;
       PSI_rwlock_locker_state state;
 
@@ -575,8 +575,8 @@ to unlock
 ALWAYS_INLINE
 void pfs_rw_lock_s_lock_func(rw_lock_t *lock, ulint pass,
                              ut::Location location) {
-  if (UNIV_UNLIKELY(lock->pfs_psi != nullptr)) {
-    if (lock->pfs_psi->m_enabled) {
+  if (UNIV_LIKELY(lock->pfs_psi != nullptr)) {
+    if (UNIV_UNLIKELY(lock->pfs_psi->m_enabled)) {
       PSI_rwlock_locker *locker;
       PSI_rwlock_locker_state state;
 
@@ -606,8 +606,8 @@ void pfs_rw_lock_s_lock_func(rw_lock_t *lock, ulint pass,
  @param[in] location location where requested */
 static inline void pfs_rw_lock_sx_lock_func(rw_lock_t *lock, ulint pass,
                                             ut::Location location) {
-  if (UNIV_UNLIKELY(lock->pfs_psi != nullptr)) {
-    if (lock->pfs_psi->m_enabled) {
+  if (UNIV_LIKELY(lock->pfs_psi != nullptr)) {
+    if (UNIV_UNLIKELY(lock->pfs_psi->m_enabled)) {
       PSI_rwlock_locker *locker;
       PSI_rwlock_locker_state state;
 
@@ -632,8 +632,8 @@ static inline bool pfs_rw_lock_s_lock_low(rw_lock_t *lock, ulint pass,
                                           ut::Location location) {
   bool ret;
 
-  if (UNIV_UNLIKELY(lock->pfs_psi != nullptr)) {
-    if (lock->pfs_psi->m_enabled) {
+  if (UNIV_LIKELY(lock->pfs_psi != nullptr)) {
+    if (UNIV_UNLIKELY(lock->pfs_psi->m_enabled)) {
       PSI_rwlock_locker *locker;
       PSI_rwlock_locker_state state;
 
@@ -669,8 +669,8 @@ static inline bool pfs_rw_lock_sx_lock_low(rw_lock_t *lock, ulint pass,
                                            ut::Location location) {
   bool ret;
 
-  if (UNIV_UNLIKELY(lock->pfs_psi != nullptr)) {
-    if (lock->pfs_psi->m_enabled) {
+  if (UNIV_LIKELY(lock->pfs_psi != nullptr)) {
+    if (UNIV_UNLIKELY(lock->pfs_psi->m_enabled)) {
       PSI_rwlock_locker *locker;
       PSI_rwlock_locker_state state;
 
@@ -701,8 +701,8 @@ static inline bool pfs_rw_lock_sx_lock_low(rw_lock_t *lock, ulint pass,
 static inline void pfs_rw_lock_x_unlock_func(IF_DEBUG(ulint pass, )
                                                  rw_lock_t *lock) {
   /* Inform performance schema we are unlocking the lock */
-  if (UNIV_UNLIKELY(lock->pfs_psi != nullptr)) {
-    if (lock->pfs_psi->m_enabled) {
+  if (UNIV_LIKELY(lock->pfs_psi != nullptr)) {
+    if (UNIV_UNLIKELY(lock->pfs_psi->m_enabled)) {
       PSI_RWLOCK_CALL(unlock_rwlock)(lock->pfs_psi, PSI_RWLOCK_EXCLUSIVEUNLOCK);
     }
   }
@@ -713,8 +713,8 @@ static inline void pfs_rw_lock_x_unlock_func(IF_DEBUG(ulint pass, )
 static inline void pfs_rw_lock_sx_unlock_func(IF_DEBUG(ulint pass, )
                                                   rw_lock_t *lock) {
   /* Inform performance schema we are unlocking the lock */
-  if (UNIV_UNLIKELY(lock->pfs_psi != nullptr)) {
-    if (lock->pfs_psi->m_enabled) {
+  if (UNIV_LIKELY(lock->pfs_psi != nullptr)) {
+    if (UNIV_UNLIKELY(lock->pfs_psi->m_enabled)) {
       PSI_RWLOCK_CALL(unlock_rwlock)
       (lock->pfs_psi, PSI_RWLOCK_SHAREDEXCLUSIVEUNLOCK);
     }
@@ -726,8 +726,8 @@ static inline void pfs_rw_lock_sx_unlock_func(IF_DEBUG(ulint pass, )
 ALWAYS_INLINE
 void pfs_rw_lock_s_unlock_func(IF_DEBUG(ulint pass, ) rw_lock_t *lock) {
   /* Inform performance schema we are unlocking the lock */
-  if (UNIV_UNLIKELY(lock->pfs_psi != nullptr)) {
-    if (lock->pfs_psi->m_enabled) {
+  if (UNIV_LIKELY(lock->pfs_psi != nullptr)) {
+    if (UNIV_UNLIKELY(lock->pfs_psi->m_enabled)) {
       PSI_RWLOCK_CALL(unlock_rwlock)(lock->pfs_psi, PSI_RWLOCK_SHAREDUNLOCK);
     }
   }

@@ -386,7 +386,7 @@ class dyn_buf_t {
   ALWAYS_INLINE block_t *add_block() {
     block_t *block;
 
-    if (m_heap == nullptr) {
+    if (UNIV_UNLIKELY(m_heap == nullptr)) {
       m_heap = mem_heap_create(sizeof(*block), UT_LOCATION_HERE);
     }
 

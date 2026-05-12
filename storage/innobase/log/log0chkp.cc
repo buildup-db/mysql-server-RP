@@ -1177,6 +1177,7 @@ void log_update_limits_low(log_t &log) {
 
   if (log.m_writer_inside_extra_margin) {
     /* Stop all new incoming user threads at safe place. */
+    log.free_check_is_required.store(true, std::memory_order_relaxed);
     log.free_check_limit_lsn.store(0);
     return;
   }
@@ -1186,6 +1187,7 @@ void log_update_limits_low(log_t &log) {
   const lsn_t limit_lsn = log.last_checkpoint_lsn.load() + log_capacity;
 
   if (log.free_check_limit_lsn.load() < limit_lsn) {
+    log.free_check_is_required.store(false, std::memory_order_relaxed);
     log.free_check_limit_lsn.store(limit_lsn);
   }
 }

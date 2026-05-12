@@ -3069,7 +3069,7 @@ func_exit:
 
   auto success = pcur->restore_position(mode, &mtr, UT_LOCATION_HERE);
 
-  if (!success) {
+  if (UNIV_UNLIKELY(!success)) {
     err = DB_RECORD_NOT_FOUND;
 
     mtr_commit(&mtr);
@@ -3081,10 +3081,10 @@ func_exit:
   offsets = rec_get_offsets(rec, index, offsets_, ULINT_UNDEFINED,
                             UT_LOCATION_HERE, &heap);
 
-  if (!node->has_clust_rec_x_lock) {
+  if (UNIV_UNLIKELY(!node->has_clust_rec_x_lock)) {
     err = lock_clust_rec_modify_check_and_lock(flags, pcur->get_block(), rec,
                                                index, offsets, thr);
-    if (err != DB_SUCCESS) {
+    if (UNIV_UNLIKELY(err != DB_SUCCESS)) {
       mtr_commit(&mtr);
       goto exit_func;
     }
@@ -3099,7 +3099,7 @@ func_exit:
     err = row_upd_del_mark_clust_rec(flags, node, index, offsets, thr,
                                      referenced, &mtr);
 
-    if (err == DB_SUCCESS) {
+    if (UNIV_LIKELY(err == DB_SUCCESS)) {
       node->state = UPD_NODE_UPDATE_ALL_SEC;
       node->index = index->next();
     }
@@ -3227,14 +3227,14 @@ static dberr_t row_upd(upd_node_t *node, /*!< in: row update node */
     /* Skip corrupted index */
     dict_table_skip_corrupt_index(node->index);
 
-    if (!node->index) {
+    if (UNIV_UNLIKELY(!node->index)) {
       break;
     }
 
     if (UNIV_LIKELY(node->index->type != DICT_FTS)) {
       err = row_upd_sec_step(node, thr);
 
-      if (err != DB_SUCCESS) {
+      if (UNIV_UNLIKELY(err != DB_SUCCESS)) {
         return err;
       }
     }
@@ -3342,7 +3342,7 @@ que_thr_t *row_upd_step(que_thr_t *thr) /*!< in: query thread */
 error_handling:
   trx->error_state = err;
 
-  if (err != DB_SUCCESS) {
+  if (UNIV_UNLIKELY(err != DB_SUCCESS)) {
     return nullptr;
   }
 

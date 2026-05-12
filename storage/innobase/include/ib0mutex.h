@@ -497,7 +497,7 @@ struct TTASEventMutex {
 
       ++n_spins;
 
-    } while (n_spins < max_spins);
+    } while (UNIV_LIKELY(n_spins < max_spins));
 
     return (false);
   }
@@ -516,8 +516,8 @@ struct TTASEventMutex {
     for (;;) {
       /* If the lock was free then try and acquire it. */
 
-      if (is_free(max_spins, max_delay, n_spins)) {
-        if (try_lock()) {
+      if (UNIV_LIKELY(is_free(max_spins, max_delay, n_spins))) {
+        if (UNIV_LIKELY(try_lock())) {
           break;
         } else {
           continue;
@@ -731,8 +731,8 @@ struct PolicyMutex {
   PSI_mutex_locker *pfs_begin_lock(PSI_mutex_locker_state *state,
                                    const char *name,
                                    uint32_t line) UNIV_NOTHROW {
-    if (UNIV_UNLIKELY(m_ptr != nullptr)) {
-      if (m_ptr->m_enabled) {
+    if (UNIV_LIKELY(m_ptr != nullptr)) {
+      if (UNIV_UNLIKELY(m_ptr->m_enabled)) {
         return (PSI_MUTEX_CALL(start_mutex_wait)(state, m_ptr, PSI_MUTEX_LOCK,
                                                  name, (uint)line));
       }
@@ -748,8 +748,8 @@ struct PolicyMutex {
   PSI_mutex_locker *pfs_begin_trylock(PSI_mutex_locker_state *state,
                                       const char *name,
                                       uint32_t line) UNIV_NOTHROW {
-    if (UNIV_UNLIKELY(m_ptr != nullptr)) {
-      if (m_ptr->m_enabled) {
+    if (UNIV_LIKELY(m_ptr != nullptr)) {
+      if (UNIV_UNLIKELY(m_ptr->m_enabled)) {
         return (PSI_MUTEX_CALL(start_mutex_wait)(
             state, m_ptr, PSI_MUTEX_TRYLOCK, name, (uint)line));
       }
@@ -769,8 +769,8 @@ struct PolicyMutex {
 
   /** Performance schema monitoring - register mutex release */
   void pfs_exit() {
-    if (UNIV_UNLIKELY(m_ptr != nullptr)) {
-      if (m_ptr->m_enabled) {
+    if (UNIV_LIKELY(m_ptr != nullptr)) {
+      if (UNIV_UNLIKELY(m_ptr->m_enabled)) {
         PSI_MUTEX_CALL(unlock_mutex)(m_ptr);
       }
     }

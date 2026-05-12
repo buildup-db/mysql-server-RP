@@ -294,11 +294,13 @@ inline void Link_buf<Position>::add_link_advance_tail(Position from,
     /* add link */
     slot.store(to, std::memory_order_release);
 
-    auto stop_condition = [&](Position prev_pos, Position) {
-      return (prev_pos > from);
-    };
+    if (ut::random_from_interval_fast(0, 16) == 0) {
+      auto stop_condition = [&](Position prev_pos, Position) {
+        return (prev_pos > from);
+      };
 
-    advance_tail_until(stop_condition);
+      advance_tail_until(stop_condition, 0);
+    }
   }
 }
 
@@ -317,7 +319,7 @@ bool Link_buf<Position>::advance_tail_until(Stop_condition stop_condition,
 
     auto next_load = slot.load(std::memory_order_acquire);
 
-    if (next_load >= position + m_capacity) {
+    if (UNIV_UNLIKELY(next_load >= position + m_capacity)) {
       /* either we wrapped and tail was advanced meanwhile,
       or there is link start_lsn -> end_lsn of length >= m_capacity */
       position = m_tail.load(std::memory_order_acquire);
@@ -327,21 +329,23 @@ bool Link_buf<Position>::advance_tail_until(Stop_condition stop_condition,
       }
     }
 
-    if (next_load <= position || stop_condition(position, next_load)) {
+    if (next_load <= position ||
+        UNIV_UNLIKELY(stop_condition(position, next_load))) {
       /* nothing to advance for now */
       return false;
     }
 
     /* try to lock as storing the end */
-    if (slot.compare_exchange_strong(next_load, position,
-                                     std::memory_order_acq_rel)) {
+    if (UNIV_LIKELY(slot.compare_exchange_strong(next_load, position,
+                                                 std::memory_order_acq_rel,
+                                                 std::memory_order_acquire))) {
       /* it could happen, that after thread read position = m_tail.load(),
       it got scheduled out for longer; when it comes back it might still
       see the link going forward in that slot but m_tail could have been
       already advanced forward (as we do not reset slots when traversing
       them); thread needs to re-check if m_tail is still behind the slot. */
       position = m_tail.load(std::memory_order_acquire);
-      if (position == from) {
+      if (UNIV_LIKELY(position == from)) {
         /* confirmed. can advance m_tail exclusively */
         position = next_load;
         break;
@@ -356,7 +360,7 @@ bool Link_buf<Position>::advance_tail_until(Stop_condition stop_condition,
 
     UT_RELAX_CPU();
     position = m_tail.load(std::memory_order_acquire);
-    if (position == from) {
+    if (UNIV_UNLIKELY(position == from)) {
       /* no progress? */
       return false;
     }
