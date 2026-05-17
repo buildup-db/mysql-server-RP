@@ -162,13 +162,13 @@ static os_event_t sync_cell_get_event(
 {
   ulint type = cell->request_type;
 
-  if (type == SYNC_MUTEX) {
+  if (UNIV_LIKELY(type == SYNC_MUTEX)) {
     return (cell->latch.mutex->event());
 
-  } else if (type == SYNC_BUF_BLOCK) {
+  } else if (UNIV_UNLIKELY(type == SYNC_BUF_BLOCK)) {
     return (cell->latch.bpmutex->event());
 
-  } else if (type == RW_LOCK_X_WAIT) {
+  } else if (UNIV_UNLIKELY(type == RW_LOCK_X_WAIT)) {
     return (cell->latch.lock->wait_ex_event);
 
   } else { /* RW_LOCK_S and RW_LOCK_X wait on the same event */
@@ -183,12 +183,12 @@ sync_cell_t *sync_array_reserve_cell(sync_array_t *arr, void *object,
 
   sync_array_enter(arr);
 
-  if (arr->first_free_slot != ULINT_UNDEFINED) {
+  if (UNIV_LIKELY(arr->first_free_slot != ULINT_UNDEFINED)) {
     /* Try and find a slot in the free list */
     ut_ad(arr->first_free_slot < arr->next_free_slot);
     cell = sync_array_get_nth_cell(arr, arr->first_free_slot);
     arr->first_free_slot = cell->line;
-  } else if (arr->next_free_slot < arr->n_cells) {
+  } else if (UNIV_LIKELY(arr->next_free_slot < arr->n_cells)) {
     /* Try and find a slot after the currently allocated slots */
     cell = sync_array_get_nth_cell(arr, arr->next_free_slot);
     ++arr->next_free_slot;
@@ -261,7 +261,8 @@ void sync_array_free_cell(
   ut_a(arr->n_reserved > 0);
   arr->n_reserved--;
 
-  if (arr->next_free_slot > arr->n_cells / 2 && arr->n_reserved == 0) {
+  if (UNIV_UNLIKELY(arr->next_free_slot > arr->n_cells / 2) &&
+      arr->n_reserved == 0) {
 #ifdef UNIV_DEBUG
     for (ulint i = 0; i < arr->next_free_slot; ++i) {
       cell = sync_array_get_nth_cell(arr, i);
@@ -737,7 +738,8 @@ static void sync_array_wake_threads_if_sema_free_low(
 
     cell = sync_array_get_nth_cell(arr, i);
 
-    if (cell->latch.mutex != nullptr && sync_arr_cell_can_wake_up(cell)) {
+    if (UNIV_UNLIKELY(cell->latch.mutex != nullptr) &&
+        UNIV_UNLIKELY(sync_arr_cell_can_wake_up(cell))) {
       os_event_t event;
 
       event = sync_cell_get_event(cell);

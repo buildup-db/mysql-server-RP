@@ -286,7 +286,15 @@ inline void Link_buf<Position>::add_link_advance_tail(Position from,
 
   if (UNIV_LIKELY(position == from)) {
     /* can advance m_tail directly and exclusively, and it is unlock */
-    m_tail.store(to, std::memory_order_release);
+    position = to;
+    while (true) {
+      Position next;
+      if (next_position(position, next)) {
+        break;
+      }
+      position = next;
+    }
+    m_tail.store(position, std::memory_order_release);
   } else {
     auto index = slot_index(from);
     auto &slot = m_links[index];

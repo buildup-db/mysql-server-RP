@@ -283,28 +283,28 @@ void rw_lock_s_lock_spin(rw_lock_t *lock, ulint pass, ut::Location location) {
 lock_loop:
 
   /* Spin waiting for the writer field to become free */
-  while (i < srv_n_spin_wait_rounds &&
-         lock->lock_word.load(std::memory_order_acquire) <= 0) {
-    if (srv_spin_wait_delay) {
+  while (UNIV_LIKELY(i < srv_n_spin_wait_rounds) &&
+         UNIV_LIKELY(lock->lock_word.load(std::memory_order_acquire) <= 0)) {
+    if (UNIV_LIKELY(srv_spin_wait_delay)) {
       ut_delay(ut::random_from_interval_fast(0, srv_spin_wait_delay));
     }
 
     i++;
   }
 
-  if (i >= srv_n_spin_wait_rounds) {
+  if (UNIV_UNLIKELY(i >= srv_n_spin_wait_rounds)) {
     std::this_thread::yield();
   }
 
   /* We try once again to obtain the lock */
-  if (rw_lock_s_lock_low(lock, pass, location)) {
-    if (count_os_wait > 0) {
+  if (UNIV_LIKELY(rw_lock_s_lock_low(lock, pass, location))) {
+    if (UNIV_UNLIKELY(count_os_wait > 0)) {
       lock->count_os_wait += static_cast<uint32_t>(count_os_wait);
     }
 
     return; /* Success */
   } else {
-    if (i < srv_n_spin_wait_rounds) {
+    if (UNIV_UNLIKELY(i < srv_n_spin_wait_rounds)) {
       goto lock_loop;
     }
 
@@ -319,7 +319,7 @@ lock_loop:
     signal is sent. This may lead to some unnecessary signals. */
     rw_lock_set_waiter_flag(lock);
 
-    if (rw_lock_s_lock_low(lock, pass, location)) {
+    if (UNIV_UNLIKELY(rw_lock_s_lock_low(lock, pass, location))) {
       sync_array_free_cell(sync_arr, cell);
 
       if (count_os_wait > 0) {
@@ -381,11 +381,11 @@ static inline void rw_lock_x_lock_wait_func(rw_lock_t *lock,
 
   while (UNIV_UNLIKELY(lock->lock_word.load(std::memory_order_acquire) <
                        threshold)) {
-    if (srv_spin_wait_delay) {
+    if (UNIV_LIKELY(srv_spin_wait_delay)) {
       ut_delay(ut::random_from_interval_fast(0, srv_spin_wait_delay));
     }
 
-    if (i < srv_n_spin_wait_rounds) {
+    if (UNIV_LIKELY(i < srv_n_spin_wait_rounds)) {
       i++;
       continue;
     }
@@ -399,7 +399,8 @@ static inline void rw_lock_x_lock_wait_func(rw_lock_t *lock,
     i = 0;
 
     /* Check lock_word to ensure wake-up isn't missed.*/
-    if (lock->lock_word.load(std::memory_order_acquire) < threshold) {
+    if (UNIV_LIKELY(lock->lock_word.load(std::memory_order_acquire) <
+                    threshold)) {
       ++count_os_wait;
 
       /* Add debug info as it is needed to detect possible
@@ -464,9 +465,10 @@ static inline bool rw_lock_x_lock_low(
     rw_lock_x_lock_wait(lock, pass, 0, file_name, line);
 
   } else {
-    if (!pass && lock->recursive.load(std::memory_order_acquire) &&
-        lock->writer_thread.load(std::memory_order_relaxed) ==
-            std::this_thread::get_id()) {
+    if (UNIV_LIKELY(!pass) &&
+        UNIV_LIKELY(lock->recursive.load(std::memory_order_acquire)) &&
+        UNIV_LIKELY(lock->writer_thread.load(std::memory_order_relaxed) ==
+                    std::this_thread::get_id())) {
       /* Decrement failed: An X or SX lock is held by either
       this thread or another. Try to relock. */
       /* Other s-locks can be allowed. If it is request x
@@ -474,7 +476,7 @@ static inline bool rw_lock_x_lock_low(
       be along with the latching-order. */
 
       /* The existing X or SX lock is from this thread */
-      if (rw_lock_lock_word_decr(lock, X_LOCK_DECR, 0)) {
+      if (UNIV_UNLIKELY(rw_lock_lock_word_decr(lock, X_LOCK_DECR, 0))) {
         /* There is at least one SX-lock from this
         thread, but no X-lock. */
 
@@ -486,7 +488,7 @@ static inline bool rw_lock_x_lock_low(
         /* At least one X lock by this thread already
         exists. Add another. */
         const int32_t lock_word = lock->lock_word;
-        if (lock_word == 0 || lock_word == -X_LOCK_HALF_DECR) {
+        if (UNIV_LIKELY(lock_word == 0) || lock_word == -X_LOCK_HALF_DECR) {
           lock->lock_word -= X_LOCK_DECR;
         } else {
           ut_ad(lock->lock_word <= -X_LOCK_DECR);
@@ -597,17 +599,17 @@ lock_loop:
     }
 
     /* Spin waiting for the lock_word to become free */
-    while (i < srv_n_spin_wait_rounds &&
-           lock->lock_word.load(std::memory_order_acquire) <=
-               X_LOCK_HALF_DECR) {
-      if (srv_spin_wait_delay) {
+    while (UNIV_LIKELY(i < srv_n_spin_wait_rounds) &&
+           UNIV_LIKELY(lock->lock_word.load(std::memory_order_acquire) <=
+                       X_LOCK_HALF_DECR)) {
+      if (UNIV_LIKELY(srv_spin_wait_delay)) {
         ut_delay(ut::random_from_interval_fast(0, srv_spin_wait_delay));
       }
 
       i++;
     }
 
-    if (i >= srv_n_spin_wait_rounds) {
+    if (UNIV_UNLIKELY(i >= srv_n_spin_wait_rounds)) {
       std::this_thread::yield();
 
     } else {
@@ -623,7 +625,8 @@ lock_loop:
   is sent. This could lead to a few unnecessary wake-up signals. */
   rw_lock_set_waiter_flag(lock);
 
-  if (rw_lock_x_lock_low(lock, pass, location.filename, location.line)) {
+  if (UNIV_UNLIKELY(
+          rw_lock_x_lock_low(lock, pass, location.filename, location.line))) {
     sync_array_free_cell(sync_arr, cell);
 
     if (count_os_wait > 0) {
@@ -653,8 +656,8 @@ void rw_lock_sx_lock_func(rw_lock_t *lock, ulint pass, ut::Location location) {
 
 lock_loop:
 
-  if (rw_lock_sx_lock_low(lock, pass, location)) {
-    if (count_os_wait > 0) {
+  if (UNIV_LIKELY(rw_lock_sx_lock_low(lock, pass, location))) {
+    if (UNIV_UNLIKELY(count_os_wait > 0)) {
       lock->count_os_wait += static_cast<uint32_t>(count_os_wait);
     }
 
@@ -663,17 +666,17 @@ lock_loop:
 
   } else {
     /* Spin waiting for the lock_word to become free */
-    while (i < srv_n_spin_wait_rounds &&
-           lock->lock_word.load(std::memory_order_acquire) <=
-               X_LOCK_HALF_DECR) {
-      if (srv_spin_wait_delay) {
+    while (UNIV_LIKELY(i < srv_n_spin_wait_rounds) &&
+           UNIV_LIKELY(lock->lock_word.load(std::memory_order_acquire) <=
+                       X_LOCK_HALF_DECR)) {
+      if (UNIV_LIKELY(srv_spin_wait_delay)) {
         ut_delay(ut::random_from_interval_fast(0, srv_spin_wait_delay));
       }
 
       i++;
     }
 
-    if (i >= srv_n_spin_wait_rounds) {
+    if (UNIV_UNLIKELY(i >= srv_n_spin_wait_rounds)) {
       std::this_thread::yield();
 
     } else {
@@ -689,7 +692,7 @@ lock_loop:
   is sent. This could lead to a few unnecessary wake-up signals. */
   rw_lock_set_waiter_flag(lock);
 
-  if (rw_lock_sx_lock_low(lock, pass, location)) {
+  if (UNIV_UNLIKELY(rw_lock_sx_lock_low(lock, pass, location))) {
     sync_array_free_cell(sync_arr, cell);
 
     if (count_os_wait > 0) {

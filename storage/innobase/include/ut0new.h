@@ -1108,7 +1108,7 @@ inline T *new_arr(Count count) {
  */
 template <typename T>
 inline void delete_arr(T *ptr) noexcept {
-  if (!ptr) return;
+  if (UNIV_UNLIKELY(!ptr)) return;
   using impl = detail::select_malloc_impl_t<WITH_PFS_MEMORY, true>;
   using malloc_impl = detail::Alloc_<impl>;
   const auto data_len = malloc_impl::datalen(ptr);
