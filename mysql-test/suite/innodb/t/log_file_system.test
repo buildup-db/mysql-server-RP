@@ -141,7 +141,6 @@ let SEARCH_PATTERN= \[ERROR\] \[[^]]*\] \[[^]]*\] unknown option '--innodb-nonex
 --source include/wait_until_connected_again.inc
 
 --echo # No log should be generated while persistent tablespaces are idle
---echo # FIXME: Something occasionally violates this (log_write_requests=1)
 
 CREATE TEMPORARY TABLE t (a SERIAL) ENGINE=InnoDB;
 
