@@ -1,4 +1,5 @@
 /* Copyright (c) 2012, 2025, Oracle and/or its affiliates.
+   Copyright (c) 2026, buildup-db.
 
   This program is free software; you can redistribute it and/or modify
   it under the terms of the GNU General Public License, version 2.0,
@@ -82,7 +83,12 @@ struct my_memory_header {
 };
 typedef struct my_memory_header my_memory_header;
 
-#define PSI_HEADER_SIZE 32
+/** CPU cache line size */
+#ifdef __powerpc__
+#define PSI_HEADER_SIZE 128
+#else
+#define PSI_HEADER_SIZE 64
+#endif
 
 #define PSI_MEMORY_MAGIC 1234
 

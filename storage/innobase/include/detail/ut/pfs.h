@@ -1,6 +1,7 @@
 /*****************************************************************************
 
 Copyright (c) 2021, 2025, Oracle and/or its affiliates.
+Copyright (c) 2026, buildup-db.
 
 This program is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License, version 2.0, as published by the
@@ -97,7 +98,8 @@ struct PFS_metadata {
   static constexpr auto meta_size = sizeof(pfs_memory_key_t) +
                                     sizeof(pfs_owning_thread_t) +
                                     sizeof(pfs_datalen_t);
-  static constexpr auto size = meta_size + sizeof(pfs_meta_offset_t);
+  static constexpr auto size = ut::INNODB_CACHE_LINE_SIZE;
+  static_assert(size >= meta_size + sizeof(pfs_meta_offset_t));
 
   /** Helper function which stores the PFS thread info into the OWNER field. */
   static inline void pfs_owning_thread(data_segment_ptr data,

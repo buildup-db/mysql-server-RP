@@ -1,4 +1,5 @@
 /* Copyright (c) 2017, 2025, Oracle and/or its affiliates.
+   Copyright (c) 2026, buildup-db.
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License, version 2.0,
@@ -41,7 +42,12 @@
   } while (0)
 #endif /* HAVE_VALGRIND */
 
-#define HEADER_SIZE 32
+/** CPU cache line size */
+#ifdef __powerpc__
+#define HEADER_SIZE 128
+#else
+#define HEADER_SIZE 64
+#endif
 #define MAGIC 1234
 #define USER_TO_HEADER(P) ((my_memory_header *)(((char *)P) - HEADER_SIZE))
 #define HEADER_TO_USER(P) (((char *)P) + HEADER_SIZE)
