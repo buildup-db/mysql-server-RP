@@ -2,7 +2,7 @@
 
 Copyright (c) 1995, 2025, Oracle and/or its affiliates.
 Copyright (c) 2008, Google Inc.
-Copyright (c) 2025, buildup-db.
+Copyright (c) 2026, buildup-db.
 
 Portions of this file contain modifications contributed and copyrighted by
 Google, Inc. Those modifications are gratefully acknowledged and are described
@@ -408,6 +408,12 @@ struct rw_lock_t
 
   /** Location where lock created */
   ut::Location clocation;
+
+#ifndef UNIV_DEBUG
+  /** Padding to align this struct size for cache line size */
+  uint64_t pad1;
+  uint64_t pad2;
+#endif /* !UNIV_DEBUG */
 
   /** last s-lock file/line is not guaranteed to be correct */
   const char *last_s_file_name;
