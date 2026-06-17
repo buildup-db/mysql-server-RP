@@ -493,10 +493,13 @@ struct dict_col_t {
   so that all bit-fields can be packed tightly. */
   /** @{ */
 
-  /** Default value when this column was added instantly.
-  If this is not a instantly added column then this is nullptr. */
-  dict_col_default_t *instant_default{nullptr};
+ private:
+  /* Position of column on physical row.
+  If column prefix is part of PK, it appears twice on row. First 2 bytes are
+  for prefix position and next 2 bytes are for column position on row. */
+  uint32_t phy_pos{UINT32_UNDEFINED};
 
+ public:
   unsigned prtype : 32; /*!< precise type; MySQL data
                         type, charset code, flags to
                         indicate nullability,
@@ -537,14 +540,13 @@ struct dict_col_t {
                             bytes. */
 
   /* True, if the column is visible */
-  bool is_visible;
+  unsigned is_visible : 1;
+
+  /** Default value when this column was added instantly.
+  If this is not a instantly added column then this is nullptr. */
+  dict_col_default_t *instant_default{nullptr};
 
  private:
-  /* Position of column on physical row.
-  If column prefix is part of PK, it appears twice on row. First 2 bytes are
-  for prefix position and next 2 bytes are for column position on row. */
-  uint32_t phy_pos{UINT32_UNDEFINED};
-
   /* Row version in which this column was added INSTANTly to the table */
   uint8_t version_added{UINT8_UNDEFINED};
 
@@ -898,7 +900,6 @@ struct dict_field_t {
   dict_field_t() : col(nullptr), prefix_len(0), fixed_len(0), is_ascending(0) {}
 
   dict_col_t *col;           /*!< pointer to the table column */
-  id_name_t name;            /*!< name of the column */
   unsigned prefix_len : 12;  /*!< 0 or the length of the column
                              prefix in bytes in a MySQL index of
                              type, e.g., INDEX (textcol(25));
@@ -911,6 +912,7 @@ struct dict_field_t {
                              column if smaller than
                              DICT_ANTELOPE_MAX_INDEX_COL_LEN */
   unsigned is_ascending : 1; /*!< 0=DESC, 1=ASC */
+  id_name_t name;            /*!< name of the column */
 
   uint16_t get_phy_pos() const {
     if (UNIV_UNLIKELY(prefix_len != 0)) {
@@ -1138,6 +1140,9 @@ struct dict_index_t {
   /** true if the index is clustered index and table has row versions */
   unsigned row_versions : 1;
 
+  /** array of field descriptions */
+  dict_field_t *fields;
+
   /** spatial reference id */
   uint32_t srid;
 
@@ -1151,9 +1156,6 @@ struct dict_index_t {
 #ifdef UNIV_DEBUG
   uint32_t magic_n; /*!< magic number */
 #endif
-
-  /** array of field descriptions */
-  dict_field_t *fields;
 
   /** Array of field pos sorted as per their physical pos in record. Only
   needed for clustered index having INSTANT ADD/DROP columns. */
