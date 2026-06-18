@@ -409,12 +409,6 @@ struct rw_lock_t
   /** Location where lock created */
   ut::Location clocation;
 
-#ifndef UNIV_DEBUG
-  /** Padding to align this struct size for cache line size */
-  uint64_t pad1;
-  uint64_t pad2;
-#endif /* !UNIV_DEBUG */
-
   /** last s-lock file/line is not guaranteed to be correct */
   const char *last_s_file_name;
 
