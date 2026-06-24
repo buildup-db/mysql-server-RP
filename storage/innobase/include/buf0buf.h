@@ -1141,11 +1141,13 @@ class buf_page_t {
   /** Copy constructor.
   @param[in] other       Instance to copy from. */
   buf_page_t(const buf_page_t &other)
-      : id(other.id),
+      :
+#ifndef UNIV_HOTBACKUP
+        m_flush_observer(other.m_flush_observer),
+#endif /* !UNIV_HOTBACKUP */
         size(other.size),
         buf_fix_count(other.buf_fix_count),
         io_fix(other.io_fix),
-        state(other.state),
         flush_type(other.flush_type),
         buf_pool_index(other.buf_pool_index),
 #ifndef UNIV_HOTBACKUP
@@ -1154,17 +1156,20 @@ class buf_page_t {
         list(other.list),
         newest_modification(other.newest_modification),
         oldest_modification(other.oldest_modification),
+        zip(other.zip),
+        id(other.id),
         LRU(other.LRU),
-        zip(other.zip)
 #ifndef UNIV_HOTBACKUP
-        ,
-        m_flush_observer(other.m_flush_observer),
         m_space(other.m_space),
         freed_page_clock(other.freed_page_clock),
         m_version(other.m_version),
         access_time(other.access_time),
-        m_dblwr_id(other.m_dblwr_id),
-        old(other.old)
+#endif /* !UNIV_HOTBACKUP */
+        state(other.state)
+#ifndef UNIV_HOTBACKUP
+        ,
+        old(other.old),
+        m_dblwr_id(other.m_dblwr_id)
 #ifdef UNIV_DEBUG
         ,
         file_page_was_freed(other.file_page_was_freed),
@@ -1329,8 +1334,10 @@ class buf_page_t {
   machine word.  */
   /** @{ */
 
-  /** Page id. */
-  page_id_t id;
+#ifndef UNIV_HOTBACKUP
+  /** Flush observer instance. */
+  Flush_observer *m_flush_observer{};
+#endif /* !UNIV_HOTBACKUP */
 
   /** Page size. */
   page_size_t size;
@@ -1541,9 +1548,6 @@ class buf_page_t {
   @return true iff io_fix equal to BUF_IO_NONE was noticed */
   bool was_io_fix_none() const { return get_io_fix_snapshot() == BUF_IO_NONE; }
 
-  /** Block state. @see buf_page_in_file */
-  buf_page_state state;
-
   /** If this block is currently being flushed to disk, this tells
   the flush_type.  @see buf_flush_t */
   buf_flush_t flush_type;
@@ -1599,6 +1603,14 @@ class buf_page_t {
   holding any one of the two mutexes */
   /** @} */
 
+  /** compressed page; zip.data (but not the data it points to) is
+  protected by buf_pool->zip_mutex; state == BUF_BLOCK_ZIP_PAGE and
+  zip.data == NULL means an active buf_pool->watch */
+  page_zip_des_t zip;
+
+  /** Page id. */
+  page_id_t id;
+
   /** @name LRU replacement algorithm fields
   These fields are protected by both buf_pool->LRU_list_mutex and the
   block mutex. */
@@ -1607,15 +1619,7 @@ class buf_page_t {
   /** node of the LRU list */
   UT_LIST_NODE_T(buf_page_t) LRU;
 
-  /** compressed page; zip.data (but not the data it points to) is
-  protected by buf_pool->zip_mutex; state == BUF_BLOCK_ZIP_PAGE and
-  zip.data == NULL means an active buf_pool->watch */
-  page_zip_des_t zip;
-
 #ifndef UNIV_HOTBACKUP
-  /** Flush observer instance. */
-  Flush_observer *m_flush_observer{};
-
   /** Tablespace instance that this page belongs to. */
   fil_space_t *m_space{};
 
@@ -1632,6 +1636,14 @@ class buf_page_t {
   /** Time of first access, or 0 if the block was never accessed in the
   buffer pool. Protected by block mutex */
   std::chrono::steady_clock::time_point access_time;
+#endif /* !UNIV_HOTBACKUP */
+
+  /** Block state. @see buf_page_in_file */
+  buf_page_state state;
+
+#ifndef UNIV_HOTBACKUP
+  /** true if the block is in the old blocks in buf_pool->LRU_old */
+  bool old;
 
  private:
   /** Double write instance ordinal value during writes. This is used
@@ -1639,9 +1651,6 @@ class buf_page_t {
   uint16_t m_dblwr_id{};
 
  public:
-  /** true if the block is in the old blocks in buf_pool->LRU_old */
-  bool old;
-
 #ifdef UNIV_DEBUG
   /** This is set to true when fsp frees a page in buffer pool;
   protected by buf_pool->zip_mutex or buf_block_t::mutex. */
@@ -1693,11 +1702,6 @@ struct buf_block_t {
   /** read-write lock of the buffer frame */
   BPageLock lock;
 
-#ifndef UNIV_DEBUG
-  /** Padding to align this struct size for cache line size */
-  uint64_t pad1;
-  uint64_t pad2;
-#endif /* !UNIV_DEBUG */
 #endif /* UNIV_HOTBACKUP */
 
   /** pointer to buffer frame which is of size UNIV_PAGE_SIZE, and aligned
@@ -1717,11 +1721,6 @@ struct buf_block_t {
 #endif /* UNIV_DEBUG */
 
   /** @} */
-
-#ifndef UNIV_DEBUG
-  /** Padding to align this struct size for cache line size */
-  uint64_t pad3;
-#endif /* !UNIV_DEBUG */
 
   /** @name Hash search fields (unprotected)
   NOTE that these fields are NOT protected by any semaphore! */
@@ -1916,6 +1915,12 @@ struct buf_block_t {
   page_zip_des_t const *get_page_zip() const noexcept {
     return page.zip.data != nullptr ? &page.zip : nullptr;
   }
+#ifndef UNIV_DEBUG
+  /** Padding to align this struct size for cache line size */
+  uint64_t pad1;
+  uint64_t pad2;
+  uint64_t pad3;
+#endif /* !UNIV_DEBUG */
 };
 
 inline bool buf_block_t::is_root() const {

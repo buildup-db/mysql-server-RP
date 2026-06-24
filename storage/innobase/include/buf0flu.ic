@@ -95,8 +95,6 @@ static inline void buf_flush_note_modification(
 
   if (UNIV_UNLIKELY(observer != nullptr)) {
     block->page.set_flush_observer(observer);
-  } else {
-    block->page.reset_flush_observer();
   }
 
   bool flush_list_inserted = false;
