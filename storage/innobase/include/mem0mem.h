@@ -135,16 +135,20 @@ static ALWAYS_INLINE void mem_heap_free(mem_heap_t *heap);
 @param[in]      heap    memory heap
 @param[in]      n       number of bytes; if the heap is allowed to grow into
 the buffer pool, this must be <= MEM_MAX_ALLOC_IN_BUF
+@param[in]      align   align by this number
 @return allocated, zero-filled storage */
-static inline void *mem_heap_zalloc(mem_heap_t *heap, ulint n);
+static inline void *mem_heap_zalloc(mem_heap_t *heap, ulint n,
+                                    ulint align = UNIV_MEM_ALIGNMENT);
 
 /** Allocates n bytes of memory from a memory heap.
 @param[in]      heap    memory heap
 @param[in]      n       number of bytes; if the heap is allowed to grow into
 the buffer pool, this must be <= MEM_MAX_ALLOC_IN_BUF
+@param[in]      align   align by this number
 @return allocated storage, NULL if did not succeed (only possible for
 MEM_HEAP_BTR_SEARCH type heaps) */
-static ALWAYS_INLINE void *mem_heap_alloc(mem_heap_t *heap, ulint n);
+static ALWAYS_INLINE void *mem_heap_alloc(mem_heap_t *heap, ulint n,
+                                          ulint align = UNIV_MEM_ALIGNMENT);
 
 /** Returns a pointer to the heap top.
 @param[in]      heap            memory heap

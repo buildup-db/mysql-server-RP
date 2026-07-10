@@ -1104,6 +1104,7 @@ ALWAYS_INLINE void rec_init_offsets_comp_ordinary(const rec_t *rec, bool temp,
     maintained in fields_array in the same order. Get the right field. */
     const dict_field_t *field = index->get_physical_field(i);
     const dict_col_t *col = field->col;
+    const uint16_t fixed_len = field->fixed_len;
     uint64_t len;
 
     switch (UNIV_EXPECT(rec_insert_state,
@@ -1193,7 +1194,7 @@ ALWAYS_INLINE void rec_init_offsets_comp_ordinary(const rec_t *rec, bool temp,
       null_mask <<= 1;
     }
 
-    if (UNIV_UNLIKELY(!field->fixed_len) ||
+    if (UNIV_UNLIKELY(!fixed_len) ||
         (UNIV_UNLIKELY(temp) && !col->get_fixed_size(temp))) {
       ut_ad(col->mtype != DATA_POINT);
       /* Variable-length field: read the length */
@@ -1226,7 +1227,7 @@ ALWAYS_INLINE void rec_init_offsets_comp_ordinary(const rec_t *rec, bool temp,
 
       len = offs += len;
     } else {
-      len = offs += field->fixed_len;
+      len = offs += fixed_len;
     }
   resolved:
     rec_offs_base(offsets)[i + 1] = len;

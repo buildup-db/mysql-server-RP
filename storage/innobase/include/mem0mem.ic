@@ -123,25 +123,31 @@ static inline void mem_block_validate(const mem_block_t *block) {
 @param[in]      heap    memory heap
 @param[in]      n       number of bytes; if the heap is allowed to grow into
 the buffer pool, this must be <= MEM_MAX_ALLOC_IN_BUF
+@param[in]      align   align by this number
 @return allocated, zero-filled storage */
-static inline void *mem_heap_zalloc(mem_heap_t *heap, ulint n) {
+static inline void *mem_heap_zalloc(mem_heap_t *heap, ulint n, ulint align) {
   ut_ad(heap);
   ut_ad(!(heap->type & MEM_HEAP_BTR_SEARCH));
-  return (memset(mem_heap_alloc(heap, n), 0, n));
+  return (memset(mem_heap_alloc(heap, n, align), 0, n));
 }
 
 /** Allocates n bytes of memory from a memory heap.
 @param[in]      heap    memory heap
 @param[in]      n       number of bytes; if the heap is allowed to grow into
 the buffer pool, this must be <= MEM_MAX_ALLOC_IN_BUF
+@param[in]      align   align by this number
 @return allocated storage, NULL if did not succeed (only possible for
 MEM_HEAP_BTR_SEARCH type heaps) */
-static inline void *mem_heap_alloc(mem_heap_t *heap, ulint n) {
+static inline void *mem_heap_alloc(mem_heap_t *heap, ulint n, ulint align) {
   mem_block_t *block;
   byte *buf;
   ulint free;
 
+  ut_ad(align >= UNIV_MEM_ALIGNMENT);
+  ut_ad(((align - 1) & align) == 0);
   ut_d(mem_block_validate(heap));
+
+  static_assert(sizeof(void *) == sizeof(ulint));
 
   block = UT_LIST_GET_LAST(heap->base);
 
@@ -150,29 +156,41 @@ static inline void *mem_heap_alloc(mem_heap_t *heap, ulint n) {
   /* Check if there is enough space in block. If not, create a new
   block to the heap */
 
+  free = mem_block_get_free(block);
+  buf = (byte *)block + free;
+  if (align > UNIV_MEM_ALIGNMENT) {
+    /* align a target size up */
+    n = (n + align - 1) & ~(align - 1);
+    buf = (byte *)ut_align((void *)buf, align);
+  }
+
   if (UNIV_UNLIKELY(mem_block_get_len(block) <
-      mem_block_get_free(block) + MEM_SPACE_NEEDED(n))) {
-    block = mem_heap_add_block(heap, n);
+      (buf - (byte *)block) + MEM_SPACE_NEEDED(n))) {
+    block = mem_heap_add_block(heap, n + ((align > UNIV_MEM_ALIGNMENT) ? align : 0));
 
     if (UNIV_UNLIKELY(block == nullptr)) {
       return (nullptr);
     }
+
+    free = mem_block_get_free(block);
+    buf = (byte *)block + free;
+    if (align > UNIV_MEM_ALIGNMENT) {
+      buf = (byte *)ut_align((void *)buf, align);
+    }
   }
 
-  free = mem_block_get_free(block);
+  mem_block_set_free(block, (buf - (byte *)block) + MEM_SPACE_NEEDED(n));
 
-  buf = (byte *)block + free + MEM_NO_MANS_LAND;
-
-  mem_block_set_free(block, free + MEM_SPACE_NEEDED(n));
+  buf += MEM_NO_MANS_LAND;
 
   ut_ad(mem_block_get_len(block) >= mem_block_get_free(block));
 
   UNIV_MEM_ALLOC(buf - MEM_NO_MANS_LAND, MEM_SPACE_NEEDED(n));
 
 #ifdef UNIV_DEBUG
-  byte *start_no_mans_land = buf - MEM_NO_MANS_LAND;
+  byte *start_no_mans_land = (byte *)block + free;
   byte *end_no_mans_land =
-      start_no_mans_land + MEM_SPACE_NEEDED(n) - MEM_NO_MANS_LAND;
+      buf - MEM_NO_MANS_LAND + MEM_SPACE_NEEDED(n) - MEM_NO_MANS_LAND;
   memset(start_no_mans_land, MEM_NO_MANS_LAND_BEFORE_BYTE, MEM_NO_MANS_LAND);
   UNIV_MEM_FREE(start_no_mans_land, MEM_NO_MANS_LAND);
 

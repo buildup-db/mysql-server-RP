@@ -493,13 +493,6 @@ struct dict_col_t {
   so that all bit-fields can be packed tightly. */
   /** @{ */
 
- private:
-  /* Position of column on physical row.
-  If column prefix is part of PK, it appears twice on row. First 2 bytes are
-  for prefix position and next 2 bytes are for column position on row. */
-  uint32_t phy_pos{UINT32_UNDEFINED};
-
- public:
   unsigned prtype : 32; /*!< precise type; MySQL data
                         type, charset code, flags to
                         indicate nullability,
@@ -547,6 +540,11 @@ struct dict_col_t {
   dict_col_default_t *instant_default{nullptr};
 
  private:
+  /* Position of column on physical row.
+  If column prefix is part of PK, it appears twice on row. First 2 bytes are
+  for prefix position and next 2 bytes are for column position on row. */
+  uint32_t phy_pos{UINT32_UNDEFINED};
+
   /* Row version in which this column was added INSTANTly to the table */
   uint8_t version_added{UINT8_UNDEFINED};
 
@@ -1057,8 +1055,8 @@ struct dict_index_t {
   /** index name */
   id_name_t name;
 
-  /** table name */
-  const char *table_name;
+  /** array of field descriptions */
+  dict_field_t *fields;
 
   /** back pointer to table */
   dict_table_t *table;
@@ -1140,8 +1138,11 @@ struct dict_index_t {
   /** true if the index is clustered index and table has row versions */
   unsigned row_versions : 1;
 
-  /** array of field descriptions */
-  dict_field_t *fields;
+  /** true if the index has any descending column */
+  unsigned has_desc_col : 1;
+
+  /** table name */
+  const char *table_name;
 
   /** spatial reference id */
   uint32_t srid;
@@ -1485,6 +1486,10 @@ struct dict_index_t {
     field->name = name_arg;
     field->prefix_len = (unsigned int)prefix_len;
     field->is_ascending = is_ascending;
+
+    if (!is_ascending && !has_desc_col) {
+      has_desc_col = true;
+    }
   }
 
   /** Gets the nth physical pos field.

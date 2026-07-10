@@ -697,7 +697,8 @@ int cmp_dtuple_rec_with_match_low(const dtuple_t *dtuple, const rec_t *rec,
       /* For now, change buffering is only supported on
       indexes with ascending order on the columns. */
       ret = cmp_data(type->mtype, type->prtype,
-                     UNIV_UNLIKELY(dict_index_is_ibuf(index)) ||
+                     !index->has_desc_col ||
+                         UNIV_UNLIKELY(dict_index_is_ibuf(index)) ||
                          index->get_field(i)->is_ascending,
                      dtuple_b_ptr, dtuple_f_len, rec_b_ptr, rec_f_len);
     }
@@ -787,7 +788,8 @@ int cmp_dtuple_rec_with_match_bytes(const dtuple_t *dtuple, const rec_t *rec,
 
     /* For now, change buffering is only supported on
     indexes with ascending order on the columns. */
-    const bool is_ascending = UNIV_UNLIKELY(dict_index_is_ibuf(index)) ||
+    const bool is_ascending = !index->has_desc_col ||
+                              UNIV_UNLIKELY(dict_index_is_ibuf(index)) ||
                               index->fields[cur_field].is_ascending;
 
     dtuple_b_ptr = static_cast<const byte *>(dfield_get_data(dfield));
@@ -948,7 +950,8 @@ bool cmp_dtuple_is_prefix_of_rec(const dtuple_t *dtuple, const rec_t *rec,
   rec1_b_ptr = rec_get_nth_field_instant(rec1, offsets1, n, index, &rec1_f_len);
   rec2_b_ptr = rec_get_nth_field_instant(rec2, offsets2, n, index, &rec2_f_len);
 
-  return (cmp_data(col->mtype, col->prtype, field->is_ascending, rec1_b_ptr,
+  return (cmp_data(col->mtype, col->prtype,
+                   !index->has_desc_col || field->is_ascending, rec1_b_ptr,
                    rec1_f_len, rec2_b_ptr, rec2_f_len));
 }
 
@@ -1075,7 +1078,7 @@ int cmp_rec_rec_with_match(const rec_t *rec1, const rec_t *rec2,
 
       mtype = col->mtype;
       prtype = col->prtype;
-      is_asc = field->is_ascending;
+      is_asc = !index->has_desc_col || field->is_ascending;
     }
 
     /* If the index is spatial index, we mark the
