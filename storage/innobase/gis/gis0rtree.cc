@@ -268,7 +268,7 @@ bool rtr_update_mbr_field(
   big_rec_t *dummy_big_rec;
   buf_block_t *block;
   rec_t *child_rec;
-  ulint up_match = 0;
+  alignas(ut::INNODB_CACHE_LINE_SIZE) ulint up_match = 0;
   ulint low_match = 0;
   page_no_t child;
   ulint rec_info;
@@ -630,7 +630,7 @@ static void rtr_adjust_upper_level(
       index, new_mbr, page_rec_get_next(page_get_infimum_rec(new_page)),
       new_page_no, heap);
 
-  ulint up_match = 0;
+  alignas(ut::INNODB_CACHE_LINE_SIZE) ulint up_match = 0;
   ulint low_match = 0;
 
   buf_block_t *father_block = btr_cur_get_block(&cursor);

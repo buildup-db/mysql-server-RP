@@ -163,7 +163,7 @@ static inline ulint page_cur_search(const buf_block_t *block,
                                     const dict_index_t *index,
                                     const dtuple_t *tuple, page_cur_mode_t mode,
                                     page_cur_t *cursor) {
-  ulint low_match = 0;
+  alignas(ut::INNODB_CACHE_LINE_SIZE) ulint low_match = 0;
   ulint up_match = 0;
 
   ut_ad(dtuple_check_typed(tuple));
