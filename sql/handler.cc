@@ -2675,7 +2675,7 @@ handler *handler::clone(const char *name, MEM_ROOT *mem_root) {
     when the clone handler object is destroyed.
   */
   if (!(new_handler->ref =
-            (uchar *)mem_root->Alloc(ALIGN_SIZE(ref_length) * 2)))
+            (uchar *)mem_root->AlignedAlloc(ALIGN_SIZE(ref_length) * 2)))
     goto err;
   /*
     TODO: Implement a more efficient way to have more than one index open for
@@ -2822,7 +2822,8 @@ int handler::ha_open(TABLE *table_arg, const char *name, int mode,
     (void)extra(HA_EXTRA_NO_READCHECK);  // Not needed in SQL
 
     /* ref is already allocated for us if we're called from handler::clone() */
-    if (!ref && !(ref = (uchar *)mem_root->Alloc(ALIGN_SIZE(ref_length) * 2))) {
+    if (!ref &&
+        !(ref = (uchar *)mem_root->AlignedAlloc(ALIGN_SIZE(ref_length) * 2))) {
       ha_close();
       error = HA_ERR_OUT_OF_MEM;
     } else

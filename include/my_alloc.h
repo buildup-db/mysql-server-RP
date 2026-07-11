@@ -1,4 +1,5 @@
 /* Copyright (c) 2000, 2025, Oracle and/or its affiliates.
+   Copyright (c) 2026, buildup-db.
 
    This program is free software; you can redistribute it and/or modify
    it under the terms of the GNU General Public License, version 2.0,
@@ -163,6 +164,18 @@ struct MEM_ROOT {
     }
 
     return AllocSlow(length);
+  }
+
+  /**
+    Wrapper for cache line size aligned memory allocation.
+   */
+  void *AlignedAlloc(size_t length) {
+    constexpr unsigned long int est_cache_line_size = 64;
+    length = MY_ALIGN(length, est_cache_line_size) + est_cache_line_size;
+    void *ptr = Alloc(length);
+    if (ptr == nullptr) return nullptr;
+    return (void *)((((unsigned long int)ptr) + est_cache_line_size - 1) &
+                    ~(est_cache_line_size - 1));
   }
 
   /**
