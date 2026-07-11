@@ -187,16 +187,17 @@ static dberr_t row_sel_sec_rec_is_for_clust_rec(
   ulint i;
   mem_heap_t *heap = nullptr;
   ulint clust_offsets_[REC_OFFS_NORMAL_SIZE];
-  ulint sec_offsets_[REC_OFFS_SMALL_SIZE];
-  ulint *clust_offs = clust_offsets_;
-  ulint *sec_offs = sec_offsets_;
+  ulint sec_offsets_[REC_OFFS_SMALL_SIZE +
+                     ut::INNODB_CACHE_LINE_SIZE / sizeof(ulint *)];
+  ulint *clust_offs;
+  ulint *sec_offs;
   trx_t *trx = thr_get_trx(thr);
   dberr_t err = DB_SUCCESS;
 
   is_equal = true;
 
-  rec_offs_init(clust_offsets_);
-  rec_offs_init(sec_offsets_);
+  rec_offs_init_aligned(clust_offsets_, clust_offs);
+  rec_offs_init_aligned(sec_offsets_, sec_offs);
 
   if (rec_get_deleted_flag(clust_rec, dict_table_is_comp(clust_index->table))) {
     /* The clustered index record is delete-marked;
@@ -818,8 +819,8 @@ static inline bool row_sel_test_other_conds(
   dberr_t err;
   mem_heap_t *heap = nullptr;
   ulint offsets_[REC_OFFS_NORMAL_SIZE];
-  ulint *offsets = offsets_;
-  rec_offs_init(offsets_);
+  ulint *offsets;
+  rec_offs_init_aligned(offsets_, offsets);
 
   *out_rec = nullptr;
 
@@ -980,7 +981,8 @@ static inline dberr_t sel_set_rtr_rec_lock(
   rtr_rec_vector *match_rec;
   rtr_rec_vector::iterator end;
 
-  rec_offs_init(offsets_);
+  ulint *offsets_base;
+  rec_offs_init_aligned(offsets_, offsets_base);
 
   if (match->locked || page_rec_is_supremum(first_rec)) {
     return (DB_SUCCESS_LOCKED_REC);
@@ -1063,7 +1065,7 @@ retry:
       }
 
       rec = pcur->get_rec();
-      my_offsets = offsets_;
+      my_offsets = offsets_base;
       my_offsets = rec_get_offsets(rec, index, my_offsets, ULINT_UNDEFINED,
                                    UT_LOCATION_HERE, &heap);
 
@@ -1082,7 +1084,7 @@ retry:
   }
 
 lock_match:
-  my_offsets = offsets_;
+  my_offsets = offsets_base;
   match_rec = match->matched_recs;
   end = match_rec->end();
 
@@ -1355,9 +1357,9 @@ static ulint row_sel_try_search_shortcut(
   rec_t *rec;
   mem_heap_t *heap = nullptr;
   ulint offsets_[REC_OFFS_NORMAL_SIZE];
-  ulint *offsets = offsets_;
+  ulint *offsets;
   ulint ret;
-  rec_offs_init(offsets_);
+  rec_offs_init_aligned(offsets_, offsets);
 
   index = plan->index;
 
@@ -1473,8 +1475,8 @@ func_exit:
   dberr_t err;
   mem_heap_t *heap = nullptr;
   ulint offsets_[REC_OFFS_NORMAL_SIZE];
-  ulint *offsets = offsets_;
-  rec_offs_init(offsets_);
+  ulint *offsets;
+  rec_offs_init_aligned(offsets_, offsets);
 
   ut_ad(thr->run_node == node);
 
@@ -4001,8 +4003,8 @@ dberr_t row_search_no_mvcc(byte *buf, page_cur_mode_t mode,
 
   mem_heap_t *heap = nullptr;
   ulint offsets_[REC_OFFS_NORMAL_SIZE];
-  ulint *offsets = offsets_;
-  rec_offs_init(offsets_);
+  ulint *offsets;
+  rec_offs_init_aligned(offsets_, offsets);
   ut_ad(index && pcur && search_tuple);
 
   /* Step-0: Re-use the cached mtr. */
@@ -4250,8 +4252,8 @@ dberr_t row_search_no_mvcc(byte *buf, page_cur_mode_t mode,
 static void row_sel_fill_vrow(const rec_t *rec, dict_index_t *index,
                               const dtuple_t **vrow, mem_heap_t *heap) {
   ulint offsets_[REC_OFFS_NORMAL_SIZE];
-  ulint *offsets = offsets_;
-  rec_offs_init(offsets_);
+  ulint *offsets;
+  rec_offs_init_aligned(offsets_, offsets);
 
   ut_ad(!(*vrow));
 
@@ -4372,7 +4374,7 @@ dberr_t row_search_mvcc(byte *buf, page_cur_mode_t mode,
   mtr_t mtr;
   mem_heap_t *heap = nullptr;
   ulint offsets_[REC_OFFS_NORMAL_SIZE];
-  ulint *offsets = offsets_;
+  ulint *offsets;
   ulint sec_offsets_[REC_OFFS_NORMAL_SIZE];
   ulint *sec_offsets = nullptr;
   bool table_lock_waited = false;
@@ -4380,7 +4382,7 @@ dberr_t row_search_mvcc(byte *buf, page_cur_mode_t mode,
   bool spatial_search = false;
   ulint end_loop = 0;
 
-  rec_offs_init(offsets_);
+  rec_offs_init_aligned(offsets_, offsets);
 
   ut_ad(index && pcur && search_tuple);
   ut_a(prebuilt->magic_n == ROW_PREBUILT_ALLOCATED);
@@ -5590,8 +5592,7 @@ rec_loop:
         if (clust_templ_for_sec &&
             prebuilt->m_mysql_handler->m_virt_gcol_in_end_range) {
           if (sec_offsets == nullptr) {
-            rec_offs_init(sec_offsets_);
-            sec_offsets = sec_offsets_;
+            rec_offs_init_aligned(sec_offsets_, sec_offsets);
           }
           sec_offsets =
               rec_get_offsets(rec, index, sec_offsets, ULINT_UNDEFINED,
@@ -6144,9 +6145,9 @@ static uint64_t row_search_autoinc_read_column(
   uint64_t value;
   mem_heap_t *heap = nullptr;
   ulint offsets_[REC_OFFS_NORMAL_SIZE];
-  ulint *offsets = offsets_;
+  ulint *offsets;
 
-  rec_offs_init(offsets_);
+  rec_offs_init_aligned(offsets_, offsets);
 
   offsets =
       rec_get_offsets(rec, index, offsets, col_no + 1, UT_LOCATION_HERE, &heap);

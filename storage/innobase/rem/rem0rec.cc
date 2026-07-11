@@ -1133,11 +1133,11 @@ rec_t *rec_convert_dtuple_to_rec(
   if (UNIV_LIKELY(!index->has_instant_cols_or_row_versions())) {
     mem_heap_t *heap = nullptr;
     ulint offsets_[REC_OFFS_NORMAL_SIZE];
-    const ulint *offsets;
+    ulint *offsets;
     ulint i;
-    rec_offs_init(offsets_);
+    rec_offs_init_aligned(offsets_, offsets);
 
-    offsets = rec_get_offsets(rec, index, offsets_, ULINT_UNDEFINED,
+    offsets = rec_get_offsets(rec, index, offsets, ULINT_UNDEFINED,
                               UT_LOCATION_HERE, &heap);
     ut_ad(rec_validate(rec, offsets));
     ut_ad(dtuple_get_n_fields(dtuple) == rec_offs_n_fields(offsets));
@@ -1203,8 +1203,8 @@ void rec_copy_prefix_to_dtuple(
 {
   ulint i;
   ulint offsets_[REC_OFFS_NORMAL_SIZE];
-  ulint *offsets = offsets_;
-  rec_offs_init(offsets_);
+  ulint *offsets;
+  rec_offs_init_aligned(offsets_, offsets);
 
   offsets =
       rec_get_offsets(rec, index, offsets, n_fields, UT_LOCATION_HERE, &heap);
@@ -1790,10 +1790,11 @@ void rec_print(FILE *file, const rec_t *rec, const dict_index_t *index) {
   } else {
     mem_heap_t *heap = nullptr;
     ulint offsets_[REC_OFFS_NORMAL_SIZE];
-    rec_offs_init(offsets_);
+    ulint *offsets;
+    rec_offs_init_aligned(offsets_, offsets);
 
     rec_print_new(file, rec,
-                  rec_get_offsets(rec, index, offsets_, ULINT_UNDEFINED,
+                  rec_get_offsets(rec, index, offsets, ULINT_UNDEFINED,
                                   UT_LOCATION_HERE, &heap));
     if (UNIV_LIKELY_NULL(heap)) {
       mem_heap_free(heap);
@@ -1889,8 +1890,8 @@ trx_id_t rec_get_trx_id(const rec_t *rec,          /*!< in: record */
   ulint len;
   mem_heap_t *heap = nullptr;
   ulint offsets_[REC_OFFS_NORMAL_SIZE];
-  ulint *offsets = offsets_;
-  rec_offs_init(offsets_);
+  ulint *offsets;
+  rec_offs_init_aligned(offsets_, offsets);
 
   ut_ad(index->is_clustered());
   ut_ad(trx_id_col > 0);

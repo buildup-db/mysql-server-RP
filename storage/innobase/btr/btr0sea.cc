@@ -619,7 +619,8 @@ static void btr_search_update_hash_ref(const btr_search_t *info,
       (block->curr_left_side == info->left_side)) {
     mem_heap_t *heap = nullptr;
     ulint offsets_[REC_OFFS_NORMAL_SIZE];
-    rec_offs_init(offsets_);
+    ulint *offsets;
+    rec_offs_init_aligned(offsets_, offsets);
 
     rec = btr_cur_get_rec(cursor);
 
@@ -629,7 +630,7 @@ static void btr_search_update_hash_ref(const btr_search_t *info,
 
     const auto hash_value =
         rec_hash(rec,
-                 rec_get_offsets(rec, index, offsets_, ULINT_UNDEFINED,
+                 rec_get_offsets(rec, index, offsets, ULINT_UNDEFINED,
                                  UT_LOCATION_HERE, &heap),
                  block->curr_n_fields, block->curr_n_bytes,
                  btr_search_hash_index_id(index), index);
@@ -712,9 +713,9 @@ static ALWAYS_INLINE bool btr_search_check_guess(
   int cmp;
   mem_heap_t *heap = nullptr;
   ulint offsets_[REC_OFFS_NORMAL_SIZE];
-  ulint *offsets = offsets_;
+  ulint *offsets;
   bool success = false;
-  rec_offs_init(offsets_);
+  rec_offs_init_aligned(offsets_, offsets);
 
   n_unique = dict_index_get_n_unique_in_tree(cursor->index);
 
@@ -1409,13 +1410,13 @@ static void btr_search_build_page_hash_index(dict_index_t *index,
   ulint i;
   mem_heap_t *heap = nullptr;
   ulint offsets_[REC_OFFS_NORMAL_SIZE];
-  ulint *offsets = offsets_;
+  ulint *offsets;
 
   if (UNIV_UNLIKELY(index->disable_ahi) || UNIV_UNLIKELY(!btr_search_enabled)) {
     return;
   }
 
-  rec_offs_init(offsets_);
+  rec_offs_init_aligned(offsets_, offsets);
   ut_ad(index);
   ut_ad(block->page.id.space() == index->space);
   ut_a(!dict_index_is_ibuf(index));
@@ -1644,7 +1645,8 @@ void btr_search_update_hash_on_delete(btr_cur_t *cursor) {
   dict_index_t *index;
   ulint offsets_[REC_OFFS_NORMAL_SIZE];
   mem_heap_t *heap = nullptr;
-  rec_offs_init(offsets_);
+  ulint *offsets;
+  rec_offs_init_aligned(offsets_, offsets);
 
   if (UNIV_UNLIKELY(cursor->index->disable_ahi) ||
       UNIV_UNLIKELY(!btr_search_enabled)) {
@@ -1671,12 +1673,12 @@ void btr_search_update_hash_on_delete(btr_cur_t *cursor) {
 
   rec = btr_cur_get_rec(cursor);
 
-  const auto hash_value = rec_hash(rec,
-                                   rec_get_offsets(rec, index, offsets_,
-                                                   ULINT_UNDEFINED,
-                                                   UT_LOCATION_HERE, &heap),
-                                   block->curr_n_fields, block->curr_n_bytes,
-                                   btr_search_hash_index_id(index), index);
+  const auto hash_value =
+      rec_hash(rec,
+               rec_get_offsets(rec, index, offsets, ULINT_UNDEFINED,
+                               UT_LOCATION_HERE, &heap),
+               block->curr_n_fields, block->curr_n_bytes,
+               btr_search_hash_index_id(index), index);
   if (UNIV_LIKELY_NULL(heap)) {
     mem_heap_free(heap);
   }
@@ -1777,8 +1779,8 @@ void btr_search_update_hash_on_insert(btr_cur_t *cursor) {
   bool locked = false;
   mem_heap_t *heap = nullptr;
   ulint offsets_[REC_OFFS_NORMAL_SIZE];
-  ulint *offsets = offsets_;
-  rec_offs_init(offsets_);
+  ulint *offsets;
+  rec_offs_init_aligned(offsets_, offsets);
 
   if (UNIV_UNLIKELY(cursor->index->disable_ahi) ||
       UNIV_UNLIKELY(!btr_search_enabled)) {
@@ -1924,7 +1926,7 @@ static bool btr_search_hash_table_validate(ulint hash_table_id) {
   ulint cell_count;
   mem_heap_t *heap = nullptr;
   ulint offsets_[REC_OFFS_NORMAL_SIZE];
-  ulint *offsets = offsets_;
+  ulint *offsets;
 
   if (UNIV_UNLIKELY(!btr_search_enabled)) {
     return true;
@@ -1934,7 +1936,7 @@ static bool btr_search_hash_table_validate(ulint hash_table_id) {
   search latches. */
   ulint chunk_size = 10000;
 
-  rec_offs_init(offsets_);
+  rec_offs_init_aligned(offsets_, offsets);
 
   btr_search_x_lock_all(UT_LOCATION_HERE);
 

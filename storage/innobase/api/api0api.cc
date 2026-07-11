@@ -274,7 +274,7 @@ static ib_err_t ib_read_tuple(
   rec_t *copy;
   ulint rec_meta_data;
   ulint offsets_[REC_OFFS_NORMAL_SIZE];
-  ulint *offsets = offsets_;
+  ulint *offsets;
   dtuple_t *dtuple = tuple->ptr;
   const dict_index_t *index = tuple->index;
   ulint offset_size;
@@ -282,7 +282,7 @@ static ib_err_t ib_read_tuple(
   int cmp;
   ulint match = 0;
 
-  rec_offs_init(offsets_);
+  rec_offs_init_aligned(offsets_, offsets);
 
   offsets = rec_get_offsets(rec, index, offsets, ULINT_UNDEFINED,
                             UT_LOCATION_HERE, &tuple->heap);
@@ -1562,9 +1562,9 @@ ib_err_t ib_cursor_delete_row(
     if (pcur->restore_position(BTR_SEARCH_LEAF, &mtr, UT_LOCATION_HERE)) {
       mem_heap_t *heap = nullptr;
       ulint offsets_[REC_OFFS_NORMAL_SIZE];
-      ulint *offsets = offsets_;
+      ulint *offsets;
 
-      rec_offs_init(offsets_);
+      rec_offs_init_aligned(offsets_, offsets);
 
       rec = pcur->get_rec();
 

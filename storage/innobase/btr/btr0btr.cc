@@ -1938,8 +1938,8 @@ void btr_insert_on_non_leaf_level(uint32_t flags, dict_index_t *index,
   rec_t *rec;
   mem_heap_t *heap = nullptr;
   ulint offsets_[REC_OFFS_NORMAL_SIZE];
-  ulint *offsets = offsets_;
-  rec_offs_init(offsets_);
+  ulint *offsets;
+  rec_offs_init_aligned(offsets_, offsets);
   rtr_info_t rtr_info;
 
   ut_ad(level > 0);
@@ -3766,8 +3766,8 @@ void btr_print_index(dict_index_t *index, /*!< in: index */
   buf_block_t *root;
   mem_heap_t *heap = NULL;
   ulint offsets_[REC_OFFS_NORMAL_SIZE];
-  ulint *offsets = offsets_;
-  rec_offs_init(offsets_);
+  ulint *offsets;
+  rec_offs_init_aligned(offsets_, offsets);
 
   fputs(
       "--------------------------\n"
@@ -3864,8 +3864,8 @@ bool btr_index_rec_validate(const rec_t *rec,          /*!< in: index record */
   const page_t *page;
   mem_heap_t *heap = nullptr;
   ulint offsets_[REC_OFFS_NORMAL_SIZE];
-  ulint *offsets = offsets_;
-  rec_offs_init(offsets_);
+  ulint *offsets;
+  rec_offs_init_aligned(offsets_, offsets);
 
   page = page_align(rec);
 

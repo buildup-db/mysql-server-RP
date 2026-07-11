@@ -490,7 +490,7 @@ static inline dtuple_t *dtuple_create_with_vcol(mem_heap_t *heap,
   ut_ad(heap);
 
   buf_size = DTUPLE_EST_ALLOC(n_fields + n_v_fields);
-  buf = mem_heap_zalloc(heap, buf_size);
+  buf = mem_heap_zalloc(heap, buf_size, ut::INNODB_CACHE_LINE_SIZE);
 
   tuple = dtuple_create_from_mem(buf, buf_size, n_fields, n_v_fields);
 

@@ -200,9 +200,9 @@ dberr_t Parallel_reader_adapter::process_rows(
 
   mem_heap_t *heap{};
   ulint offsets_[REC_OFFS_NORMAL_SIZE];
-  ulint *offsets = offsets_;
+  ulint *offsets;
 
-  rec_offs_init(offsets_);
+  rec_offs_init_aligned(offsets_, offsets);
 
   offsets = rec_get_offsets(reader_ctx->m_rec, reader_ctx->index(), offsets,
                             ULINT_UNDEFINED, UT_LOCATION_HERE, &heap);

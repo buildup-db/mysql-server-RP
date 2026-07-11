@@ -267,6 +267,12 @@ columns.
 #define rec_offs_init(offsets) \
   rec_offs_set_n_alloc(offsets, (sizeof offsets) / sizeof *offsets)
 
+#define rec_offs_init_aligned(ARRAY, PTR)                                     \
+  PTR = (ulint *)ut_align((void *)ARRAY, ut::INNODB_CACHE_LINE_SIZE);         \
+  ut_ad(sizeof(ARRAY) / sizeof(ulint *) >                                     \
+        ut::INNODB_CACHE_LINE_SIZE / sizeof(ulint *) + REC_OFFS_HEADER_SIZE); \
+  rec_offs_set_n_alloc(PTR, sizeof(ARRAY) / sizeof(ulint *) - (PTR - ARRAY));
+
 /**
 A helper RAII wrapper for otherwise difficult to use sequence of:
 

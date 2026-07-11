@@ -356,7 +356,6 @@ static inline dtuple_t *row_build_low(ulint type, const dict_index_t *index,
   ulint j;
   mem_heap_t *tmp_heap = nullptr;
   ulint offsets_[REC_OFFS_NORMAL_SIZE];
-  rec_offs_init(offsets_);
 
   ut_ad(index != nullptr);
   ut_ad(rec != nullptr);
@@ -366,7 +365,9 @@ static inline dtuple_t *row_build_low(ulint type, const dict_index_t *index,
   ut_ad(!col_map || col_table);
 
   if (!offsets) {
-    offsets = rec_get_offsets(rec, index, offsets_, ULINT_UNDEFINED,
+    ulint *offsets_tmp;
+    rec_offs_init_aligned(offsets_, offsets_tmp);
+    offsets = rec_get_offsets(rec, index, offsets_tmp, ULINT_UNDEFINED,
                               UT_LOCATION_HERE, &tmp_heap);
   } else {
     ut_ad(rec_offs_validate(rec, index, offsets));
@@ -682,8 +683,8 @@ dtuple_t *row_build_row_ref(
   ulint i;
   mem_heap_t *tmp_heap = nullptr;
   ulint offsets_[REC_OFFS_NORMAL_SIZE];
-  ulint *offsets = offsets_;
-  rec_offs_init(offsets_);
+  ulint *offsets;
+  rec_offs_init_aligned(offsets_, offsets);
 
   ut_ad(index != nullptr);
   ut_ad(rec != nullptr);
@@ -764,7 +765,6 @@ void row_build_row_ref_in_tuple(dtuple_t *ref, const rec_t *rec,
   ulint i;
   mem_heap_t *heap = nullptr;
   ulint offsets_[REC_OFFS_NORMAL_SIZE];
-  rec_offs_init(offsets_);
 
   ut_a(ref);
   ut_a(index);
@@ -776,7 +776,9 @@ void row_build_row_ref_in_tuple(dtuple_t *ref, const rec_t *rec,
   ut_ad(clust_index);
 
   if (UNIV_UNLIKELY(!offsets)) {
-    offsets = rec_get_offsets(rec, index, offsets_, ULINT_UNDEFINED,
+    ulint *offsets_tmp;
+    rec_offs_init_aligned(offsets_, offsets_tmp);
+    offsets = rec_get_offsets(rec, index, offsets_tmp, ULINT_UNDEFINED,
                               UT_LOCATION_HERE, &heap);
   } else {
     ut_ad(rec_offs_validate(rec, index, offsets));

@@ -1276,13 +1276,13 @@ static dberr_t row_explicit_rollback(dict_index_t *index, const dtuple_t *entry,
   mem_heap_t *heap = nullptr;
   dberr_t err;
 
-  rec_offs_init(offsets_);
+  rec_offs_init_aligned(offsets_, offsets);
   flags = BTR_NO_LOCKING_FLAG | BTR_NO_UNDO_LOG_FLAG;
 
   btr_cur_search_to_nth_level_with_no_latch(index, 0, entry, PAGE_CUR_LE,
                                             &cursor, __FILE__, __LINE__, mtr);
 
-  offsets = rec_get_offsets(btr_cur_get_rec(&cursor), index, offsets_,
+  offsets = rec_get_offsets(btr_cur_get_rec(&cursor), index, offsets,
                             ULINT_UNDEFINED, UT_LOCATION_HERE, &heap);
 
   if (index->is_clustered()) {
@@ -1910,10 +1910,10 @@ static dberr_t row_update_inplace_for_intrinsic(const upd_node_t *node) {
   mem_heap_t *heap = node->heap;
   dtuple_t *entry = node->row;
   ulint offsets_[REC_OFFS_NORMAL_SIZE];
-  ulint *offsets = offsets_;
+  ulint *offsets;
 
   ut_ad(table->is_intrinsic());
-  rec_offs_init(offsets_);
+  rec_offs_init_aligned(offsets_, offsets);
   mtr_start(&mtr);
   mtr_set_log_mode(&mtr, MTR_LOG_NO_REDO);
   btr_pcur_t pcur;
@@ -1994,8 +1994,8 @@ static dberr_t row_delete_for_mysql_using_cursor(const upd_node_t *node,
 
 #ifdef UNIV_DEBUG
     ulint offsets_[REC_OFFS_NORMAL_SIZE];
-    ulint *offsets = offsets_;
-    rec_offs_init(offsets_);
+    ulint *offsets;
+    rec_offs_init_aligned(offsets_, offsets);
 
     offsets =
         rec_get_offsets(btr_cur_get_rec(pcur.get_btr_cur()), index, offsets,
@@ -4606,9 +4606,11 @@ skip_parallel_read:
   ulint matched_fields;
   dtuple_t *prev_entry = nullptr;
   ulint offsets_[REC_OFFS_NORMAL_SIZE];
+  ulint *offsets_base;
   ulint *offsets;
 
-  rec_offs_init(offsets_);
+  rec_offs_init_aligned(offsets_, offsets_base);
+  offsets = offsets_base;
 
   ulint cnt = 1000;
   ulint bufsize = std::max(UNIV_PAGE_SIZE, prebuilt->mysql_row_len);
@@ -4667,7 +4669,7 @@ loop:
 
   rec = buf + mach_read_from_4(buf);
 
-  offsets = rec_get_offsets(rec, index, offsets_, ULINT_UNDEFINED,
+  offsets = rec_get_offsets(rec, index, offsets, ULINT_UNDEFINED,
                             UT_LOCATION_HERE, &heap);
 
   if (prev_entry != nullptr) {
@@ -4714,12 +4716,17 @@ loop:
     /* Empty the heap on each round.  But preserve offsets[]
     for the row_rec_to_index_entry() call, by copying them
     into a separate memory heap when needed. */
-    if (UNIV_UNLIKELY(offsets != offsets_)) {
+    if (UNIV_UNLIKELY(offsets != offsets_base)) {
       ulint size = rec_offs_get_n_alloc(offsets) * sizeof *offsets;
 
-      tmp_heap = mem_heap_create(size, UT_LOCATION_HERE);
-
-      offsets = static_cast<ulint *>(mem_heap_dup(tmp_heap, offsets, size));
+      tmp_heap =
+          mem_heap_create(ut_uint64_align_up(size, ut::INNODB_CACHE_LINE_SIZE) +
+                              ut::INNODB_CACHE_LINE_SIZE,
+                          UT_LOCATION_HERE);
+      ulint *offsets_new = static_cast<ulint *>(
+          mem_heap_alloc(tmp_heap, size, ut::INNODB_CACHE_LINE_SIZE));
+      memcpy(offsets_new, offsets, size);
+      offsets = offsets_new;
     }
 
     mem_heap_empty(heap);

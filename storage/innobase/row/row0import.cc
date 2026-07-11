@@ -2255,8 +2255,7 @@ PageConverter::PageConverter(row_import *cfg, trx_t *trx)
   m_current_lsn = log_sys->flushed_to_disk_lsn;
   ut_a(m_current_lsn > 0);
 
-  m_offsets = m_offsets_;
-  rec_offs_init(m_offsets_);
+  rec_offs_init_aligned(m_offsets_, m_offsets);
 
   m_cluster_index = m_cfg->m_table->first_index();
 }

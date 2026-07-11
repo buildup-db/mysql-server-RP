@@ -1491,7 +1491,7 @@ bool rtr_cur_search_with_match(const buf_block_t *block, dict_index_t *index,
   const rec_t *rec;
   const rec_t *last_rec;
   ulint offsets_[REC_OFFS_NORMAL_SIZE];
-  ulint *offsets = offsets_;
+  ulint *offsets;
   mem_heap_t *heap = nullptr;
   int cmp = 1;
   bool is_leaf;
@@ -1504,7 +1504,7 @@ bool rtr_cur_search_with_match(const buf_block_t *block, dict_index_t *index,
   page_cur_mode_t orig_mode = mode;
   const rec_t *first_rec = nullptr;
 
-  rec_offs_init(offsets_);
+  rec_offs_init_aligned(offsets_, offsets);
 
   ut_ad(RTREE_SEARCH_MODE(mode));
 
@@ -1743,8 +1743,8 @@ bool rtr_cur_search_with_match(const buf_block_t *block, dict_index_t *index,
       test_rec = match_rec->matched_recs->back();
 #ifdef UNIV_DEBUG
       ulint offsets_2[REC_OFFS_NORMAL_SIZE];
-      ulint *offsets2 = offsets_2;
-      rec_offs_init(offsets_2);
+      ulint *offsets2;
+      rec_offs_init_aligned(offsets_2, offsets2);
 
       ut_ad(found);
 
