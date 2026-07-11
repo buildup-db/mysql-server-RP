@@ -291,14 +291,14 @@ dict_index_t *dict_mem_index_create(
   ut_ad(table_name && index_name);
 
 #ifndef UNIV_LIBRARY
-  /** NOTE: In NUMA environment, it appears that performance is more stable when
-    the dict_index_t::lock is placed at separated OS page from dict_field_t,
-    dict_col_t and the other dict_index_t members. Setting the alignment to 4096
-    (OS page size) was an experimental value enough to separate their
-    allocations enough. */
+  /** NOTE: Based on experimental findings,
+    in situations where dict_index_t::lock is heavily used, placing other
+    frequently accessed data on a different OS page from the dict_index_t seems
+    to result in more stable performance. Furthermore, in NUMA environment,
+    placing dict_index_t members other than dict_index_t::lock on a different OS
+    page also seems to result in more stable performance. */
   constexpr size_t est_os_page_size = 4096;
-  const size_t alignment =
-      srv_numa_interleave ? est_os_page_size : ut::INNODB_CACHE_LINE_SIZE;
+  const size_t alignment = est_os_page_size;
   const size_t alloc_size =
       sizeof(*index) + (srv_numa_interleave ? alignment : 0);
 #else

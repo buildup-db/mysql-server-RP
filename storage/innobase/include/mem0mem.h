@@ -325,6 +325,7 @@ struct mem_block_info_t {
                     user data in the block */
   ulint start;      /*!< the value of the struct field 'free' at the
                     creation of the block */
+  ulint gap_end;
   void *free_block;
   /* if the MEM_HEAP_BTR_SEARCH bit is set in type,
   and this is the heap root, this can contain an
