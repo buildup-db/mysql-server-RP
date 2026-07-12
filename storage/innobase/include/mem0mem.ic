@@ -297,10 +297,6 @@ static inline void mem_heap_free_heap_top(mem_heap_t *heap, byte *old_top) {
     return;
   }
 
-  /* Not support aligned allocation except for whole freeing, for now */
-  ut_ad(old_top == (byte *)block + mem_block_get_start(block) ||
-        block->gap_end == 0);
-
 #ifdef UNIV_DEBUG
   validate_no_mans_land(old_top, MEM_NO_MANS_LAND_BEFORE_BYTE);
   validate_no_mans_land(
@@ -316,9 +312,14 @@ static inline void mem_heap_free_heap_top(mem_heap_t *heap, byte *old_top) {
   /* If free == start, we may free the block if it is not the first
   one */
 
-  if ((heap != block) &&
-      (mem_block_get_free(block) == mem_block_get_start(block))) {
-    mem_heap_block_free(heap, block);
+  if (mem_block_get_free(block) == mem_block_get_start(block)) {
+    block->gap_end = 0;
+    if (heap != block) {
+      mem_heap_block_free(heap, block);
+    }
+  } else {
+    /* Not support aligned allocation for now */
+    ut_ad(block->gap_end == 0);
   }
 }
 
