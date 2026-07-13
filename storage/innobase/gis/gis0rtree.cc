@@ -268,8 +268,7 @@ bool rtr_update_mbr_field(
   big_rec_t *dummy_big_rec;
   buf_block_t *block;
   rec_t *child_rec;
-  alignas(ut::INNODB_CACHE_LINE_SIZE) ulint up_match = 0;
-  ulint low_match = 0;
+  alignas(ut::INNODB_CACHE_LINE_SIZE) page_cur_match_fld_t match = {0, 0};
   page_no_t child;
   ulint rec_info;
   page_zip_des_t *page_zip;
@@ -438,9 +437,8 @@ bool rtr_update_mbr_field(
     }
 
     /* Insert the new rec. */
-    page_cur_search_with_match(block, index, node_ptr, PAGE_CUR_LE, &up_match,
-                               &low_match, btr_cur_get_page_cur(cursor),
-                               nullptr);
+    page_cur_search_with_match(block, index, node_ptr, PAGE_CUR_LE, &match,
+                               btr_cur_get_page_cur(cursor), nullptr);
 
     err = btr_cur_optimistic_insert(flags, cursor, &insert_offsets, &heap,
                                     node_ptr, &insert_rec, &dummy_big_rec,
@@ -630,14 +628,12 @@ static void rtr_adjust_upper_level(
       index, new_mbr, page_rec_get_next(page_get_infimum_rec(new_page)),
       new_page_no, heap);
 
-  alignas(ut::INNODB_CACHE_LINE_SIZE) ulint up_match = 0;
-  ulint low_match = 0;
+  alignas(ut::INNODB_CACHE_LINE_SIZE) page_cur_match_fld_t match = {0, 0};
 
   buf_block_t *father_block = btr_cur_get_block(&cursor);
 
   page_cur_search_with_match(father_block, index, node_ptr_upper, PAGE_CUR_LE,
-                             &up_match, &low_match,
-                             btr_cur_get_page_cur(&cursor), nullptr);
+                             &match, btr_cur_get_page_cur(&cursor), nullptr);
 
   err = btr_cur_optimistic_insert(
       flags | BTR_NO_LOCKING_FLAG | BTR_KEEP_SYS_FLAG | BTR_NO_UNDO_LOG_FLAG,

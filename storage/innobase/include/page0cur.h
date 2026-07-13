@@ -47,6 +47,9 @@ this program; if not, write to the Free Software Foundation, Inc.,
 
 #define PAGE_CUR_ADAPT
 
+struct page_cur_match_fld_t;
+struct page_cur_match_t;
+
 #ifdef UNIV_DEBUG
 /** Gets pointer to the page frame where the cursor is positioned.
  @return page */
@@ -244,17 +247,13 @@ static inline ulint page_cur_search(const buf_block_t *block,
 @param[in] index Record descriptor
 @param[in] tuple Data tuple
 @param[in] mode PAGE_CUR_L, PAGE_CUR_LE, PAGE_CUR_G, or PAGE_CUR_GE
-@param[in,out] iup_matched_fields Already matched fields in upper limit record
-@param[in,out] ilow_matched_fields Already matched fields in lower limit record
+@param[in,out] matched Already matched fields
 @param[out] cursor Page cursor
 @param[in,out] rtr_info Rtree search stack */
 void page_cur_search_with_match(const buf_block_t *block,
                                 const dict_index_t *index,
                                 const dtuple_t *tuple, page_cur_mode_t mode,
-                                ulint *iup_matched_fields,
-
-                                ulint *ilow_matched_fields,
-
+                                page_cur_match_fld_t *matched,
                                 page_cur_t *cursor, rtr_info_t *rtr_info);
 
 /** Search the right position for a page cursor.
@@ -262,19 +261,11 @@ void page_cur_search_with_match(const buf_block_t *block,
 @param[in]      index                   index tree
 @param[in]      tuple                   key to be searched for
 @param[in]      mode                    search mode
-@param[in,out]  iup_matched_fields      already matched fields in the
-upper limit record
-@param[in,out]  iup_matched_bytes       already matched bytes in the
-first partially matched field in the upper limit record
-@param[in,out]  ilow_matched_fields     already matched fields in the
-lower limit record
-@param[in,out]  ilow_matched_bytes      already matched bytes in the
-first partially matched field in the lower limit record
+@param[in,out]  matched                 already matched fields and bytes
 @param[out]     cursor                  page cursor */
 void page_cur_search_with_match_bytes(
     const buf_block_t *block, const dict_index_t *index, const dtuple_t *tuple,
-    page_cur_mode_t mode, ulint *iup_matched_fields, ulint *iup_matched_bytes,
-    ulint *ilow_matched_fields, ulint *ilow_matched_bytes, page_cur_t *cursor);
+    page_cur_mode_t mode, page_cur_match_t *matched, page_cur_t *cursor);
 /** Positions a page cursor on a randomly chosen user record on a page. If there
  are no user records, sets the cursor on the infimum record. */
 void page_cur_open_on_rnd_user_rec(buf_block_t *block,  /*!< in: page */
@@ -329,6 +320,23 @@ struct page_cur_t {
   buf_block_t *block{nullptr};
 };
 
+/** Already matched fields */
+struct page_cur_match_fld_t {
+  /* already matched fields in the upper limit record */
+  ulint up_fields;
+  /* already matched fields in the lower limit record */
+  ulint low_fields;
+};
+
+/** Already matched fields and bytes */
+struct page_cur_match_t : page_cur_match_fld_t {
+  /* already matched bytes in the first partially matched field in the upper
+  limit record */
+  ulint up_bytes;
+  /* already matched bytes in the first partially matched field in the lower
+  limit record */
+  ulint low_bytes;
+};
 #include "page0cur.ic"
 
 #endif

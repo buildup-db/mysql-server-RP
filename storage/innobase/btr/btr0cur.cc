@@ -646,10 +646,7 @@ void btr_cur_search_to_nth_level(
   page_t *page = nullptr; /* remove warning */
   buf_block_t *block;
   ulint height;
-  alignas(ut::INNODB_CACHE_LINE_SIZE) ulint up_match;
-  ulint up_bytes;
-  ulint low_match;
-  ulint low_bytes;
+  alignas(ut::INNODB_CACHE_LINE_SIZE) page_cur_match_t match;
   ulint savepoint;
   ulint rw_latch;
   page_cur_mode_t page_mode;
@@ -887,10 +884,10 @@ void btr_cur_search_to_nth_level(
     node_ptr_max_size = dict_index_node_ptr_max_size(index);
   }
 
-  up_match = 0;
-  up_bytes = 0;
-  low_match = 0;
-  low_bytes = 0;
+  match.up_fields = 0;
+  match.low_fields = 0;
+  match.up_bytes = 0;
+  match.low_bytes = 0;
 
   height = ULINT_UNDEFINED;
 
@@ -1209,8 +1206,8 @@ retry_page_get:
       need_path = false;
     }
 
-    up_match = 0;
-    low_match = 0;
+    match.up_fields = 0;
+    match.low_fields = 0;
 
     if (latch_mode == BTR_MODIFY_TREE || latch_mode == BTR_CONT_MODIFY_TREE ||
         latch_mode == BTR_CONT_SEARCH_TREE) {
@@ -1249,15 +1246,14 @@ retry_page_get:
     for leaf pages (height==0), but not in r-trees.
     We only need the byte prefix comparison for the purpose
     of updating the adaptive hash index. */
-    page_cur_search_with_match_bytes(block, index, tuple, page_mode, &up_match,
-                                     &up_bytes, &low_match, &low_bytes,
+    page_cur_search_with_match_bytes(block, index, tuple, page_mode, &match,
                                      page_cursor);
   } else {
     /* Search for complete index fields. */
-    up_bytes = low_bytes = 0;
+    match.up_bytes = match.low_bytes = 0;
     page_cur_search_with_match(
-        block, index, tuple, page_mode, &up_match, &low_match, page_cursor,
-        UNIV_UNLIKELY(need_path) ? cursor->rtr_info : nullptr);
+        block, index, tuple, page_mode, (page_cur_match_fld_t *)&match,
+        page_cursor, UNIV_UNLIKELY(need_path) ? cursor->rtr_info : nullptr);
   }
 
   if (estimate) {
@@ -1326,8 +1322,8 @@ retry_page_get:
       lock_intention = BTR_INTENTION_BOTH;
 
       page_id.reset(space, dict_index_get_page(index));
-      up_match = 0;
-      low_match = 0;
+      match.up_fields = 0;
+      match.low_fields = 0;
       height = ULINT_UNDEFINED;
 
       n_blocks = 0;
@@ -1397,8 +1393,8 @@ retry_page_get:
     with blocking the another search with the same key value. */
     if (!detected_same_key_root && lock_intention == BTR_INTENTION_BOTH &&
         !dict_index_is_unique(index) && latch_mode == BTR_MODIFY_TREE &&
-        (up_match >= rec_offs_n_fields(offsets) - 1 ||
-         low_match >= rec_offs_n_fields(offsets) - 1)) {
+        (match.up_fields >= rec_offs_n_fields(offsets) - 1 ||
+         match.low_fields >= rec_offs_n_fields(offsets) - 1)) {
       const rec_t *first_rec =
           page_rec_get_next_const(page_get_infimum_rec(page));
       ulint matched_fields;
@@ -1523,14 +1519,14 @@ retry_page_get:
         ut_ad(n_releases == 0);
 
         /* replay up_match, low_match */
-        up_match = 0;
-        low_match = 0;
+        match.up_fields = 0;
+        match.low_fields = 0;
         rtr_info_t *rtr_info = need_path ? cursor->rtr_info : nullptr;
 
         for (ulint i = 0; i < n_blocks; i++) {
           page_cur_search_with_match(tree_blocks[i], index, tuple, page_mode,
-                                     &up_match, &low_match, page_cursor,
-                                     rtr_info);
+                                     (page_cur_match_fld_t *)&match,
+                                     page_cursor, rtr_info);
         }
 
         goto search_loop;
@@ -1642,14 +1638,14 @@ retry_page_get:
     }
 
     if (page_mode <= PAGE_CUR_LE) {
-      cursor->low_match = low_match;
-      cursor->up_match = up_match;
+      cursor->low_match = match.low_fields;
+      cursor->up_match = match.up_fields;
     }
   } else {
-    cursor->low_match = low_match;
-    cursor->low_bytes = low_bytes;
-    cursor->up_match = up_match;
-    cursor->up_bytes = up_bytes;
+    cursor->low_match = match.low_fields;
+    cursor->low_bytes = match.low_bytes;
+    cursor->up_match = match.up_fields;
+    cursor->up_bytes = match.up_bytes;
 
     /* We do a dirty read of btr_search_enabled here.  We
     will properly check btr_search_enabled again in
@@ -1723,8 +1719,7 @@ void btr_cur_search_to_nth_level_with_no_latch(dict_index_t *index, ulint level,
   page_t *page = nullptr; /* remove warning */
   buf_block_t *block;
   ulint height;
-  alignas(ut::INNODB_CACHE_LINE_SIZE) ulint up_match;
-  ulint low_match;
+  alignas(ut::INNODB_CACHE_LINE_SIZE) page_cur_match_fld_t match;
   ulint rw_latch;
   page_cur_mode_t page_mode;
   Page_fetch fetch;
@@ -1760,8 +1755,8 @@ void btr_cur_search_to_nth_level_with_no_latch(dict_index_t *index, ulint level,
   /* Start with the root page. */
   page_id_t page_id(space, dict_index_get_page(index));
 
-  up_match = 0;
-  low_match = 0;
+  match.up_fields = 0;
+  match.low_fields = 0;
 
   height = ULINT_UNDEFINED;
 
@@ -1807,8 +1802,8 @@ void btr_cur_search_to_nth_level_with_no_latch(dict_index_t *index, ulint level,
       page_mode = mode;
     }
 
-    page_cur_search_with_match(block, index, tuple, page_mode, &up_match,
-                               &low_match, page_cursor, nullptr);
+    page_cur_search_with_match(block, index, tuple, page_mode, &match,
+                               page_cursor, nullptr);
 
     ut_ad(height == btr_page_get_level(page_cur_get_page(page_cursor)));
 
@@ -1833,8 +1828,8 @@ void btr_cur_search_to_nth_level_with_no_latch(dict_index_t *index, ulint level,
     }
   }
 
-  cursor->low_match = low_match;
-  cursor->up_match = up_match;
+  cursor->low_match = match.low_fields;
+  cursor->up_match = match.up_fields;
 
   if (heap != nullptr) {
     mem_heap_free(heap);
