@@ -1987,17 +1987,11 @@ void srv_mon_process_existing_counter(
       value = log_sys->m_capacity.adaptive_flush_max_age();
       break;
     case MONITOR_OVLD_ADAPTIVE_HASH_SEARCH:
-      value = 0;
-      for (size_t i = 0; i < BTR_CUR_COUNTER_SHARDING; i++) {
-        value += btr_cur_n_sea[i];
-      }
+      value = Counter::total(btr_cur_n_sea);
       break;
 
     case MONITOR_OVLD_ADAPTIVE_HASH_SEARCH_BTREE:
-      value = 0;
-      for (size_t i = 0; i < BTR_CUR_COUNTER_SHARDING; i++) {
-        value += btr_cur_n_non_sea[i];
-      }
+      value = Counter::total(btr_cur_n_non_sea);
       break;
 
     default:

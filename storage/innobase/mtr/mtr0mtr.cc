@@ -466,7 +466,7 @@ bool mtr_t::s_mode_update_valid[MTR_LOG_MODE_MAX][MTR_LOG_MODE_MAX] = {
 #endif /* UNIV_DEBUG */
 
 #ifndef UNIV_HOTBACKUP
-mtr_t::Logging mtr_t::s_logging;
+alignas(ut::INNODB_KERNEL_PAGE_SIZE_DEFAULT) mtr_t::Logging mtr_t::s_logging;
 #endif /* !UNIV_HOTBACKUP */
 
 mtr_log_t mtr_t::set_log_mode(mtr_log_t mode) {
@@ -596,7 +596,7 @@ void mtr_t::start(bool sync) {
     return;
   }
 
-  size_t shard_index = default_indexer_t<>::get_rnd_index();
+  size_t shard_index = UT_SHARD_INDEX;
   m_impl.m_marked_nolog = s_logging.mark_mtr(shard_index);
 
   /* Disable redo logging by this mtr if logging is globally off. */

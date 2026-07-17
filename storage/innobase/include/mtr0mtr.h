@@ -326,9 +326,6 @@ struct mtr_t {
     int wait_no_log_mtr(THD *thd);
 
    private:
-    /** Global redo logging state. */
-    std::atomic<State> m_state;
-
     /* We use sharded counter and force sequentially consistent counting
     which is the general default for c++ atomic operation. If we try to
     optimize it further specific to current operations, we could use
@@ -340,6 +337,9 @@ struct mtr_t {
 
     /** Number of no logging mtrs currently running. */
     Shards m_count_nologging_mtr;
+
+    /** Global redo logging state. */
+    std::atomic<State> m_state;
   };
 
   /** Check if the mtr has marked the global no log counter and

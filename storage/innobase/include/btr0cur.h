@@ -749,17 +749,11 @@ constexpr uint32_t BTR_CUR_RETRY_SLEEP_TIME_MS = 50;
 
 /** Global counter sharded for saving CPU cache coherency cost. */
 constexpr size_t BTR_CUR_COUNTER_SHARDING = 128;
-#ifdef HAVE_OS_GETCPU
-#define BTR_CUR_COUNTER_INDEX \
-  (static_cast<size_t>(os_getcpu()) % BTR_CUR_COUNTER_SHARDING)
-#else /* HAVE_OS_GETCPU */
-#define BTR_CUR_COUNTER_INDEX (ut::this_thread_hash % BTR_CUR_COUNTER_SHARDING)
-#endif /* HAVE_OS_GETCPU */
 /** Number of searches down the B-tree in btr_cur_search_to_nth_level(). */
-extern std::array<uint64_t, BTR_CUR_COUNTER_SHARDING> btr_cur_n_non_sea;
+extern Counter::Shards<BTR_CUR_COUNTER_SHARDING> btr_cur_n_non_sea;
 /** Number of successful adaptive hash index lookups in
 btr_cur_search_to_nth_level(). */
-extern std::array<uint64_t, BTR_CUR_COUNTER_SHARDING> btr_cur_n_sea;
+extern Counter::Shards<BTR_CUR_COUNTER_SHARDING> btr_cur_n_sea;
 /** Old value of btr_cur_n_non_sea.  Copied by
 srv_refresh_innodb_monitor_stats().  Referenced by
 srv_printf_innodb_monitor(). */

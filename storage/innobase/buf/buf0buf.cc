@@ -302,6 +302,9 @@ static const ulint BUF_READ_AHEAD_PORTION = 32;
 /** The buffer pools of the database */
 buf_pool_t *buf_pool_ptr;
 
+/** Allocated memory for buf_pool_ptr */
+void *buf_pool_ptr_mem = nullptr;
+
 /** true when resizing buffer pool is in the critical path. */
 volatile bool buf_pool_resizing;
 
@@ -1484,7 +1487,7 @@ static void buf_pool_free() {
   ut::delete_(buf_chunk_map_reg);
   buf_chunk_map_reg = nullptr;
 
-  ut::free(buf_pool_ptr);
+  ut::free(buf_pool_ptr_mem);
   buf_pool_ptr = nullptr;
 }
 
@@ -1519,8 +1522,20 @@ dberr_t buf_pool_init(ulint total_size, ulint n_instances) {
 
   buf_pool_resizing = false;
 
-  buf_pool_ptr = (buf_pool_t *)ut::zalloc_withkey(
-      UT_NEW_THIS_FILE_PSI_KEY, n_instances * sizeof *buf_pool_ptr);
+  const size_t alignment = ut::INNODB_KERNEL_PAGE_SIZE_DEFAULT;
+  const size_t alloc_size = n_instances * sizeof(*buf_pool_ptr) +
+                            (srv_numa_interleave ? alignment : 0);
+  buf_pool_ptr_mem =
+      ut::zalloc_withkey(UT_NEW_THIS_FILE_PSI_KEY,
+                         ut_uint64_align_up(alloc_size, alignment) + alignment);
+  buf_pool_ptr = (buf_pool_t *)ut_align(buf_pool_ptr_mem, alignment);
+  if (srv_numa_interleave) {
+    /* Set the start of the buf_pool_t::stat as OS page boundary */
+    const size_t stat_offset =
+        (char *)&(buf_pool_ptr->stat) - (char *)buf_pool_ptr;
+    buf_pool_ptr =
+        (buf_pool_t *)((ulint)buf_pool_ptr + alignment - stat_offset);
+  }
 
   buf_chunk_map_reg =
       ut::new_withkey<buf_pool_chunk_map_t>(UT_NEW_THIS_FILE_PSI_KEY);
@@ -3287,7 +3302,7 @@ buf_page_t *buf_page_get_zip(const page_id_t &page_id,
   bool discard_attempted = false;
   buf_pool_t *buf_pool = buf_pool_get(page_id);
 
-  Counter::inc(buf_pool->stat.m_n_page_gets, page_id.page_no());
+  Counter::inc(buf_pool->stat.m_n_page_gets, UT_SHARD_INDEX);
 
   for (;;) {
   lookup:
@@ -4257,7 +4272,7 @@ template <typename T>
 buf_block_t *Buf_fetch<T>::single_page() {
   buf_block_t *block;
 
-  Counter::inc(m_buf_pool->stat.m_n_page_gets, m_page_id.page_no());
+  Counter::inc(m_buf_pool->stat.m_n_page_gets, UT_SHARD_INDEX);
 
   for (;;) {
     if (UNIV_UNLIKELY(static_cast<T *>(this)->get(block) == DB_NOT_FOUND)) {
@@ -4565,7 +4580,7 @@ bool buf_page_optimistic_get(ulint rw_latch, buf_block_t *block,
 
   {
     auto buf_pool = buf_pool_from_block(block);
-    Counter::inc(buf_pool->stat.m_n_page_gets, block->page.id.page_no());
+    Counter::inc(buf_pool->stat.m_n_page_gets, UT_SHARD_INDEX);
   }
 
   return (true);
@@ -4659,7 +4674,7 @@ bool buf_page_get_known_nowait(ulint rw_latch, buf_block_t *block,
   ut_a((hint == Cache_hint::KEEP_OLD) || ibuf_count_get(block->page.id) == 0);
 #endif /* UNIV_IBUF_COUNT_DEBUG */
 
-  Counter::inc(buf_pool->stat.m_n_page_gets, block->page.id.page_no());
+  Counter::inc(buf_pool->stat.m_n_page_gets, UT_SHARD_INDEX);
 
   return (true);
 }
@@ -4729,7 +4744,7 @@ const buf_block_t *buf_page_try_get(const page_id_t &page_id,
 
   buf_block_dbg_add_level(block, SYNC_NO_ORDER_CHECK);
 
-  Counter::inc(buf_pool->stat.m_n_page_gets, block->page.id.page_no());
+  Counter::inc(buf_pool->stat.m_n_page_gets, UT_SHARD_INDEX);
 
 #ifdef UNIV_IBUF_COUNT_DEBUG
   ut_a(ibuf_count_get(block->page.id) == 0);

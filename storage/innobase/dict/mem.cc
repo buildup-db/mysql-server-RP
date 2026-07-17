@@ -297,8 +297,7 @@ dict_index_t *dict_mem_index_create(
     to result in more stable performance. Furthermore, in NUMA environment,
     placing dict_index_t members other than dict_index_t::lock on a different OS
     page also seems to result in more stable performance. */
-  constexpr size_t est_os_page_size = 4096;
-  const size_t alignment = est_os_page_size;
+  const size_t alignment = ut::INNODB_KERNEL_PAGE_SIZE_DEFAULT;
   const size_t alloc_size =
       sizeof(*index) + (srv_numa_interleave ? alignment : 0);
 #else
@@ -315,9 +314,9 @@ dict_index_t *dict_mem_index_create(
 #ifndef UNIV_LIBRARY
   if (srv_numa_interleave) {
     /* Intends dict_index_t::lock placed at separated OS page. */
-    ut_ad(alloc_size >= sizeof(*index) + est_os_page_size);
-    size_t lock_offset = (char *)&(index->lock) - (char *)index;
-    index = (dict_index_t *)((ulint)index + est_os_page_size - lock_offset);
+    ut_ad(alloc_size >= sizeof(*index) + alignment);
+    const size_t lock_offset = (char *)&(index->lock) - (char *)index;
+    index = (dict_index_t *)((ulint)index + alignment - lock_offset);
   }
 #endif /* !UNIV_LIBRARY */
 

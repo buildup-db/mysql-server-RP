@@ -1299,12 +1299,8 @@ static void srv_refresh_innodb_monitor_stats(void) {
 
   os_aio_refresh_stats();
 
-  uint64_t btr_cur_n_sea_sum = 0;
-  uint64_t btr_cur_n_non_sea_sum = 0;
-  for (size_t i = 0; i < BTR_CUR_COUNTER_SHARDING; i++) {
-    btr_cur_n_sea_sum += btr_cur_n_sea[i];
-    btr_cur_n_non_sea_sum += btr_cur_n_non_sea[i];
-  }
+  uint64_t btr_cur_n_sea_sum = Counter::total(btr_cur_n_sea);
+  uint64_t btr_cur_n_non_sea_sum = Counter::total(btr_cur_n_non_sea);
   btr_cur_n_sea_old = btr_cur_n_sea_sum;
   btr_cur_n_non_sea_old = btr_cur_n_non_sea_sum;
 
@@ -1456,12 +1452,8 @@ bool srv_printf_innodb_monitor(FILE *file, bool nowait, ulint *trx_start_pos,
     rw_lock_s_unlock(btr_search_latches[i]);
   }
 
-  uint64_t btr_cur_n_sea_sum = 0;
-  uint64_t btr_cur_n_non_sea_sum = 0;
-  for (size_t i = 0; i < BTR_CUR_COUNTER_SHARDING; i++) {
-    btr_cur_n_sea_sum += btr_cur_n_sea[i];
-    btr_cur_n_non_sea_sum += btr_cur_n_non_sea[i];
-  }
+  uint64_t btr_cur_n_sea_sum = Counter::total(btr_cur_n_sea);
+  uint64_t btr_cur_n_non_sea_sum = Counter::total(btr_cur_n_non_sea);
 
   fprintf(file, "%.2f hash searches/s, %.2f non-hash searches/s\n",
           (btr_cur_n_sea_sum - btr_cur_n_sea_old) / time_elapsed,

@@ -1036,7 +1036,7 @@ bool btr_search_guess_on_hash(dict_index_t *index, btr_search_t *info,
   {
     buf_pool_t *buf_pool = buf_pool_from_bpage(&block->page);
 
-    Counter::inc(buf_pool->stat.m_n_page_gets, block->page.id.page_no());
+    Counter::inc(buf_pool->stat.m_n_page_gets, UT_SHARD_INDEX);
   }
 
   return true;
