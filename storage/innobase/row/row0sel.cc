@@ -991,7 +991,7 @@ static inline dberr_t sel_set_rtr_rec_lock(
   ut_ad(page_align(first_rec) == cur_block->frame);
   ut_ad(match->valid);
 
-  rw_lock_x_lock(&(match->block.lock), UT_LOCATION_HERE);
+  rw_lock_x_lock_pfsni(&(match->block.lock), UT_LOCATION_HERE);
 retry:
   cur_block = pcur->get_block();
   ut_ad(rw_lock_own(&(match->block.lock), RW_LOCK_X) ||
@@ -1118,7 +1118,7 @@ lock_match:
   match->locked = true;
 
 func_end:
-  rw_lock_x_unlock(&(match->block.lock));
+  rw_lock_x_unlock_pfsni(&(match->block.lock));
   if (heap != nullptr) {
     mem_heap_free(heap);
   }

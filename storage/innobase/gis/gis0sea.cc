@@ -361,13 +361,13 @@ static bool rtr_pcur_getnext_from_path(
       trx_mutex_exit(trx);
 
       if (rw_latch == RW_NO_LATCH) {
-        rw_lock_s_lock(&block->lock, UT_LOCATION_HERE);
+        rw_lock_s_lock_pfsni(&block->lock, UT_LOCATION_HERE);
       }
 
       lock_prdt_lock(block, &prdt, index, btr_cur->rtr_info->thr);
 
       if (rw_latch == RW_NO_LATCH) {
-        rw_lock_s_unlock(&(block->lock));
+        rw_lock_s_unlock_pfsni(&(block->lock));
       }
     }
 

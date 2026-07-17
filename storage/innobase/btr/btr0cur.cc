@@ -299,9 +299,9 @@ btr_latch_leaves_t btr_cur_latch_leaves(buf_block_t *block,
     case BTR_MODIFY_PREV:
       mode = latch_mode == BTR_SEARCH_PREV ? RW_S_LATCH : RW_X_LATCH;
       /* latch also left sibling */
-      rw_lock_s_lock(&block->lock, UT_LOCATION_HERE);
+      rw_lock_s_lock_pfsni(&block->lock, UT_LOCATION_HERE);
       left_page_no = btr_page_get_prev(page, mtr);
-      rw_lock_s_unlock(&block->lock);
+      rw_lock_s_unlock_pfsni(&block->lock);
 
       if (left_page_no != FIL_NULL) {
         latch_leaves.savepoints[0] = mtr_set_savepoint(mtr);
@@ -358,13 +358,13 @@ bool btr_cur_optimistic_latch_leaves(buf_block_t *block, uint64_t modify_clock,
   ut_a(*latch_mode == BTR_SEARCH_PREV || *latch_mode == BTR_MODIFY_PREV);
   mode = *latch_mode == BTR_SEARCH_PREV ? RW_S_LATCH : RW_X_LATCH;
 
-  rw_lock_s_lock(&block->lock, UT_LOCATION_HERE);
+  rw_lock_s_lock_pfsni(&block->lock, UT_LOCATION_HERE);
   if (block->modify_clock != modify_clock) {
-    rw_lock_s_unlock(&block->lock);
+    rw_lock_s_unlock_pfsni(&block->lock);
     return false;
   }
   left_page_no = btr_page_get_prev(buf_block_get_frame(block), mtr);
-  rw_lock_s_unlock(&block->lock);
+  rw_lock_s_unlock_pfsni(&block->lock);
 
   if (left_page_no != FIL_NULL) {
     const page_id_t page_id(dict_index_get_space(cursor->index), left_page_no);
@@ -1035,9 +1035,9 @@ retry_page_get:
 
     rw_latch = upper_rw_latch;
 
-    rw_lock_s_lock(&block->lock, UT_LOCATION_HERE);
+    rw_lock_s_lock_pfsni(&block->lock, UT_LOCATION_HERE);
     left_page_no = btr_page_get_prev(buf_block_get_frame(block), mtr);
-    rw_lock_s_unlock(&block->lock);
+    rw_lock_s_unlock_pfsni(&block->lock);
 
     if (left_page_no != FIL_NULL) {
       ut_ad(prev_n_blocks < leftmost_from_level);
@@ -1278,13 +1278,13 @@ retry_page_get:
     trx_mutex_exit(trx);
 
     if (rw_latch == RW_NO_LATCH && height != 0) {
-      rw_lock_s_lock(&block->lock, UT_LOCATION_HERE);
+      rw_lock_s_lock_pfsni(&block->lock, UT_LOCATION_HERE);
     }
 
     lock_prdt_lock(block, &prdt, index, cursor->thr);
 
     if (rw_latch == RW_NO_LATCH && height != 0) {
-      rw_lock_s_unlock(&(block->lock));
+      rw_lock_s_unlock_pfsni(&(block->lock));
     }
   }
 
@@ -1349,7 +1349,7 @@ retry_page_get:
         if (latch_mode == BTR_MODIFY_TREE && rw_latch == RW_NO_LATCH) {
           ut_ad(mtr_memo_contains_flagged(mtr, dict_index_get_lock(index),
                                           MTR_MEMO_X_LOCK | MTR_MEMO_SX_LOCK));
-          rw_lock_s_lock(&block->lock, UT_LOCATION_HERE);
+          rw_lock_s_lock_pfsni(&block->lock, UT_LOCATION_HERE);
           add_latch = true;
         }
 
@@ -1374,7 +1374,7 @@ retry_page_get:
         }
 
         if (add_latch) {
-          rw_lock_s_unlock(&block->lock);
+          rw_lock_s_unlock_pfsni(&block->lock);
         }
 
         ut_ad(!page_rec_is_supremum(node_ptr));
