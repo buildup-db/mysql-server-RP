@@ -2308,7 +2308,7 @@ void row_sel_convert_mysql_key_to_innobase(dtuple_t *tuple, byte *buf,
 
   while (key_ptr < key_end) {
     ulint type = dfield_get_type(dfield)->mtype;
-    ut_a(field->col->mtype == type);
+    ut_ad(field->col->mtype == type);
 
     data_offset = 0;
     is_null = false;

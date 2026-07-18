@@ -80,15 +80,18 @@ static void rec_init_offsets_new(const rec_t *rec, const dict_index_t *index,
 
   /* read the lengths of fields 0..n */
   ulint i = 0;
-  dict_field_t *field = nullptr;
+  dict_field_t *field = index->get_field(0);
   do {
+    if (i + 1 < rec_offs_n_fields(offsets)) {
+      UNIV_PREFETCH_R(field + 1);
+    }
+
     ulint len;
     if (UNIV_UNLIKELY(i == n_node_ptr_field)) {
       len = offs += REC_NODE_PTR_SIZE;
       goto resolved;
     }
 
-    field = index->get_field(i);
     if (UNIV_UNLIKELY(!(field->col->prtype & DATA_NOT_NULL))) {
       /* nullable field => read the null flag */
 
@@ -150,6 +153,7 @@ static void rec_init_offsets_new(const rec_t *rec, const dict_index_t *index,
     }
   resolved:
     rec_offs_base(offsets)[i + 1] = len;
+    field++;
   } while (UNIV_LIKELY(++i < rec_offs_n_fields(offsets)));
 
   *rec_offs_base(offsets) = (rec - (lens + 1)) | REC_OFFS_COMPACT;
@@ -407,6 +411,10 @@ ulint *rec_get_offsets(const rec_t *rec, const dict_index_t *index,
 
   if (UNIV_UNLIKELY(n_fields < n)) {
     n = n_fields;
+  }
+
+  if (dict_table_is_comp(index->table)) {
+    UNIV_PREFETCH_R(index->get_field(0));
   }
 
   /* The offsets header consists of the allocation size at

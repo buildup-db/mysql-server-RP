@@ -4374,7 +4374,8 @@ buf_block_t *Buf_fetch<T>::single_page() {
   /* Don't move the page to the head of the LRU list so that the
   page can be discarded quickly if it is not accessed again. */
   if (UNIV_LIKELY(m_mode != Page_fetch::PEEK_IF_IN_POOL) &&
-      UNIV_LIKELY(m_mode != Page_fetch::SCAN)) {
+      UNIV_LIKELY(m_mode != Page_fetch::SCAN) &&
+      m_buf_pool->freed_page_clock > 0) {
     buf_page_make_young_if_needed(&block->page);
   }
 

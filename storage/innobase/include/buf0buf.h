@@ -1147,7 +1147,6 @@ class buf_page_t {
 #endif /* !UNIV_HOTBACKUP */
         size(other.size),
         buf_fix_count(other.buf_fix_count),
-        io_fix(other.io_fix),
         flush_type(other.flush_type),
         buf_pool_index(other.buf_pool_index),
 #ifndef UNIV_HOTBACKUP
@@ -1165,7 +1164,8 @@ class buf_page_t {
         m_version(other.m_version),
         access_time(other.access_time),
 #endif /* !UNIV_HOTBACKUP */
-        state(other.state)
+        state(other.state),
+        io_fix(other.io_fix)
 #ifndef UNIV_HOTBACKUP
         ,
         old(other.old),
@@ -1226,7 +1226,7 @@ class buf_page_t {
   checked to be guaranteed. */
   ALWAYS_INLINE bool was_stale() const {
     ut_a(m_space != nullptr);
-    ut_a(id.space() == m_space->id);
+    ut_ad(id.space() == m_space->id);
     /* If the the version is OK, then the space must not be deleted.
     However, version is modified before the deletion flag is set, so reading
     these values need to be executed in reversed order. The atomic reads
@@ -1345,13 +1345,6 @@ class buf_page_t {
   /** Count of how many fold this block is currently bufferfixed. */
   buf_fix_count_atomic_t buf_fix_count;
 
- private:
-  /** Type of pending I/O operation.
-  Modified under protection of buf_page_get_mutex(this).
-  Read under protection of rules described in @see Buf_io_fix_latching_rules */
-  copyable_atomic_t<buf_io_fix> io_fix;
-
- public:
   /** Checks if io_fix has any of the known enum values.
   @param[in]  io_fix  the value to test
   @return true iff io_fix has any of the known enum values
@@ -1641,6 +1634,13 @@ class buf_page_t {
   /** Block state. @see buf_page_in_file */
   buf_page_state state;
 
+ private:
+  /** Type of pending I/O operation.
+  Modified under protection of buf_page_get_mutex(this).
+  Read under protection of rules described in @see Buf_io_fix_latching_rules */
+  copyable_atomic_t<buf_io_fix> io_fix;
+
+ public:
 #ifndef UNIV_HOTBACKUP
   /** true if the block is in the old blocks in buf_pool->LRU_old */
   bool old;
