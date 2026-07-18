@@ -97,13 +97,13 @@ static inline void btr_search_x_unlock_inline(const dict_index_t *index) {
 
 static inline void btr_search_x_lock_all(ut::Location location) {
   for (ulint i = 0; i < btr_ahi_parts; ++i) {
-    rw_lock_x_lock_gen(btr_search_latches[i], 0, location);
+    rw_lock_x_lock_gen(&btr_search_latches[i], 0, location);
   }
 }
 
 static inline void btr_search_x_unlock_all() {
   for (ulint i = 0; i < btr_ahi_parts; ++i) {
-    rw_lock_x_unlock(btr_search_latches[i]);
+    rw_lock_x_unlock(&btr_search_latches[i]);
   }
 }
 
@@ -118,13 +118,13 @@ static inline void btr_search_s_unlock(const dict_index_t *index) {
 
 static inline void btr_search_s_lock_all(ut::Location location) {
   for (ulint i = 0; i < btr_ahi_parts; ++i) {
-    rw_lock_s_lock_gen(btr_search_latches[i], 0, location);
+    rw_lock_s_lock_gen(&btr_search_latches[i], 0, location);
   }
 }
 
 static inline void btr_search_s_unlock_all() {
   for (ulint i = 0; i < btr_ahi_parts; ++i) {
-    rw_lock_s_unlock(btr_search_latches[i]);
+    rw_lock_s_unlock(&btr_search_latches[i]);
   }
 }
 
@@ -135,7 +135,7 @@ static inline void btr_search_s_unlock_all() {
 @retval false if does not own some of them */
 static inline bool btr_search_own_all(ulint mode) {
   for (ulint i = 0; i < btr_ahi_parts; ++i) {
-    if (!rw_lock_own(btr_search_latches[i], mode)) {
+    if (!rw_lock_own(&btr_search_latches[i], mode)) {
       return (false);
     }
   }
@@ -148,7 +148,7 @@ static inline bool btr_search_own_all(ulint mode) {
 @retval false if owns no search latch */
 static inline bool btr_search_own_any(ulint mode) {
   for (ulint i = 0; i < btr_ahi_parts; ++i) {
-    if (rw_lock_own(btr_search_latches[i], mode)) {
+    if (rw_lock_own(&btr_search_latches[i], mode)) {
       return (true);
     }
   }
@@ -168,7 +168,7 @@ static inline size_t btr_get_search_slot(const space_index_t index_id,
 static inline rw_lock_t *btr_get_search_latch(const dict_index_t *index) {
   ut_ad(index != nullptr);
 
-  return btr_search_latches[btr_get_search_slot(index->id, index->space)];
+  return &btr_search_latches[btr_get_search_slot(index->id, index->space)];
 }
 
 /** Get the hash-table based on index attributes.

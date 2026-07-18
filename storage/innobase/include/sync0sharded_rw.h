@@ -1,7 +1,7 @@
 /*****************************************************************************
 
 Copyright (c) 2017, 2025, Oracle and/or its affiliates.
-Copyright (c) 2025, buildup-db.
+Copyright (c) 2026, buildup-db.
 
 This program is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License, version 2.0,
@@ -71,8 +71,11 @@ class Sharded_rw_lock {
     ut_ad(ut_is_2pow(n_shards));
     m_n_shards = n_shards;
 
-    m_shards = static_cast<Shard *>(
-        ut::zalloc_withkey(UT_NEW_THIS_FILE_PSI_KEY, sizeof(Shard) * n_shards));
+    const size_t alignment = ut::INNODB_KERNEL_PAGE_SIZE_DEFAULT;
+    m_shards_mem = ut::zalloc_withkey(
+        UT_NEW_THIS_FILE_PSI_KEY,
+        ut_uint64_align_up(sizeof(Shard) * n_shards, alignment) + alignment);
+    m_shards = static_cast<Shard *>(ut_align(m_shards_mem, alignment));
 
     for_each([
 #ifdef UNIV_PFS_RWLOCK
@@ -89,14 +92,13 @@ class Sharded_rw_lock {
 
     for_each([](rw_lock_t &lock) { rw_lock_free(&lock); });
 
-    ut::free(m_shards);
+    ut::free(m_shards_mem);
     m_shards = nullptr;
     m_n_shards = 0;
   }
 
   ALWAYS_INLINE size_t s_lock(ut::Location location) {
-    const size_t shard_no =
-        default_indexer_t<>::get_rnd_index() & (m_n_shards - 1);
+    const size_t shard_no = UT_SHARD_INDEX & (m_n_shards - 1);
     rw_lock_s_lock_gen(&m_shards[shard_no], 0, location);
     return shard_no;
   }
@@ -157,6 +159,8 @@ class Sharded_rw_lock {
   }
 
   Shard *m_shards = nullptr;
+
+  void *m_shards_mem = nullptr;
 
   size_t m_n_shards = 0;
 };

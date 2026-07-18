@@ -80,7 +80,11 @@ NOTE: It does not protect values of non-ordering fields within a record from
 being updated in-place! We can use fact (1) to perform unique searches to
 indexes. We will allocate the latches from dynamic memory to get it to the
 same DRAM page as other hotspot semaphores */
-rw_lock_t **btr_search_latches;
+using btr_sea_rw_lock_t = ut::Cacheline_padded<rw_lock_t>;
+btr_sea_rw_lock_t *btr_search_latches;
+
+/** Allocated memory for btr_search_latches */
+void *btr_search_latches_mem;
 
 /** padding to prevent other memory update hotspots from residing on
 the same memory cache line */
@@ -186,18 +190,19 @@ void btr_search_sys_create(ulint hash_size) {
   hash table through its own latch. */
 
   /* Step-1: Allocate latches (1 per part). */
-  btr_search_latches = reinterpret_cast<rw_lock_t **>(
-      ut::malloc_withkey(ut::make_psi_memory_key(mem_key_ahi),
-                         sizeof(rw_lock_t *) * btr_ahi_parts));
+  const size_t alignment = ut::INNODB_KERNEL_PAGE_SIZE_DEFAULT;
+  btr_search_latches_mem = ut::malloc_withkey(
+      ut::make_psi_memory_key(mem_key_ahi),
+      ut_uint64_align_up(sizeof(btr_sea_rw_lock_t) * btr_ahi_parts, alignment) +
+          alignment);
+  btr_search_latches = static_cast<btr_sea_rw_lock_t *>(
+      ut_align(btr_search_latches_mem, alignment));
   /* It is written only from one thread during server initialization, so it is
   safe. */
   btr_ahi_parts_fast_modulo = ut::fast_modulo_t{btr_ahi_parts};
 
   for (ulint i = 0; i < btr_ahi_parts; ++i) {
-    btr_search_latches[i] = reinterpret_cast<rw_lock_t *>(ut::malloc_withkey(
-        ut::make_psi_memory_key(mem_key_ahi), sizeof(rw_lock_t)));
-
-    rw_lock_create(btr_search_latch_key, btr_search_latches[i],
+    rw_lock_create(btr_search_latch_key, &btr_search_latches[i],
                    LATCH_ID_BTR_SEARCH);
   }
 
@@ -274,11 +279,10 @@ void btr_search_sys_free() {
 
   /* Step-2: Release all allocates latches. */
   for (ulint i = 0; i < btr_ahi_parts; ++i) {
-    rw_lock_free(btr_search_latches[i]);
-    ut::free(btr_search_latches[i]);
+    rw_lock_free(&btr_search_latches[i]);
   }
 
-  ut::free(btr_search_latches);
+  ut::free(btr_search_latches_mem);
   btr_search_latches = nullptr;
 }
 
@@ -1088,7 +1092,7 @@ retry:
 
   const space_index_t index_id = btr_page_get_index_id(block->frame);
   const auto ahi_slot = btr_get_search_slot(index_id, block->page.id.space());
-  latch = btr_search_latches[ahi_slot];
+  latch = &btr_search_latches[ahi_slot];
 
   ut_ad(!btr_search_own_any(RW_LOCK_S));
   ut_ad(!btr_search_own_any(RW_LOCK_X));

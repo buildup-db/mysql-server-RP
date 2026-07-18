@@ -1,7 +1,7 @@
 /*****************************************************************************
 
 Copyright (c) 1997, 2025, Oracle and/or its affiliates.
-Copyright (c) 2025, buildup-db.
+Copyright (c) 2026, buildup-db.
 
 This program is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License, version 2.0, as published by the
@@ -460,7 +460,10 @@ class hash_table_t {
   size_t n_sync_obj = 0;
   /** nullptr, or an array of n_sync_obj rw_locks used to protect segments of
   the hash table. Is nullptr iff the type is HASH_TABLE_SYNC_NONE. */
-  rw_lock_t *rw_locks = nullptr;
+  using hash_rw_lock = ut::Cacheline_padded<rw_lock_t>;
+  hash_rw_lock *rw_locks = nullptr;
+  /** Allocated memory for rw_locks */
+  void *rw_locks_mem = nullptr;
 
 #endif /* !UNIV_HOTBACKUP */
   mem_heap_t *heap = nullptr;

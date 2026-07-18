@@ -3,7 +3,7 @@
 Copyright (c) 1995, 2025, Oracle and/or its affiliates.
 Copyright (c) 2008, 2009 Google Inc.
 Copyright (c) 2009, Percona Inc.
-Copyright (c) 2025, buildup-db.
+Copyright (c) 2026, buildup-db.
 
 Portions of this file contain modifications contributed and copyrighted by
 Google, Inc. Those modifications are gratefully acknowledged and are described
@@ -1447,9 +1447,9 @@ bool srv_printf_innodb_monitor(FILE *file, bool nowait, ulint *trx_start_pos,
   ibuf_print(file);
 
   for (ulint i = 0; i < btr_ahi_parts; ++i) {
-    rw_lock_s_lock(btr_search_latches[i], UT_LOCATION_HERE);
+    rw_lock_s_lock(&btr_search_latches[i], UT_LOCATION_HERE);
     ha_print_info(file, btr_search_sys->hash_tables[i]);
-    rw_lock_s_unlock(btr_search_latches[i]);
+    rw_lock_s_unlock(&btr_search_latches[i]);
   }
 
   uint64_t btr_cur_n_sea_sum = Counter::total(btr_cur_n_sea);

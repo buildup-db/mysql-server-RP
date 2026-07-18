@@ -1,6 +1,7 @@
 /*****************************************************************************
 
 Copyright (c) 2020, 2025, Oracle and/or its affiliates.
+Copyright (c) 2026, buildup-db.
 
 This program is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License, version 2.0, as published by the
@@ -53,7 +54,7 @@ not handle over-aligned types.
  */
 template <typename T>
 struct Cacheline_padded : public T {
-  char pad[INNODB_CACHE_LINE_SIZE];
+  char pad[INNODB_CACHE_LINE_SIZE - (sizeof(T) % INNODB_CACHE_LINE_SIZE)];
   // "Inherit" constructors
   using T::T;
 };
