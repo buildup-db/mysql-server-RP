@@ -170,11 +170,20 @@ class dyn_buf_t {
       m_list.clear();
       push_back(&m_first_block);
     } else {
-      m_first_block.init();
       ut_ad(UT_LIST_GET_LEN(m_list) == 1);
     }
 
+    m_first_block.init();
     m_size = 0;
+  }
+
+  /** Init the buffer vector */
+  void init() {
+    m_heap = nullptr;
+    m_list.clear();
+    push_back(&m_first_block);
+    m_size = 0;
+    m_first_block.init();
   }
 
   /**
