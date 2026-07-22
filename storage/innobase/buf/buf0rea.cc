@@ -66,7 +66,7 @@ static constexpr uint32_t BUF_READ_AHEAD_PEND_LIMIT = 2;
 
 ulint buf_read_page_low(dberr_t *err, bool sync, ulint type, ulint mode,
                         const page_id_t &page_id, const page_size_t &page_size,
-                        bool unzip) {
+                        bool unzip, bool index_root) {
   buf_page_t *bpage;
 
   *err = DB_SUCCESS;
@@ -93,7 +93,7 @@ ulint buf_read_page_low(dberr_t *err, bool sync, ulint type, ulint mode,
   or is being dropped; if we succeed in initing the page in the buffer
   pool for read, then DISCARD cannot proceed until the read has
   completed */
-  bpage = buf_page_init_for_read(mode, page_id, page_size, unzip);
+  bpage = buf_page_init_for_read(mode, page_id, page_size, unzip, index_root);
 
   ut_a(bpage == nullptr || bpage->get_space()->id == page_id.space());
 
@@ -286,12 +286,13 @@ read_ahead:
   return (count);
 }
 
-bool buf_read_page(const page_id_t &page_id, const page_size_t &page_size) {
+bool buf_read_page(const page_id_t &page_id, const page_size_t &page_size,
+                   bool index_root) {
   ulint count;
   dberr_t err;
 
   count = buf_read_page_low(&err, true, 0, BUF_READ_ANY_PAGE, page_id,
-                            page_size, false);
+                            page_size, false, index_root);
 
   srv_stats.buf_pool_reads.add(count);
 

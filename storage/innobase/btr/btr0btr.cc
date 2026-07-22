@@ -161,8 +161,8 @@ buf_block_t *btr_root_block_get(
   const page_id_t page_id(space_id, dict_index_get_page(index));
   const page_size_t page_size(dict_table_page_size(index->table));
 
-  buf_block_t *block =
-      btr_block_get(page_id, page_size, mode, UT_LOCATION_HERE, index, mtr);
+  buf_block_t *block = btr_block_get(page_id, page_size, mode, UT_LOCATION_HERE,
+                                     index, mtr, true);
 
   btr_assert_not_corrupted(block, index);
 #ifdef UNIV_BTR_DEBUG
@@ -415,6 +415,7 @@ static buf_block_t *btr_page_alloc_for_ibuf(
   page_t *root;
 
   root = btr_root_get(index, mtr);
+  ulint root_height = btr_page_get_level(root);
 
   if (level == 0) {
     seg_header = root + PAGE_HEADER + PAGE_BTR_SEG_LEAF;
@@ -438,8 +439,9 @@ static buf_block_t *btr_page_alloc_for_ibuf(
   uint64_t reserved_ext = fil_space_get_n_reserved_extents(
       page_get_space_id(page_align(seg_header)));
 
-  return (fseg_alloc_free_page_general(seg_header, hint_page_no, file_direction,
-                                       reserved_ext > 0, mtr, init_mtr));
+  return (fseg_alloc_free_page_general(
+      seg_header, hint_page_no, file_direction, reserved_ext > 0, mtr, init_mtr,
+      level + 1 >= root_height && !index->table->is_system_table));
 }
 
 buf_block_t *btr_page_alloc_priv(

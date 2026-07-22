@@ -127,8 +127,10 @@ we put it to free list to be used.
 * iteration > 1:
   * same as iteration 1 but sleep 10ms
 @param[in,out]  buf_pool        buffer pool instance
+@param[in]      get_last        get a block from the last of the free list
 @return the free control block, in state BUF_BLOCK_READY_FOR_USE */
-[[nodiscard]] buf_block_t *buf_LRU_get_free_block(buf_pool_t *buf_pool);
+[[nodiscard]] buf_block_t *buf_LRU_get_free_block(buf_pool_t *buf_pool,
+                                                  bool get_last = false);
 
 /** Determines if the unzip_LRU list should be used for evicting a victim
 instead of the general LRU list.

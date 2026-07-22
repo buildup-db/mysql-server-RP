@@ -1224,14 +1224,19 @@ bool buf_LRU_buf_pool_running_out(void) {
 /** Returns a free block from the buf_pool.
 The block is taken off the free list.  If it is empty, returns NULL.
 @param[in]      buf_pool        buffer pool instance
+@param[in]      get_last        get a block from the last of the free list
 @return a free control block, or NULL if the buf_block->free list is empty */
 static ALWAYS_INLINE buf_block_t *buf_LRU_get_free_only_inline(
-    buf_pool_t *buf_pool) {
+    buf_pool_t *buf_pool, bool get_last = false) {
   buf_block_t *block;
 
   mutex_enter(&buf_pool->free_list_mutex);
 
-  block = reinterpret_cast<buf_block_t *>(UT_LIST_GET_FIRST(buf_pool->free));
+  if (UNIV_UNLIKELY(get_last)) {
+    block = reinterpret_cast<buf_block_t *>(UT_LIST_GET_LAST(buf_pool->free));
+  } else {
+    block = reinterpret_cast<buf_block_t *>(UT_LIST_GET_FIRST(buf_pool->free));
+  }
 
   while (block != nullptr) {
     ut_ad(block->page.in_free_list);
@@ -1263,7 +1268,12 @@ static ALWAYS_INLINE buf_block_t *buf_LRU_get_free_only_inline(
     UT_LIST_ADD_LAST(buf_pool->withdraw, &block->page);
     ut_d(block->in_withdraw_list = true);
 
-    block = reinterpret_cast<buf_block_t *>(UT_LIST_GET_FIRST(buf_pool->free));
+    if (UNIV_UNLIKELY(get_last)) {
+      block = reinterpret_cast<buf_block_t *>(UT_LIST_GET_LAST(buf_pool->free));
+    } else {
+      block =
+          reinterpret_cast<buf_block_t *>(UT_LIST_GET_FIRST(buf_pool->free));
+    }
   }
 
   mutex_exit(&buf_pool->free_list_mutex);
@@ -1350,7 +1360,7 @@ we put it to free list to be used.
   * same as iteration 1 but sleep 10ms
 @param[in,out]  buf_pool        buffer pool instance
 @return the free control block, in state BUF_BLOCK_READY_FOR_USE */
-buf_block_t *buf_LRU_get_free_block(buf_pool_t *buf_pool) {
+buf_block_t *buf_LRU_get_free_block(buf_pool_t *buf_pool, bool get_last) {
   buf_block_t *block = nullptr;
   bool freed = false;
   ulint n_iterations = 0;
@@ -1364,7 +1374,7 @@ loop:
   buf_LRU_check_size_of_non_data_objects(buf_pool);
 
   /* If there is a block in the free list, take it */
-  block = buf_LRU_get_free_only_inline(buf_pool);
+  block = buf_LRU_get_free_only_inline(buf_pool, get_last);
 
   if (block != nullptr) {
     ut_ad(!block->page.someone_has_io_responsibility());
@@ -2094,7 +2104,11 @@ void buf_LRU_block_free_non_file_page(buf_block_t *block) {
   } else {
     buf_block_set_state(block, BUF_BLOCK_NOT_USED);
     mutex_enter(&buf_pool->free_list_mutex);
-    UT_LIST_ADD_FIRST(buf_pool->free, &block->page);
+    if (block->is_high_conc()) {
+      UT_LIST_ADD_LAST(buf_pool->free, &block->page);
+    } else {
+      UT_LIST_ADD_FIRST(buf_pool->free, &block->page);
+    }
     ut_d(block->page.in_free_list = true);
     ut_ad(!block->page.someone_has_io_responsibility());
     mutex_exit(&buf_pool->free_list_mutex);

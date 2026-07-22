@@ -156,6 +156,7 @@ which the page should be initialized. If init_mtr != mtr, but the page is
 already latched in mtr, do not initialize the page
 @param[in]      has_done_reservation    true if the space has already been
 reserved, in this case we will never return NULL
+@param[in]      index_root      true if for index root page
 @retval NULL    if no page could be allocated
 @retval block   rw_lock_x_lock_count(&block->lock) == 1 if allocation succeeded
 (init_mtr == mtr, or the page was not previously freed in mtr),
@@ -163,7 +164,8 @@ returned block is not allocated nor initialized otherwise */
 [[nodiscard]] static buf_block_t *fseg_alloc_free_page_low(
     fil_space_t *space, const page_size_t &page_size, fseg_inode_t *seg_inode,
     page_no_t hint, byte direction, rw_lock_type_t rw_latch, mtr_t *mtr,
-    mtr_t *init_mtr IF_DEBUG(, bool has_done_reservation));
+    mtr_t *init_mtr IF_DEBUG(, bool has_done_reservation),
+    bool index_root = false);
 #endif /* !UNIV_HOTBACKUP */
 
 /** Get the segment identifier to which the extent belongs to.
@@ -1653,14 +1655,16 @@ x-latched only by mtr, and freed in mtr in that case.
 @param[in]      rw_latch        RW_SX_LATCH, RW_X_LATCH
 @param[in,out]  mtr             Mini-transaction of the allocation
 @param[in,out]  init_mtr        Mini-transaction for initializing the page
+@param[in]      index_root      true if for index root page
 @return block, initialized if init_mtr==mtr
 or rw_lock_x_lock_count(&block->lock) == 1 */
 static buf_block_t *fsp_page_create(const page_id_t &page_id,
                                     const page_size_t &page_size,
                                     rw_lock_type_t rw_latch, mtr_t *mtr,
-                                    mtr_t *init_mtr) {
+                                    mtr_t *init_mtr, bool index_root = false) {
   ut_ad(rw_latch == RW_X_LATCH || rw_latch == RW_SX_LATCH);
-  buf_block_t *block = buf_page_create(page_id, page_size, rw_latch, init_mtr);
+  buf_block_t *block =
+      buf_page_create(page_id, page_size, rw_latch, init_mtr, index_root);
 
   if (init_mtr == mtr ||
       (rw_latch == RW_X_LATCH ? rw_lock_get_x_lock_count(&block->lock) == 1
@@ -1687,13 +1691,15 @@ The page is marked as used.
 @param[in,out]  mtr             Mini-transaction
 @param[in,out]  init_mtr        Mini-transaction in which the page should be
 initialized (may be the same as mtr)
+@param[in]      index_root      true if for index root page
 @retval NULL    if no page could be allocated
 @retval block   rw_lock_x_lock_count(&block->lock) == 1 if allocation succeeded
 (init_mtr == mtr, or the page was not previously freed in mtr),
 returned block is not allocated nor initialized otherwise */
 [[nodiscard]] static buf_block_t *fsp_alloc_free_page(
     space_id_t space, const page_size_t &page_size, page_no_t hint,
-    rw_lock_type_t rw_latch, mtr_t *mtr, mtr_t *init_mtr) {
+    rw_lock_type_t rw_latch, mtr_t *mtr, mtr_t *init_mtr,
+    bool index_root = false) {
   fsp_header_t *header;
   fil_addr_t first;
   xdes_t *descr;
@@ -1785,7 +1791,7 @@ returned block is not allocated nor initialized otherwise */
 
   fsp_alloc_from_free_frag(header, descr, free, mtr);
   return (fsp_page_create(page_id_t(space, page_no), page_size, rw_latch, mtr,
-                          init_mtr));
+                          init_mtr, index_root));
 }
 
 /** Frees a single page of a space.
@@ -2359,9 +2365,9 @@ buf_block_t *fseg_create_general(
   }
 
   if (page == 0) {
-    block = fseg_alloc_free_page_low(space, page_size, inode, 0, FSP_UP,
-                                     RW_SX_LATCH, mtr,
-                                     mtr IF_DEBUG(, has_done_reservation));
+    block = fseg_alloc_free_page_low(
+        space, page_size, inode, 0, FSP_UP, RW_SX_LATCH, mtr,
+        mtr IF_DEBUG(, has_done_reservation), fsp_is_ibd_tablespace(space_id));
 
     /* The allocation cannot fail if we have already reserved a
     space for the page. */
@@ -2718,7 +2724,7 @@ static xdes_t *fseg_alloc_free_extent(fseg_inode_t *inode, space_id_t space,
 static buf_block_t *fseg_alloc_free_page_low(
     fil_space_t *space, const page_size_t &page_size, fseg_inode_t *seg_inode,
     page_no_t hint, byte direction, rw_lock_type_t rw_latch, mtr_t *mtr,
-    mtr_t *init_mtr IF_DEBUG(, bool has_done_reservation)) {
+    mtr_t *init_mtr IF_DEBUG(, bool has_done_reservation), bool index_root) {
   fsp_header_t *space_header;
   ib_id_t seg_id;
   ulint used;
@@ -2852,8 +2858,8 @@ static buf_block_t *fseg_alloc_free_page_low(
     } else if (used < FSEG_FRAG_LIMIT) {
       /* 6. We allocate an individual page from the space
       ===================================================*/
-      buf_block_t *block = fsp_alloc_free_page(space_id, page_size, hint,
-                                               rw_latch, mtr, init_mtr);
+      buf_block_t *block = fsp_alloc_free_page(
+          space_id, page_size, hint, rw_latch, mtr, init_mtr, index_root);
 
       ut_ad(!has_done_reservation || block != nullptr);
 
@@ -2943,7 +2949,7 @@ got_hinted_page:
           ~(FSP_FLAGS_MASK_ENCRYPTION)));
 
   return (fsp_page_create(page_id_t(space_id, ret_page), page_size, rw_latch,
-                          mtr, init_mtr));
+                          mtr, init_mtr, index_root));
 }
 
 /** Allocates a single free page from a segment. This function implements
@@ -2961,6 +2967,7 @@ do the check for this individual page
 @param[in,out] init_mtr mtr or another mini-transaction in which the page should
 be initialized. if init_mtr!=mtr, but the page is already latched in mtr, do not
 initialize the page.
+@param[in] index_root true if for index root page
 @retval NULL if no page could be allocated
 @retval block, rw_lock_x_lock_count(&block->lock) == 1 if allocation succeeded
 (init_mtr == mtr, or the page was not previously freed in mtr),
@@ -2968,7 +2975,7 @@ returned block is not allocated nor initialized otherwise */
 buf_block_t *fseg_alloc_free_page_general(fseg_header_t *seg_header,
                                           page_no_t hint, byte direction,
                                           bool has_done_reservation, mtr_t *mtr,
-                                          mtr_t *init_mtr) {
+                                          mtr_t *init_mtr, bool index_root) {
   fseg_inode_t *inode;
   space_id_t space_id;
   buf_block_t *iblock;
@@ -3000,9 +3007,9 @@ buf_block_t *fseg_alloc_free_page_general(fseg_header_t *seg_header,
     return (nullptr);
   }
 
-  block = fseg_alloc_free_page_low(space, page_size, inode, hint, direction,
-                                   RW_X_LATCH, mtr,
-                                   init_mtr IF_DEBUG(, has_done_reservation));
+  block = fseg_alloc_free_page_low(
+      space, page_size, inode, hint, direction, RW_X_LATCH, mtr,
+      init_mtr IF_DEBUG(, has_done_reservation), index_root);
 
   /* The allocation cannot fail if we have already reserved a
   space for the page. */

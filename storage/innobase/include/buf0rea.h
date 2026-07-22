@@ -51,13 +51,14 @@ flag is cleared and the x-lock released by an i/o-handler thread.
 @param[in]      page_id         page id
 @param[in]      page_size       page size
 @param[in]      unzip           true=request uncompressed page
+@param[in]      index_root      true if index root page intended
 @return 1 if a read request was queued, 0 if the page already resided in
 buf_pool, or if the page is in the doublewrite buffer blocks in which case it
 is never read into the pool, or if the tablespace does not exist or is being
 dropped */
 ulint buf_read_page_low(dberr_t *err, bool sync, ulint type, ulint mode,
                         const page_id_t &page_id, const page_size_t &page_size,
-                        bool unzip);
+                        bool unzip, bool index_root = false);
 
 /** High-level function which reads a page asynchronously from a file to the
 buffer buf_pool if it is not already there. Sets the io_fix flag and sets
@@ -65,8 +66,10 @@ an exclusive lock on the buffer frame. The flag is cleared and the x-lock
 released by the i/o-handler thread.
 @param[in]      page_id         page id
 @param[in]      page_size       page size
+@param[in]      index_root      true if index root page intended
 @return true if page has been read in, false in case of failure */
-bool buf_read_page(const page_id_t &page_id, const page_size_t &page_size);
+bool buf_read_page(const page_id_t &page_id, const page_size_t &page_size,
+                   bool index_root = false);
 
 /** High-level function which reads a page asynchronously from a file to the
 buffer buf_pool if it is not already there. Sets the io_fix flag and sets

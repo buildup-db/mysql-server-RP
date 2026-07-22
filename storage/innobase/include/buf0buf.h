@@ -424,6 +424,7 @@ buf_page_t *buf_page_get_zip(const page_id_t &page_id,
 @param[in]      mode                      Fetch mode.
 @param[in]      location          Location from where this method was called.
 @param[in]      mtr                         Mini-transaction
+@param[in]      index_root              true if for index root page
 @param[in]      dirty_with_no_latch     Mark page as dirty even if page is being
                         pinned without any latch
 @return pointer to the block or NULL */
@@ -431,6 +432,7 @@ buf_block_t *buf_page_get_gen(const page_id_t &page_id,
                               const page_size_t &page_size, ulint rw_latch,
                               buf_block_t *guess, Page_fetch mode,
                               ut::Location location, mtr_t *mtr,
+                              bool index_root = false,
                               bool dirty_with_no_latch = false);
 
 /** NOTE! The following macros should be used instead of buf_page_get_gen,
@@ -463,12 +465,14 @@ FILE_PAGE (the other is buf_page_get_gen). The page is latched by passed mtr.
 @param[in]      page_size       Page size
 @param[in]      rw_latch        RW_SX_LATCH, RW_X_LATCH
 @param[in]      mtr             Mini-transaction
+@param[in]      index_root      true if for index root page
 @return pointer to the block, page bufferfixed */
 buf_block_t *buf_page_create(const page_id_t &page_id,
                              const page_size_t &page_size,
-                             rw_lock_type_t rw_latch, mtr_t *mtr);
+                             rw_lock_type_t rw_latch, mtr_t *mtr,
+                             bool index_root = false);
 
-#else  /* !UNIV_HOTBACKUP */
+#else /* !UNIV_HOTBACKUP */
 
 /** Inits a page to the buffer buf_pool, for use in mysqlbackup --restore.
 @param[in]      page_id         page id
@@ -897,9 +901,11 @@ and the lock released later.
 @param[in]      page_id                 page id
 @param[in]      page_size               page size
 @param[in]      unzip                   true=request uncompressed page
+@param[in]      index_root              true if index root page intended
 @return pointer to the block or NULL */
 buf_page_t *buf_page_init_for_read(ulint mode, const page_id_t &page_id,
-                                   const page_size_t &page_size, bool unzip);
+                                   const page_size_t &page_size, bool unzip,
+                                   bool index_root);
 
 /** Completes an asynchronous read or write request of a file page to or from
 the buffer pool.
@@ -1914,6 +1920,18 @@ struct buf_block_t {
   @return page descriptor or nullptr. */
   page_zip_des_t const *get_page_zip() const noexcept {
     return page.zip.data != nullptr ? &page.zip : nullptr;
+  }
+
+  /** Checks if this buf_block_t is higher concurrecy tolerant especially
+  on NUMA environment. If 'page.buf_fix_count' and 'lock' are allocated
+  to the separate memory pages, their updates will not interfere with
+  each other.
+  @return true if higher concurrecy tolerant */
+  bool is_high_conc() const noexcept {
+    const ulint offset =
+        ((ulint)this + sizeof(uint64_t) + ut::INNODB_CACHE_LINE_SIZE * 2) &
+        (ut::INNODB_KERNEL_PAGE_SIZE_DEFAULT - 1);
+    return offset == 0 || offset == ut::INNODB_CACHE_LINE_SIZE;
   }
 #ifndef UNIV_DEBUG
   /** Padding to align this struct size for cache line size */

@@ -1081,8 +1081,9 @@ static buf_chunk_t *buf_chunk_init(
   /* Allocate the block descriptors from
   the start of the memory block. */
   chunk->blocks =
-      (buf_block_t *)((ulint)ut_align(chunk->mem, ut::INNODB_CACHE_LINE_SIZE) +
-                      ut::INNODB_CACHE_LINE_SIZE - sizeof(uint64_t));
+      (buf_block_t *)((ulint)ut_align(chunk->mem,
+                                      ut::INNODB_CACHE_LINE_SIZE * 2) +
+                      ut::INNODB_CACHE_LINE_SIZE * 2 - sizeof(uint64_t));
 
   /* Align a pointer to the first frame.  Note that when
   os_large_page_size is smaller than UNIV_PAGE_SIZE,
@@ -1112,13 +1113,22 @@ static buf_chunk_t *buf_chunk_init(
   memory above). */
 
   block = chunk->blocks;
+  buf_block_t *insert_point = nullptr;
 
   for (i = chunk->size; i--;) {
     buf_block_init(buf_pool, block, frame);
     UNIV_MEM_INVALID(block->frame, UNIV_PAGE_SIZE);
 
     /* Add the block to the free list */
-    UT_LIST_ADD_LAST(buf_pool->free, &block->page);
+    if (insert_point == nullptr) {
+      UT_LIST_ADD_LAST(buf_pool->free, &block->page);
+    } else {
+      UT_LIST_INSERT_AFTER(buf_pool->free, &insert_point->page, &block->page);
+    }
+
+    if (!block->is_high_conc()) {
+      insert_point = block;
+    }
 
     ut_d(block->page.in_free_list = true);
     ut_ad(!block->page.someone_has_io_responsibility());
@@ -3663,6 +3673,8 @@ struct Buf_fetch {
   ulint m_line{};
   /** Mini-transaction covering the fetch. */
   mtr_t *m_mtr{};
+  /** Index root page is intended. */
+  bool m_index_root{};
   /** Mark page as dirty even if page is being pinned without any latch. */
   bool m_dirty_with_no_latch{};
   /** Number of retries before giving up. */
@@ -4093,7 +4105,7 @@ dberr_t Buf_fetch<T>::check_state(buf_block_t *&block) {
 
 template <typename T>
 void Buf_fetch<T>::read_page() {
-  if (buf_read_page(m_page_id, m_page_size)) {
+  if (buf_read_page(m_page_id, m_page_size, m_index_root)) {
     /* Avoid doing read-ahead for parallel scans (well, at least currently this
     flag is used only during the parallel scans). This would cause unnecessary
     IO when the process is already being parallelized on higher level of
@@ -4425,7 +4437,7 @@ buf_block_t *buf_page_get_gen(const page_id_t &page_id,
                               const page_size_t &page_size, ulint rw_latch,
                               buf_block_t *guess, Page_fetch mode,
                               ut::Location location, mtr_t *mtr,
-                              bool dirty_with_no_latch) {
+                              bool index_root, bool dirty_with_no_latch) {
 #ifdef UNIV_DEBUG
   ut_ad(mtr->is_active());
 
@@ -4469,6 +4481,7 @@ buf_block_t *buf_page_get_gen(const page_id_t &page_id,
     fetch.m_file = location.filename;
     fetch.m_line = location.line;
     fetch.m_mtr = mtr;
+    fetch.m_index_root = index_root;
     fetch.m_dirty_with_no_latch = dirty_with_no_latch;
 
     return (fetch.single_page());
@@ -4482,6 +4495,7 @@ buf_block_t *buf_page_get_gen(const page_id_t &page_id,
     fetch.m_file = location.filename;
     fetch.m_line = location.line;
     fetch.m_mtr = mtr;
+    fetch.m_index_root = index_root;
     fetch.m_dirty_with_no_latch = dirty_with_no_latch;
 
     return (fetch.single_page());
@@ -4852,7 +4866,8 @@ static void buf_page_init(buf_pool_t *buf_pool, const page_id_t &page_id,
 }
 
 buf_page_t *buf_page_init_for_read(ulint mode, const page_id_t &page_id,
-                                   const page_size_t &page_size, bool unzip) {
+                                   const page_size_t &page_size, bool unzip,
+                                   bool index_root) {
   buf_block_t *block;
   rw_lock_t *hash_lock;
   mtr_t mtr;
@@ -4882,7 +4897,7 @@ buf_page_t *buf_page_init_for_read(ulint mode, const page_id_t &page_id,
       !recv_recovery_is_on()) {
     block = nullptr;
   } else {
-    block = buf_LRU_get_free_block(buf_pool);
+    block = buf_LRU_get_free_block(buf_pool, index_root);
     ut_ad(block);
     ut_ad(!block->page.someone_has_io_responsibility());
     ut_ad(buf_pool_from_block(block) == buf_pool);
@@ -5060,7 +5075,8 @@ func_exit:
 
 buf_block_t *buf_page_create(const page_id_t &page_id,
                              const page_size_t &page_size,
-                             rw_lock_type_t rw_latch, mtr_t *mtr) {
+                             rw_lock_type_t rw_latch, mtr_t *mtr,
+                             bool index_root) {
   buf_frame_t *frame;
   buf_block_t *block;
   buf_block_t *free_block = nullptr;
@@ -5070,7 +5086,7 @@ buf_block_t *buf_page_create(const page_id_t &page_id,
   ut_ad(mtr->is_active());
   ut_ad(page_id.space() != 0 || !page_size.is_compressed());
 
-  free_block = buf_LRU_get_free_block(buf_pool);
+  free_block = buf_LRU_get_free_block(buf_pool, index_root);
 
   for (;;) {
     mutex_enter(&buf_pool->LRU_list_mutex);
@@ -5114,8 +5130,11 @@ buf_block_t *buf_page_create(const page_id_t &page_id,
 
       buf_block_free(free_block);
 
-      return (
-          buf_page_get(page_id, page_size, rw_latch, UT_LOCATION_HERE, mtr));
+      /* NOTE: It might be better to relocate the block.
+               But it's not worth taking the risk for the another bug. */
+      return (buf_page_get_gen(page_id, page_size, rw_latch, nullptr,
+                               Page_fetch::NORMAL, UT_LOCATION_HERE, mtr,
+                               index_root));
     }
     break;
   }
