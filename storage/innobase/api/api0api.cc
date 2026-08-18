@@ -1680,7 +1680,7 @@ static inline ib_err_t ib_cursor_position(
   }
   buf = static_cast<unsigned char *>(
       ut::malloc_withkey(UT_NEW_THIS_FILE_PSI_KEY, UNIV_PAGE_SIZE));
-  prebuilt->clear_search_tuples();
+  dtuple_set_n_fields(prebuilt->search_tuple, 0);
 
   /* We want to position at one of the ends, row_search_for_mysql()
   uses the search_tuple fields to work out what to do. */
@@ -1715,7 +1715,7 @@ ib_err_t ib_cursor_next(ib_crsr_t ib_crsr) /*!< in: InnoDB cursor instance */
     prebuilt->cursor_heap = cursor->heap;
   }
   /* We want to move to the next record */
-  prebuilt->clear_search_tuples();
+  dtuple_set_n_fields(prebuilt->search_tuple, 0);
 
   err = static_cast<ib_err_t>(
       row_search_for_mysql(buf, PAGE_CUR_G, prebuilt, 0, ROW_SEL_NEXT));
@@ -1747,7 +1747,6 @@ ib_err_t ib_cursor_moveto(ib_crsr_t ib_crsr, /*!< in: InnoDB cursor instance */
     n_fields = dtuple_get_n_fields(tuple->ptr);
   }
 
-  dtuple_set_n_fields(prebuilt->m_stop_tuple, 0);
   dtuple_set_n_fields(search_tuple, n_fields);
   dtuple_set_n_fields_cmp(search_tuple, n_fields);
 

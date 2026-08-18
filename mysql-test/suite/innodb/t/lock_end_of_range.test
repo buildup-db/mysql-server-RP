@@ -1,3 +1,5 @@
+--skip The fix reverted. The behavior is acceptable for better performance, because not harmful for user data consistency, no hangups.
+
 --echo #
 --echo # Bug #29508068  UNNECESSARY NEXT-KEY LOCK TAKEN
 --echo #
