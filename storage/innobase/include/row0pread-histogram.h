@@ -160,14 +160,6 @@ class Histogram_sampler {
   /** The parallel reader. */
   Parallel_reader m_parallel_reader;
 
-  /** Random generator engine used to provide us random uniformly distributed
-  values required to decide if the row in question needs to be sampled or
-  not. */
-  std::mt19937 m_random_generator;
-
-  /** Uniform distribution used by the random generator. */
-  static std::uniform_real_distribution<double> m_distribution;
-
   /** Sampling method to be used for sampling. */
   enum_sampling_method m_sampling_method{enum_sampling_method::NONE};
 
