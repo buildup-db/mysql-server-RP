@@ -1,6 +1,7 @@
 /*****************************************************************************
 
 Copyright (c) 1994, 2026, Oracle and/or its affiliates.
+Copyright (c) 2026, buildup-db.
 
 This program is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License, version 2.0, as published by the
@@ -40,8 +41,11 @@ this program; if not, write to the Free Software Foundation, Inc.,
 #include "btr0types.h"
 #include "dict0dict.h"
 #include "gis0type.h"
+#include "os0numa.h"   /* os_getcpu() */
+#include "os0thread.h" /* ut::this_thread_hash */
 #include "page0cur.h"
 #include "univ.i"
+#include "ut0cpu_cache.h" /* ut::INNODB_CACHE_LINE_SIZE */
 
 /** Mode flags for btr_cur operations; these can be ORed */
 enum {
@@ -756,19 +760,27 @@ is still a good change of success a little later.  Sleep this many
 milliseconds between retries. */
 constexpr uint32_t BTR_CUR_RETRY_SLEEP_TIME_MS = 50;
 
+/** Global counter sharded for saving CPU cache coherency cost. */
+constexpr size_t BTR_CUR_COUNTER_SHARDING = 128;
+#ifdef HAVE_OS_GETCPU
+#define BTR_CUR_COUNTER_INDEX \
+  (static_cast<size_t>(os_getcpu()) % BTR_CUR_COUNTER_SHARDING)
+#else /* HAVE_OS_GETCPU */
+#define BTR_CUR_COUNTER_INDEX (ut::this_thread_hash % BTR_CUR_COUNTER_SHARDING)
+#endif /* HAVE_OS_GETCPU */
 /** Number of searches down the B-tree in btr_cur_search_to_nth_level(). */
-extern ulint btr_cur_n_non_sea;
+extern std::array<uint64_t, BTR_CUR_COUNTER_SHARDING> btr_cur_n_non_sea;
 /** Number of successful adaptive hash index lookups in
 btr_cur_search_to_nth_level(). */
-extern ulint btr_cur_n_sea;
+extern std::array<uint64_t, BTR_CUR_COUNTER_SHARDING> btr_cur_n_sea;
 /** Old value of btr_cur_n_non_sea.  Copied by
 srv_refresh_innodb_monitor_stats().  Referenced by
 srv_printf_innodb_monitor(). */
-extern ulint btr_cur_n_non_sea_old;
+extern uint64_t btr_cur_n_non_sea_old;
 /** Old value of btr_cur_n_sea.  Copied by
 srv_refresh_innodb_monitor_stats().  Referenced by
 srv_printf_innodb_monitor(). */
-extern ulint btr_cur_n_sea_old;
+extern uint64_t btr_cur_n_sea_old;
 
 #ifdef UNIV_DEBUG
 /* Flag to limit optimistic insert records */
