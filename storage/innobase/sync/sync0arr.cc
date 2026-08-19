@@ -419,10 +419,12 @@ void sync_array_cell_print(FILE *file, const sync_cell_t *cell) {
 
     const auto readers_count = rw_lock_get_reader_count(rwlock);
     fprintf(file, "number of readers " ULINTPF, readers_count);
+#ifdef UNIV_DEBUG
     if (readers_count == 1) {
       fprintf(file, " (thread id %s)",
               to_string(rwlock->reader_thread.recover_if_single()).c_str());
     }
+#endif /* UNIV_DEBUG */
     fprintf(file,
             ", waiters flag %d"
             ", lock_word: %lx\n"
@@ -570,24 +572,6 @@ bool sync_array_detect_rwlock_deadlock(sync_cell_t *cell, sync_array_t *arr,
       const auto thread = lock->writer_thread.load();
       if (lock->recursive.load() && thread != none &&
           std::forward<F>(conflicts)(RW_LOCK_X, thread == waiter)) {
-        suspects[suspects_cnt++] = thread;
-      }
-    }
-  }
-  {
-    if (rw_lock_get_reader_count(lock) == 1) {
-      /* You might be worried about a race-condition: could it happen that the
-      number of s-lockers has changed from 1 to say 3, and the XOR we recover in
-      the line below corresponds to some unrelated fourth thread?
-      For example 0x101 xor 0x110 xor 0x111 = 0x100.
-      This isn't a problem in practice, because conflicts(RW_LOCKS,..) is true
-      only if the waiter waits for RW_LOCK_X_WAIT, which means it already has
-      announced its presence via lock_word, so no more s-locks should be granted
-      to not starve it. Thus the number of readers can only decrease. We double
-      check it is still 1 after recovering the xor, so it can't be 0 nor torn.*/
-      const auto thread = lock->reader_thread.recover_if_single();
-      if (rw_lock_get_reader_count(lock) == 1 && thread != none &&
-          std::forward<F>(conflicts)(RW_LOCK_S, thread == waiter)) {
         suspects[suspects_cnt++] = thread;
       }
     }

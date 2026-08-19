@@ -137,8 +137,10 @@ TEST(sync0rw, rw_lock_reader_thread) {
     EXPECT_EQ(rw_lock_get_reader_count(rw_locks[0]), 1);
     EXPECT_EQ(rw_lock_get_reader_count(rw_locks[1]), 2);
     EXPECT_EQ(rw_lock_get_reader_count(rw_locks[2]), 0);
+#ifdef UNIV_DEBUG
     EXPECT_EQ(rw_locks[0]->reader_thread.recover_if_single(),
               thread_1_id.load());
+#endif /* UNIV_DEBUG */
 
     FILE *tmp_file = tmpfile();
     EXPECT_NE(tmp_file, nullptr);
@@ -176,9 +178,13 @@ TEST(sync0rw, rw_lock_reader_thread) {
     EXPECT_THAT(cell_print, testing::HasSubstr("number of readers 0, waiters"));
     /* Note that std::to_string(thread_id_to_uint64(thread_id) could be
      something different than to_string(thread_id). */
+#ifdef UNIV_DEBUG
     EXPECT_THAT(cell_print, testing::HasSubstr(
                                 "number of readers 1 (thread id " +
                                 to_string(thread_1_id.load()) + "), waiters"));
+#else
+    EXPECT_THAT(cell_print, testing::HasSubstr("number of readers 1, waiters"));
+#endif /* UNIV_DEBUG */
     EXPECT_THAT(cell_print, testing::HasSubstr("number of readers 2, waiters"));
   };
 

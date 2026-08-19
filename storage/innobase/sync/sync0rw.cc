@@ -223,7 +223,11 @@ void rw_lock_create_func(rw_lock_t *lock,
         std::numeric_limits<decltype(lock->clocation.line)>::max());
 
   lock->count_os_wait = 0;
+#ifdef UNIV_DEBUG
   lock->last_s_file_name = "not yet reserved";
+#else
+  lock->last_s_file_name = "not recorded";
+#endif /* UNIV_DEBUG */
   lock->last_x_file_name = "not yet reserved";
   lock->last_s_line = 0;
   lock->last_x_line = 0;

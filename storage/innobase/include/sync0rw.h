@@ -408,9 +408,11 @@ struct rw_lock_t
   thread which already released or passed the lock. */
   std::atomic<std::thread::id> writer_thread;
 
+#ifdef UNIV_DEBUG
   /** XOR of reader threads' IDs. If there is exactly one reader it should allow
    to retrieve the thread ID of that reader. */
   Atomic_xor_of_thread_id reader_thread;
+#endif /* UNIV_DEBUG */
 
   /** Used by sync0arr.cc for thread queueing */
   os_event_t event;
