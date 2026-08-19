@@ -1,6 +1,7 @@
 /*****************************************************************************
 
 Copyright (c) 2006, 2026, Oracle and/or its affiliates.
+Copyright (c) 2026, buildup-db.
 
 This program is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License, version 2.0, as published by the
@@ -46,16 +47,15 @@ ib_vector_t *ib_vector_create(
 
   ut_a(size > 0);
 
-  vec = static_cast<ib_vector_t *>(
-      allocator->mem_malloc(allocator, sizeof(*vec)));
+  vec = static_cast<ib_vector_t *>(ib_heap_malloc(allocator, sizeof(*vec)));
 
   vec->used = 0;
   vec->total = size;
   vec->allocator = allocator;
   vec->sizeof_value = sizeof_value;
 
-  vec->data = static_cast<void *>(
-      allocator->mem_malloc(allocator, vec->sizeof_value * size));
+  vec->data =
+      static_cast<void *>(ib_heap_malloc(allocator, vec->sizeof_value * size));
 
   return (vec);
 }
@@ -69,8 +69,8 @@ void ib_vector_resize(ib_vector_t *vec) /* in: vector */
   ulint old_size = vec->used * vec->sizeof_value;
   ulint new_size = new_total * vec->sizeof_value;
 
-  vec->data = static_cast<void *>(vec->allocator->mem_resize(
-      vec->allocator, vec->data, old_size, new_size));
+  vec->data = static_cast<void *>(
+      ib_heap_resize(vec->allocator, vec->data, old_size, new_size));
 
   vec->total = new_total;
 }

@@ -152,7 +152,7 @@ static bool log_test_general_init() {
   srv_log_buffer_size = 256 * 1024;
   srv_log_write_ahead_size = 4096;
   srv_buf_pool_instances = 0;
-  log_checksum_algorithm_ptr.store(log_block_calc_checksum_none);
+  log_checksum_algorithm.store(false);
   srv_n_read_io_threads = 1;
   srv_n_write_io_threads = 1;
 

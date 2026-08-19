@@ -1,6 +1,7 @@
 /*****************************************************************************
 
 Copyright (c) 1995, 2026, Oracle and/or its affiliates.
+Copyright (c) 2026, buildup-db.
 
 This program is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License, version 2.0, as published by the
@@ -78,16 +79,22 @@ uint32_t buf_calc_page_crc32(const byte *page,
   checksum is stored, and also the last 8 bytes of page because
   there we store the old formula checksum. */
 
-  ut_crc32_func_t crc32_func =
-      use_legacy_big_endian ? ut_crc32_legacy_big_endian : ut_crc32;
+  uint32_t c1, c2;
 
-  const uint32_t c1 = crc32_func(page + FIL_PAGE_OFFSET,
-                                 FIL_PAGE_FILE_FLUSH_LSN - FIL_PAGE_OFFSET);
+  if (UNIV_UNLIKELY(use_legacy_big_endian)) {
+    c1 = ut_crc32_legacy_big_endian(page + FIL_PAGE_OFFSET,
+                                    FIL_PAGE_FILE_FLUSH_LSN - FIL_PAGE_OFFSET);
 
-  const uint32_t c2 =
-      crc32_func(page + FIL_PAGE_DATA,
-                 UNIV_PAGE_SIZE - FIL_PAGE_DATA - FIL_PAGE_END_LSN_OLD_CHKSUM);
+    c2 = ut_crc32_legacy_big_endian(
+        page + FIL_PAGE_DATA,
+        UNIV_PAGE_SIZE - FIL_PAGE_DATA - FIL_PAGE_END_LSN_OLD_CHKSUM);
+  } else {
+    c1 = ut_crc32(page + FIL_PAGE_OFFSET,
+                  FIL_PAGE_FILE_FLUSH_LSN - FIL_PAGE_OFFSET);
 
+    c2 = ut_crc32(page + FIL_PAGE_DATA,
+                  UNIV_PAGE_SIZE - FIL_PAGE_DATA - FIL_PAGE_END_LSN_OLD_CHKSUM);
+  }
   return (c1 ^ c2);
 }
 

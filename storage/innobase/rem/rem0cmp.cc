@@ -364,9 +364,6 @@ static int cmp_whole_field(ulint mtype, ulint prtype, bool is_asc,
                                     " using a character set collation!";
         ut_d(ut_error);
       }
-      [[fallthrough]];
-    case DATA_VARMYSQL:
-    case DATA_MYSQL:
       cmp = innobase_mysql_cmp(prtype, a, a_length, b, b_length);
       break;
     case DATA_POINT:
@@ -413,8 +410,9 @@ inline int cmp_data(ulint mtype, ulint prtype, bool is_asc, const byte *data1,
   }
 
   ulint pad;
+  int cmp;
 
-  switch (mtype) {
+  switch (UNIV_EXPECT(mtype, DATA_INT)) {
     case DATA_FIXBINARY:
     case DATA_BINARY:
       if (dtype_get_charset_coll(prtype) != DATA_MYSQL_BINARY_CHARSET_COLL) {
@@ -427,6 +425,11 @@ inline int cmp_data(ulint mtype, ulint prtype, bool is_asc, const byte *data1,
     case DATA_SYS:
       pad = ULINT_UNDEFINED;
       break;
+    case DATA_VARMYSQL:
+    case DATA_MYSQL:
+      cmp = innobase_mysql_cmp(prtype, data1, (unsigned)len1, data2,
+                               (unsigned)len2);
+      return (is_asc ? cmp : -cmp);
     case DATA_POINT:
     case DATA_VAR_POINT:
       /* Since DATA_POINT has a fixed length of DATA_POINT_LEN,
@@ -462,8 +465,6 @@ inline int cmp_data(ulint mtype, ulint prtype, bool is_asc, const byte *data1,
     len1 -= len;
     len2 = 0;
   }
-
-  int cmp;
 
   if (len > 0) {
 #if defined __i386__ || defined __x86_64__ || defined _M_IX86 || defined _M_X64

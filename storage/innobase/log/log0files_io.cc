@@ -1,6 +1,7 @@
 /*****************************************************************************
 
 Copyright (c) 2019, 2026, Oracle and/or its affiliates.
+Copyright (c) 2026, buildup-db.
 
 This program is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License, version 2.0,
@@ -76,11 +77,45 @@ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301  USA
 /* srv_redo_log_encrypt */
 #include "srv0srv.h"
 
-Log_checksum_algorithm_atomic_ptr log_checksum_algorithm_ptr;
+/* srv_is_being_started */
+#include "srv0start.h"
+
+std::atomic<bool> log_checksum_algorithm;
 
 bool log_header_checksum_is_ok(const byte *buf) {
   DBUG_EXECUTE_IF("log_header_checksum_disabled", return true;);
   return log_block_get_checksum(buf) == log_block_calc_checksum_crc32(buf);
+}
+
+void log_on_before_read_basic(Log_file_id, Log_file_type file_type, os_offset_t,
+                              os_offset_t read_size) {
+  ut_a(file_type == Log_file_type::NORMAL);
+  ut_a(srv_is_being_started);
+#ifndef UNIV_HOTBACKUP
+  srv_stats.data_read.add(read_size);
+#endif /* !UNIV_HOTBACKUP */
+}
+
+void log_on_before_write_basic(Log_file_id file_id, Log_file_type file_type,
+                               os_offset_t write_offset,
+                               os_offset_t write_size) {
+  ut_a(!srv_read_only_mode);
+  if (!srv_is_being_started) {
+    ut_a(log_sys != nullptr);
+    auto file = log_sys->m_files.file(file_id);
+    if (file_type == Log_file_type::NORMAL) {
+      ut_a(file != log_sys->m_files.end());
+      ut_a((file_id == log_sys->m_current_file.m_id &&
+            write_offset + write_size <= file->m_size_in_bytes) ||
+           write_offset + write_size <= LOG_FILE_HDR_SIZE);
+    } else {
+      ut_a(file == log_sys->m_files.end());
+      ut_a(file_id == log_sys->m_current_file.next_id());
+    }
+  }
+#ifndef UNIV_HOTBACKUP
+  srv_stats.data_written.add(write_size);
+#endif
 }
 
 /** Used for reads/writes to redo files within this module.
@@ -162,8 +197,8 @@ static dberr_t log_check_file(const Log_files_context &ctx, Log_file_id file_id,
 
 /** @{ */
 
-Log_file_io_callback Log_file_handle::s_on_before_read;
-Log_file_io_callback Log_file_handle::s_on_before_write;
+Log_file_io_callback Log_file_handle::s_on_before_read = nullptr;
+Log_file_io_callback Log_file_handle::s_on_before_write = nullptr;
 bool Log_file_handle::s_skip_fsyncs = false;
 
 #ifdef UNIV_DEBUG
@@ -352,7 +387,9 @@ dberr_t Log_file_handle::read(os_offset_t read_offset, os_offset_t read_size,
 
   ut_ad(m_access_mode != Log_file_access_mode::WRITE_ONLY);
 
-  if (s_on_before_read) {
+  if (UNIV_LIKELY(s_on_before_read == log_on_before_read_basic)) {
+    log_on_before_read_basic(m_file_id, m_file_type, read_offset, read_size);
+  } else if (s_on_before_read) {
     s_on_before_read(m_file_id, m_file_type, read_offset, read_size);
   }
 
@@ -369,7 +406,9 @@ dberr_t Log_file_handle::write(os_offset_t write_offset, os_offset_t write_size,
 
   ut_ad(m_access_mode != Log_file_access_mode::READ_ONLY);
 
-  if (s_on_before_write) {
+  if (UNIV_LIKELY(s_on_before_write == log_on_before_write_basic)) {
+    log_on_before_write_basic(m_file_id, m_file_type, write_offset, write_size);
+  } else if (s_on_before_write) {
     s_on_before_write(m_file_id, m_file_type, write_offset, write_size);
   }
 

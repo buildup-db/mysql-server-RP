@@ -1,6 +1,7 @@
 /*****************************************************************************
 
 Copyright (c) 2019, 2026, Oracle and/or its affiliates.
+Copyright (c) 2026, buildup-db.
 
 This program is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License, version 2.0, as published by the
@@ -104,13 +105,38 @@ This includes functions to:
 
 /** Atomic pointer to the log checksum calculation function. This is actually
 the only remaining "state" of the library. Hopefully can become removed. */
-extern Log_checksum_algorithm_atomic_ptr log_checksum_algorithm_ptr;
+extern std::atomic<bool> log_checksum_algorithm;
 
 /** Computes checksum of the given header and verifies if the checksum
 is the same as the one stored in that header.
 @param[in]  buf   header to verify
 @return true iff checksums are the same */
 bool log_header_checksum_is_ok(const byte *buf);
+
+/** Callback called on each read operation on a redo log file.
+Default content of Log_file_handle::s_on_before_read.
+@param[in]  file_id    id of the redo log file (target of the IO operation)
+@param[in]  file_type  type of the redo log file
+@param[in]  offset     offset in the file, at which read operation
+                       is going to start (expressed in bytes and computed
+                       from the beginning of the file)
+@param[in]  size       size of data that is going to be read in
+                       the IO operation */
+void log_on_before_read_basic(Log_file_id, Log_file_type file_type, os_offset_t,
+                              os_offset_t read_size);
+
+/** Callback called on each write operation on a redo log file.
+Default content of Log_file_handle::s_on_before_write.
+@param[in]  file_id    id of the redo log file (target of the IO operation)
+@param[in]  file_type  type of the redo log file
+@param[in]  offset     offset in the file, at which write operation
+                       is going to start (expressed in bytes and computed
+                       from the beginning of the file)
+@param[in]  size       size of data that is going to be written in
+                       the IO operation */
+void log_on_before_write_basic(Log_file_id file_id, Log_file_type file_type,
+                               os_offset_t write_offset,
+                               os_offset_t write_size);
 
 /**************************************************/ /**
 
@@ -551,7 +577,10 @@ inline uint32_t log_block_convert_lsn_to_hdr_no(lsn_t lsn) {
 @param[in]	log_block	log block
 @return checksum */
 inline uint32_t log_block_calc_checksum(const byte *log_block) {
-  return log_checksum_algorithm_ptr.load()(log_block);
+  if (UNIV_LIKELY(log_checksum_algorithm.load())) {
+    return ut_crc32(log_block, OS_FILE_LOG_BLOCK_SIZE - LOG_BLOCK_TRL_SIZE);
+  }
+  return LOG_NO_CHECKSUM_MAGIC;
 }
 
 /** Calculates the checksum for a log block using the MySQL 5.7 algorithm.

@@ -97,9 +97,6 @@ external tools. */
 #include "univ.i"
 #include "ut0crc32.h"
 
-/** Pointer to CRC32 calculation function. */
-ut_crc32_func_t ut_crc32;
-
 bool ut_crc32_cpu_enabled = false;
 bool ut_poly_mul_cpu_enabled = false;
 
@@ -795,14 +792,5 @@ void ut_crc32_init() {
 
   ut_crc32_cpu_enabled = hardware::can_use_crc32();
   ut_poly_mul_cpu_enabled = hardware::can_use_poly_mul();
-  if (ut_crc32_cpu_enabled) {
-    if (ut_poly_mul_cpu_enabled) {
-      ut_crc32 = hardware::crc32_using_pclmul;
-    } else {
-      ut_crc32 = hardware::crc32_using_unrolled_loop_poly_mul;
-    }
-    return;
-  }
 #endif /* !CRC32_DEFAULT */
-  ut_crc32 = software::crc32;
 }

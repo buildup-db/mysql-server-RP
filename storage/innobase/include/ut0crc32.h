@@ -154,16 +154,15 @@ void ut_crc32_init();
 /** The CRC-32C polynomial without the implicit highest 1 at x^32 */
 constexpr uint32_t CRC32C_POLYNOMIAL{0x1EDC6F41};
 
-/** Calculates CRC32.
- @param ptr - data over which to calculate CRC32.
- @param len - data length in bytes.
- @return calculated hash */
-typedef uint32_t (*ut_crc32_func_t)(const byte *ptr, size_t len);
-
-/** Pointer to standard-compliant CRC32-C (using the GF(2) primitive polynomial
-0x11EDC6F41) calculation function picked by ut_crc32_init() as the fastest
-implementation for the current environment. */
-extern ut_crc32_func_t ut_crc32;
+#ifndef CRC32_DEFAULT
+namespace hardware {
+uint32_t crc32_using_pclmul(const byte *data, size_t len);
+uint32_t crc32_using_unrolled_loop_poly_mul(const byte *data, size_t len);
+}  // namespace hardware
+#endif /* !CRC32_DEFAULT */
+namespace software {
+uint32_t crc32(const byte *data, size_t len);
+}
 
 /** Calculates CRC32 using legacy algorithm, which uses big-endian byte ordering
 when converting byte sequence to integers - flips each full aligned 8-byte chunk
@@ -217,5 +216,22 @@ static inline uint64_t crc32_hash_uint64(uint64_t value) {
          crc32_update_uint64(0, (value >> 32 | value << 32));
 }
 #endif /* !CRC32_DEFAULT */
+
+/** Calculates CRC32.
+ @param ptr - data over which to calculate CRC32.
+ @param len - data length in bytes.
+ @return calculated hash */
+static inline uint32_t ut_crc32(const byte *ptr, size_t len) {
+#ifndef CRC32_DEFAULT
+  if (UNIV_LIKELY(ut_crc32_cpu_enabled)) {
+    if (UNIV_LIKELY(ut_poly_mul_cpu_enabled)) {
+      return hardware::crc32_using_pclmul(ptr, len);
+    } else {
+      return hardware::crc32_using_unrolled_loop_poly_mul(ptr, len);
+    }
+  }
+#endif /* !CRC32_DEFAULT */
+  return software::crc32(ptr, len);
+}
 
 #endif /* ut0crc32_h */
