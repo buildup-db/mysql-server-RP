@@ -32,13 +32,10 @@
 #include <time.h>
 #include <atomic>
 #include <functional>
-#include <memory>
-#include <unordered_map>
 #include <utility>
 
 #include "ft_global.h"
 #include "m_string.h"
-#include "map_helpers.h"
 #include "mf_wcomp.h"  // wild_one, wild_many
 #include "mutex_lock.h"
 #include "my_alloc.h"
@@ -134,6 +131,7 @@
 #include "sql/sql_error.h"     // Sql_condition
 #include "sql/sql_executor.h"  // unwrap_rollup_group
 #include "sql/sql_handler.h"   // mysql_ha_flush_tables
+#include "sql/sql_hset.h"
 #include "sql/sql_lex.h"
 #include "sql/sql_list.h"
 #include "sql/sql_parse.h"    // is_update_query
@@ -159,13 +157,6 @@
 #include "strxnmov.h"
 #include "template_utils.h"
 #include "thr_mutex.h"
-
-using std::equal_to;
-using std::hash;
-using std::pair;
-using std::string;
-using std::unique_ptr;
-using std::unordered_map;
 
 /**
   The maximum length of a key in the table definition cache.
@@ -331,11 +322,9 @@ static void init_tdc_psi_keys(void) {
 }
 #endif /* HAVE_PSI_INTERFACE */
 
-using Table_definition_cache =
-    malloc_unordered_map<std::string,
-                         std::unique_ptr<TABLE_SHARE, Table_share_deleter>>;
-Table_definition_cache *table_def_cache;
+HASH table_def_cache;
 static TABLE_SHARE *oldest_unused_share, end_of_unused_share;
+static bool table_def_inited = false;
 static bool table_def_shutdown_in_progress = false;
 
 static bool check_and_update_table_version(THD *thd, Table_ref *tables,
@@ -464,8 +453,15 @@ size_t get_table_def_key(const Table_ref *table_list, const char **key) {
   Functions to handle table definition cache (TABLE_SHARE)
 *****************************************************************************/
 
-void Table_share_deleter::operator()(TABLE_SHARE *share) const {
+static const uchar *table_def_key(const uchar *record, size_t *length) {
+  const TABLE_SHARE *entry = (const TABLE_SHARE *)record;
+  *length = entry->table_cache_key.length;
+  return (const uchar *)entry->table_cache_key.str;
+}
+
+static void table_def_free_entry(void *arg) {
   DBUG_TRACE;
+  TABLE_SHARE *share = pointer_cast<TABLE_SHARE *>(arg);
   mysql_mutex_assert_owner(&LOCK_open);
   if (share->prev) {
     /* remove from old_unused_share list */
@@ -490,8 +486,15 @@ bool table_def_init(void) {
     return true;
   }
 
-  table_def_cache = new Table_definition_cache(key_memory_table_share);
-  return false;
+  /*
+    It is safe to destroy zero-initialized HASH even if its
+    initialization has failed.
+  */
+  table_def_inited = true;
+
+  return my_hash_init(&table_def_cache, &my_charset_bin, table_def_size, 0,
+                      table_def_key, table_def_free_entry, 0,
+                      key_memory_table_share) != 0;
 }
 
 /**
@@ -501,7 +504,7 @@ bool table_def_init(void) {
 */
 
 void table_def_start_shutdown(void) {
-  if (table_def_cache != nullptr) {
+  if (table_def_inited) {
     table_cache_manager.lock_all_and_tdc();
     /*
       Ensure that TABLE and TABLE_SHARE objects which are created for
@@ -518,17 +521,17 @@ void table_def_start_shutdown(void) {
 
 void table_def_free(void) {
   DBUG_TRACE;
-  if (table_def_cache != nullptr) {
+  if (table_def_inited) {
+    table_def_inited = false;
     /* Free table definitions. */
-    delete table_def_cache;
-    table_def_cache = nullptr;
+    my_hash_free(&table_def_cache);
     table_cache_manager.destroy();
     mysql_cond_destroy(&COND_open);
     mysql_mutex_destroy(&LOCK_open);
   }
 }
 
-uint cached_table_definitions(void) { return table_def_cache->size(); }
+uint cached_table_definitions(void) { return table_def_cache.records; }
 
 static TABLE_SHARE *process_found_table_share(THD *thd [[maybe_unused]],
                                               TABLE_SHARE *share,
@@ -572,8 +575,8 @@ static TABLE_SHARE *process_found_table_share(THD *thd [[maybe_unused]],
   }
 
   /* Free cache if too big */
-  while (table_def_cache->size() > table_def_size && oldest_unused_share->next)
-    table_def_cache->erase(to_string(oldest_unused_share->table_cache_key));
+  while (table_def_cache.records > table_def_size && oldest_unused_share->next)
+    my_hash_delete(&table_def_cache, (uchar *)oldest_unused_share);
 
   DBUG_PRINT("exit", ("share: %p ref_count: %u", share, share->ref_count()));
   return share;
@@ -741,12 +744,14 @@ static void update_schema_options(const dd::Schema *sch_obj,
   @param open_view          allow open of view
   @param open_secondary     get the share for a table in a secondary
                             storage engine
+  @param hash_value         hash value to use for lookup in THD
 
   @return Pointer to the new TABLE_SHARE, or NULL if there was an error
 */
 
 TABLE_SHARE *get_table_share(THD *thd, const char *db, const char *table_name,
                              const char *key, size_t key_length, bool open_view,
+                             my_hash_value_type hash_value,
                              bool open_secondary) {
   TABLE_SHARE *share;
   bool open_table_err = false;
@@ -769,8 +774,10 @@ TABLE_SHARE *get_table_share(THD *thd, const char *db, const char *table_name,
     hash table.
   */
   for (;;) {
-    auto it = table_def_cache->find(string(key, key_length));
-    if (it == table_def_cache->end()) {
+    share = reinterpret_cast<TABLE_SHARE *>(my_hash_search_using_hash_value(
+        &table_def_cache, hash_value,
+        reinterpret_cast<uchar *>(const_cast<char *>(key)), key_length));
+    if (share == nullptr) {
       if (thd->mdl_context.owns_equal_or_stronger_lock(
               MDL_key::SCHEMA, db, "", MDL_INTENTION_EXCLUSIVE)) {
         break;
@@ -787,7 +794,6 @@ TABLE_SHARE *get_table_share(THD *thd, const char *db, const char *table_name,
       // Need to re-try the find after getting the mutex again
       continue;
     }
-    share = it->second.get();
     if (!share->m_open_in_progress)
       return process_found_table_share(thd, share, open_view);
 
@@ -820,8 +826,14 @@ TABLE_SHARE *get_table_share(THD *thd, const char *db, const char *table_name,
   */
   assign_new_table_id(share);
 
-  table_def_cache->emplace(to_string(share->table_cache_key),
-                           unique_ptr<TABLE_SHARE, Table_share_deleter>(share));
+  /*
+    If hash insert fails, there is no need to broadcast COND_open,
+    since the share is not present in the cache yet.
+  */
+  if (my_hash_insert(&table_def_cache, (const uchar *)share)) {
+    free_table_share(share);
+    return nullptr;  // return error
+  }
 
   /*
     We must increase ref_count prior to releasing LOCK_open
@@ -934,7 +946,7 @@ TABLE_SHARE *get_table_share(THD *thd, const char *db, const char *table_name,
   if (open_table_err) {
     share->error = true;  // Allow waiters to detect the error
     share->decrement_ref_count();
-    table_def_cache->erase(to_string(share->table_cache_key));
+    (void)my_hash_delete(&table_def_cache, (uchar *)share);
 #if defined(ENABLED_DEBUG_SYNC)
     if (!thd->is_attachable_ro_transaction_active())
       DEBUG_SYNC(thd, "get_share_after_destroy");
@@ -953,7 +965,9 @@ TABLE_SHARE *get_table_share(THD *thd, const char *db, const char *table_name,
 
   /* If debug, assert that the share is actually present in the cache */
 #ifndef NDEBUG
-  assert(table_def_cache->count(string(key, key_length)) != 0);
+  assert(my_hash_search(&table_def_cache,
+                        reinterpret_cast<uchar *>(const_cast<char *>(key)),
+                        key_length));
 #endif
   return share;
 }
@@ -966,7 +980,7 @@ TABLE_SHARE *get_table_share(THD *thd, const char *db, const char *table_name,
 
 static TABLE_SHARE *get_table_share_with_discover(
     THD *thd, Table_ref *table_list, const char *key, size_t key_length,
-    bool open_secondary, int *error)
+    bool open_secondary, int *error, my_hash_value_type hash_value)
 
 {
   TABLE_SHARE *share;
@@ -974,7 +988,7 @@ static TABLE_SHARE *get_table_share_with_discover(
   DBUG_TRACE;
 
   share = get_table_share(thd, table_list->db, table_list->table_name, key,
-                          key_length, true, open_secondary);
+                          key_length, true, hash_value, open_secondary);
   /*
     If share is not NULL, we found an existing share.
 
@@ -1063,7 +1077,7 @@ void release_table_share(TABLE_SHARE *share) {
   assert(share->ref_count() != 0);
   if (share->decrement_ref_count() == 0) {
     if (share->has_old_version() || table_def_shutdown_in_progress)
-      table_def_cache->erase(to_string(share->table_cache_key));
+      my_hash_delete(&table_def_cache, (uchar *)share);
     else {
       /* Link share last in used_table_share list */
       DBUG_PRINT("info", ("moving share to unused list"));
@@ -1074,9 +1088,9 @@ void release_table_share(TABLE_SHARE *share) {
       end_of_unused_share.prev = &share->next;
       share->next = &end_of_unused_share;
 
-      if (table_def_cache->size() > table_def_size) {
+      if (table_def_cache.records > table_def_size) {
         /* Delete the least used share to preserve LRU order. */
-        table_def_cache->erase(to_string(oldest_unused_share->table_cache_key));
+        my_hash_delete(&table_def_cache, (uchar *)oldest_unused_share);
       }
     }
   }
@@ -1092,7 +1106,9 @@ TABLE_SHARE *get_cached_table_share(const char *db, const char *table_name) {
   mysql_mutex_assert_owner(&LOCK_open);
 
   key_length = create_table_def_key(db, table_name, key);
-  return find_or_nullptr(*table_def_cache, string(key, key_length));
+  return reinterpret_cast<TABLE_SHARE *>(my_hash_search(
+      &table_def_cache, reinterpret_cast<uchar *>(const_cast<char *>(key)),
+      key_length));
 }
 
 /*
@@ -1114,6 +1130,7 @@ TABLE_SHARE *get_cached_table_share(const char *db, const char *table_name) {
 */
 
 OPEN_TABLE_LIST *list_open_tables(THD *thd, const char *db, const char *wild) {
+  int result = 0;
   OPEN_TABLE_LIST **start_list, *open_list, *start, *prev;
   Table_ref table_list;
   DBUG_TRACE;
@@ -1130,8 +1147,8 @@ OPEN_TABLE_LIST *list_open_tables(THD *thd, const char *db, const char *wild) {
 
   table_cache_manager.lock_all_and_tdc();
 
-  for (const auto &key_and_value : *table_def_cache) {
-    TABLE_SHARE *share = key_and_value.second.get();
+  for (uint idx = 0; result == 0 && idx < table_def_cache.records; idx++) {
+    TABLE_SHARE *share = (TABLE_SHARE *)my_hash_element(&table_def_cache, idx);
 
     /* Skip shares that are being opened */
     if (share->m_open_in_progress) continue;
@@ -1266,7 +1283,7 @@ bool close_cached_tables(THD *thd, Table_ref *tables, bool wait_for_refresh,
     table_cache_manager.free_all_unused_tables();
     /* Free table shares which were not freed implicitly by loop above. */
     while (oldest_unused_share->next)
-      table_def_cache->erase(to_string(oldest_unused_share->table_cache_key));
+      (void)my_hash_delete(&table_def_cache, (uchar *)oldest_unused_share);
   } else {
     bool share_found = false;
     for (Table_ref *table = tables; table; table = table->next_local) {
@@ -1337,8 +1354,8 @@ bool close_cached_tables(THD *thd, Table_ref *tables, bool wait_for_refresh,
     mysql_mutex_lock(&LOCK_open);
 
     if (!tables) {
-      for (const auto &key_and_value : *table_def_cache) {
-        share = key_and_value.second.get();
+      for (uint idx = 0; idx < table_def_cache.records; idx++) {
+        share = (TABLE_SHARE *)my_hash_element(&table_def_cache, idx);
         if (share->has_old_version()) {
           found = true;
           break;
@@ -2889,6 +2906,7 @@ bool open_table(THD *thd, Table_ref *table_list, Open_table_context *ot_ctx) {
   const char *alias = table_list->alias;
   uint flags = ot_ctx->get_flags();
   MDL_ticket *mdl_ticket = nullptr;
+  my_hash_value_type hash_value;
   int error = 0;
 
   DBUG_TRACE;
@@ -3180,6 +3198,8 @@ bool open_table(THD *thd, Table_ref *table_list, Open_table_context *ot_ctx) {
     mdl_ticket = table_list->mdl_request.ticket;
   }
 
+  hash_value = my_calc_hash(&table_def_cache, (const uchar *)key, key_length);
+
   if (table_list->open_strategy == Table_ref::OPEN_IF_EXISTS ||
       table_list->open_strategy == Table_ref::OPEN_FOR_CREATE) {
     bool exists;
@@ -3227,7 +3247,7 @@ retry_share : {
     TABLE_SHARE from the table cache.
   */
   if (!table_list->is_view())
-    table = tc->get_table(thd, key, key_length, &share);
+    table = tc->get_table(thd, hash_value, key, key_length, &share);
 
   if (table) {
     /* We have found an unused TABLE object. */
@@ -3301,7 +3321,7 @@ retry_share : {
 
   if (!(share = get_table_share_with_discover(
             thd, table_list, key, key_length,
-            flags & MYSQL_OPEN_SECONDARY_ENGINE, &error))) {
+            flags & MYSQL_OPEN_SECONDARY_ENGINE, &error, hash_value))) {
     mysql_mutex_unlock(&LOCK_open);
     /*
       If thd->is_error() is not set, we either need discover
@@ -3820,12 +3840,17 @@ static bool check_and_update_routine_version(THD *thd, Sroutine_hash_entry *rt,
 
 static bool tdc_open_view(THD *thd, Table_ref *table_list,
                           const char *cache_key, size_t cache_key_length) {
+  my_hash_value_type hash_value;
   TABLE_SHARE *share;
+
+  hash_value = my_calc_hash(&table_def_cache, (const uchar *)cache_key,
+                            cache_key_length);
 
   mysql_mutex_lock(&LOCK_open);
 
-  if (!(share = get_table_share(thd, table_list->db, table_list->table_name,
-                                cache_key, cache_key_length, true))) {
+  if (!(share =
+            get_table_share(thd, table_list->db, table_list->table_name,
+                            cache_key, cache_key_length, true, hash_value))) {
     mysql_mutex_unlock(&LOCK_open);
     return true;
   }
@@ -3951,15 +3976,19 @@ static bool auto_repair_table(THD *thd, Table_ref *table_list) {
   TABLE_SHARE *share;
   TABLE *entry;
   bool result = true;
+  my_hash_value_type hash_value;
 
   cache_key_length = get_table_def_key(table_list, &cache_key);
 
   thd->clear_error();
 
+  hash_value = my_calc_hash(&table_def_cache, (const uchar *)cache_key,
+                            cache_key_length);
+
   mysql_mutex_lock(&LOCK_open);
 
   if (!(share = get_table_share(thd, table_list->db, table_list->table_name,
-                                cache_key, cache_key_length, true)))
+                                cache_key, cache_key_length, true, hash_value)))
     goto end_unlock;
 
   if (share->is_view) {
@@ -4036,6 +4065,9 @@ static bool fix_row_type(THD *thd, Table_ref *table_list) {
   const char *cache_key;
   const size_t cache_key_length = get_table_def_key(table_list, &cache_key);
 
+  my_hash_value_type hash_value = my_calc_hash(
+      &table_def_cache, (const uchar *)cache_key, cache_key_length);
+
   thd->clear_error();
 
   TABLE_SHARE *share;
@@ -4051,7 +4083,7 @@ static bool fix_row_type(THD *thd, Table_ref *table_list) {
     thd->push_internal_handler(&no_such_table_handler);
 
     share = get_table_share(thd, table_list->db, table_list->table_name,
-                            cache_key, cache_key_length, true);
+                            cache_key, cache_key_length, true, hash_value);
 
     thd->pop_internal_handler();
 
@@ -4837,10 +4869,13 @@ static bool open_and_process_routine(
         Table_cache *tc = table_cache_manager.get_cache(thd);
         TABLE *table;
         TABLE_SHARE *share;
+        my_hash_value_type hash_value =
+            my_calc_hash(&table_def_cache, (const uchar *)rt->part_mdl_key(),
+                         rt->part_mdl_key_length());
 
         tc->lock();
 
-        table = tc->get_table(thd, rt->part_mdl_key(),
+        table = tc->get_table(thd, hash_value, rt->part_mdl_key(),
                               rt->part_mdl_key_length(), &share);
 
         if (table) {
@@ -4884,7 +4919,7 @@ static bool open_and_process_routine(
 
           mysql_mutex_lock(&LOCK_open);
           share = get_table_share(thd, rt->db(), rt->name(), rt->part_mdl_key(),
-                                  rt->part_mdl_key_length(), true);
+                                  rt->part_mdl_key_length(), true, hash_value);
           mysql_mutex_unlock(&LOCK_open);
 
           thd->pop_internal_handler();
@@ -5264,20 +5299,11 @@ end:
 }
 
 namespace {
-
-struct schema_hash {
-  size_t operator()(const Table_ref *table) const {
-    return std::hash<std::string>()(std::string(table->db, table->db_length));
-  }
-};
-
-struct schema_key_equal {
-  bool operator()(const Table_ref *a, const Table_ref *b) const {
-    return a->db_length == b->db_length &&
-           memcmp(a->db, b->db, a->db_length) == 0;
-  }
-};
-
+const uchar *schema_set_get_key(const uchar *record, size_t *length) {
+  const Table_ref *table = (const Table_ref *)record;
+  *length = table->db_length;
+  return (const uchar *)table->db;
+}
 }  // namespace
 
 /**
@@ -5421,7 +5447,8 @@ bool get_and_lock_tablespace_names(THD *thd, Table_ref *tables_start,
       //    ALTER TABLE t TABLESPACE s2, where t is defined in
       //    some tablespace s)
       if (table->target_tablespace_name.length > 0) {
-        tablespace_set.insert(table->target_tablespace_name.str);
+        tablespace_set.insert(
+            const_cast<char *>(table->target_tablespace_name.str));
       }
 
       // No need to try this for tables to be created since they are not
@@ -5502,8 +5529,7 @@ bool lock_table_names(THD *thd, Table_ref *tables_start, Table_ref *tables_end,
   Table_ref *table;
   MDL_request global_request;
   MDL_request backup_lock_request;
-  malloc_unordered_set<Table_ref *, schema_hash, schema_key_equal> schema_set(
-      PSI_INSTRUMENT_ME);
+  Hash_set<Table_ref, schema_set_get_key> schema_set(PSI_INSTRUMENT_ME);
   bool need_global_read_lock_protection = false;
   bool acquire_backup_lock = false;
 
@@ -5571,10 +5597,11 @@ bool lock_table_names(THD *thd, Table_ref *tables_start, Table_ref *tables_end,
       Scoped locks: Take intention exclusive locks on all involved
       schemas.
     */
-    for (const Table_ref *table_l : schema_set) {
+    Hash_set<Table_ref, schema_set_get_key>::Iterator it(schema_set);
+    while ((table = it++)) {
       MDL_request *schema_request = new (thd->mem_root) MDL_request;
       if (schema_request == nullptr) return true;
-      MDL_REQUEST_INIT(schema_request, MDL_key::SCHEMA, table_l->db, "",
+      MDL_REQUEST_INIT(schema_request, MDL_key::SCHEMA, table->db, "",
                        MDL_INTENTION_EXCLUSIVE, MDL_TRANSACTION);
       mdl_requests.push_front(schema_request);
       if (schema_reqs) schema_reqs->push_back(schema_request);
@@ -5616,8 +5643,9 @@ bool lock_table_names(THD *thd, Table_ref *tables_start, Table_ref *tables_end,
     return true;
 
   // Check schema read only for all schemas.
-  for (const Table_ref *table_l : schema_set)
-    if (check_schema_readonly(thd, table_l->db)) return true;
+  Hash_set<Table_ref, schema_set_get_key>::Iterator it(schema_set);
+  while ((table = it++))
+    if (check_schema_readonly(thd, table->db)) return true;
 
   /*
     Phase 4: Lock tablespace names. This cannot be done as part
@@ -7372,7 +7400,8 @@ TABLE *open_table_uncached(THD *thd, const char *path, const char *db,
   // with open_in_engine=false.
   if (open_in_engine) {
     mysql_mutex_lock(&LOCK_open);
-    assert(table_def_cache->count(string(cache_key, key_length)) == 0);
+    assert(!my_hash_search(&table_def_cache, (const uchar *)cache_key,
+                           key_length));
     mysql_mutex_unlock(&LOCK_open);
   }
 #endif
@@ -10413,6 +10442,7 @@ void tdc_remove_table(THD *thd, enum_tdc_remove_table_type remove_type,
                       const char *db, const char *table_name, bool has_lock) {
   char key[MAX_DBKEY_LENGTH];
   size_t key_length;
+  TABLE_SHARE *share;
 
   if (!has_lock)
     table_cache_manager.lock_all_and_tdc();
@@ -10426,18 +10456,18 @@ void tdc_remove_table(THD *thd, enum_tdc_remove_table_type remove_type,
 
   key_length = create_table_def_key(db, table_name, key);
 
-  auto it = table_def_cache->find(string(key, key_length));
+  share = (TABLE_SHARE *)my_hash_search(&table_def_cache, (const uchar *)key,
+                                        key_length);
 
   // If the table has a shadow copy in a secondary storage engine, or
   // if we don't know if the table has a shadow copy, we must also
   // attempt to evict the secondary table from the cache.
   const bool remove_secondary =
-      it == table_def_cache->end() || it->second->has_secondary_engine();
+      share == nullptr || share->has_secondary_engine();
 
   // Helper function that evicts the TABLE_SHARE pointed to by an iterator.
-  auto remove_table = [&](Table_definition_cache::iterator my_it) {
-    if (my_it == table_def_cache->end()) return;
-    TABLE_SHARE *share = my_it->second.get();
+  auto remove_table = [&](TABLE_SHARE *in_share) {
+    if (in_share == nullptr) return;
     /*
       Since share->ref_count is incremented when a table share is opened
       in get_table_share(), before LOCK_open is temporarily released, it
@@ -10448,7 +10478,7 @@ void tdc_remove_table(THD *thd, enum_tdc_remove_table_type remove_type,
       shares with m_open_in_progress == true, since such shares don't
       have any TABLE objects associated.
     */
-    if (share->ref_count() > 0) {
+    if (in_share->ref_count() > 0) {
       /*
         Set share's version to zero in order to ensure that it gets
         automatically deleted once it is no longer referenced.
@@ -10462,25 +10492,28 @@ void tdc_remove_table(THD *thd, enum_tdc_remove_table_type remove_type,
       */
       if (remove_type != TDC_RT_REMOVE_NOT_OWN_KEEP_SHARE &&
           remove_type != TDC_RT_MARK_FOR_REOPEN) {
-        share->clear_version();
+        in_share->clear_version();
       }
-      table_cache_manager.free_table(thd, remove_type, share);
+      table_cache_manager.free_table(thd, remove_type, in_share);
     } else if (remove_type != TDC_RT_MARK_FOR_REOPEN) {
       // There are no TABLE objects associated, so just remove the
       // share immediately. (Assert: When called with
       // TDC_RT_REMOVE_NOT_OWN_KEEP_SHARE, there should always be a
       // TABLE object associated with the primary TABLE_SHARE.)
       assert(remove_type != TDC_RT_REMOVE_NOT_OWN_KEEP_SHARE ||
-             share->is_secondary_engine());
-      table_def_cache->erase(to_string(share->table_cache_key));
+             in_share->is_secondary_engine());
+      (void)my_hash_delete(&table_def_cache, (uchar *)in_share);
     }
   };
 
-  remove_table(it);
+  remove_table(share);
 
-  if (remove_secondary)
-    remove_table(
-        table_def_cache->find(create_table_def_key_secondary(db, table_name)));
+  if (remove_secondary) {
+    std::string secondary_key = create_table_def_key_secondary(db, table_name);
+    remove_table((TABLE_SHARE *)my_hash_search(&table_def_cache,
+                                               (uchar *)secondary_key.data(),
+                                               secondary_key.length()));
+  }
 
   if (!has_lock) table_cache_manager.unlock_all_and_tdc();
 }

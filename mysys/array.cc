@@ -166,6 +166,24 @@ void *alloc_dynamic(DYNAMIC_ARRAY *array) {
 }
 
 /*
+  Pop last element from array.
+
+  SYNOPSIS
+    pop_dynamic()
+      array
+
+  RETURN VALUE
+    pointer    Ok
+    0          Array is empty
+*/
+
+void *pop_dynamic(DYNAMIC_ARRAY *array) {
+  if (array->elements)
+    return array->buffer + (--array->elements * array->size_of_element);
+  return 0;
+}
+
+/*
   Empty array by freeing all memory
 
   SYNOPSIS

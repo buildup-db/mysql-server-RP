@@ -59,13 +59,14 @@ namespace {
 template <typename T>
 bool get_and_store_tablespace_name(THD *thd, const T *obj,
                                    Tablespace_hash_set *tablespace_set) {
-  dd::String_type tablespace_name;
-  if (get_tablespace_name(thd, obj, &tablespace_name)) {
+  const char *tablespace_name = nullptr;
+  if (get_tablespace_name(thd, obj, &tablespace_name, thd->mem_root)) {
     return true;
   }
 
-  if (!tablespace_name.empty()) {
-    tablespace_set->insert(tablespace_name.c_str());
+  if (tablespace_name &&
+      tablespace_set->insert(const_cast<char *>(tablespace_name))) {
+    return true;
   }
 
   return false;

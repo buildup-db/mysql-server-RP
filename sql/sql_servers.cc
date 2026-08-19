@@ -392,6 +392,7 @@ static bool get_server_from_table_to_cache(TABLE *table) {
 static bool close_cached_connection_tables(THD *thd,
                                            const char *connection_string,
                                            size_t connection_length) {
+  uint idx;
   Table_ref tmp, *tables = nullptr;
   bool result = false;
   DBUG_TRACE;
@@ -399,8 +400,8 @@ static bool close_cached_connection_tables(THD *thd,
 
   mysql_mutex_lock(&LOCK_open);
 
-  for (const auto &key_and_value : *table_def_cache) {
-    TABLE_SHARE *share = key_and_value.second.get();
+  for (idx = 0; idx < table_def_cache.records; idx++) {
+    TABLE_SHARE *share = (TABLE_SHARE *)my_hash_element(&table_def_cache, idx);
 
     /*
       Skip table shares being opened to avoid comparison reading into

@@ -2798,18 +2798,18 @@ bool fill_partition_tablespace_names(partition_info *part_info,
   partition_element *part_elem;
   while ((part_elem = part_it++)) {
     // Add tablespace name from partition elements, if used.
-    if (part_elem->tablespace_name && strlen(part_elem->tablespace_name)) {
-      tablespace_set->insert(part_elem->tablespace_name);
-    }
+    if (part_elem->tablespace_name && strlen(part_elem->tablespace_name) &&
+        tablespace_set->insert(const_cast<char *>(part_elem->tablespace_name)))
+      return true;
 
     // Traverse through all subpartitions.
     List_iterator<partition_element> sub_it(part_elem->subpartitions);
     partition_element *sub_elem;
     while ((sub_elem = sub_it++)) {
       // Add tablespace name from sub-partition elements, if used.
-      if (sub_elem->tablespace_name && strlen(sub_elem->tablespace_name)) {
-        tablespace_set->insert(sub_elem->tablespace_name);
-      }
+      if (sub_elem->tablespace_name && strlen(sub_elem->tablespace_name) &&
+          tablespace_set->insert(const_cast<char *>(sub_elem->tablespace_name)))
+        return true;
     }
   }
 
