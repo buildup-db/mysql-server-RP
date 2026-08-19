@@ -1,4 +1,5 @@
 # Copyright (c) 2006, 2026, Oracle and/or its affiliates.
+# Copyright (c) 2026, buildup-db.
 #
 # This program is free software; you can redistribute it and/or modify
 # it under the terms of the GNU General Public License, version 2.0,
@@ -256,6 +257,26 @@ ELSEIF(MUTEXTYPE MATCHES "futex" AND DEFINED HAVE_IB_LINUX_FUTEX)
   ADD_DEFINITIONS(-DMUTEX_FUTEX)
 ELSE()
    ADD_DEFINITIONS(-DMUTEX_SYS)
+ENDIF()
+
+# __attribute__((target("..."))) blocks inlining. better to avoid.
+IF(MY_COMPILER_IS_GNU_OR_CLANG)
+  IF(CMAKE_SYSTEM_PROCESSOR MATCHES "^(AMD64|x86_64)$")
+    IF(CMAKE_CXX_COMPILER_ID MATCHES "GNU"
+       OR (CMAKE_CXX_COMPILER_ID MATCHES "Clang"
+           AND CMAKE_CXX_COMPILER_VERSION VERSION_GREATER_EQUAL 14))
+      # Can treat __builtin_ia32_crc32di() contanins function inlined
+      ADD_COMPILE_OPTIONS("-mcrc32")
+      ADD_DEFINITIONS(-DCRC32_NOT_NEED_TARGET_ATTR)
+    ENDIF()
+  ELSEIF(NOT APPLE AND CMAKE_SYSTEM_PROCESSOR MATCHES "^(arm64|aarch64)$")
+    IF(CMAKE_CXX_COMPILER_ID MATCHES "Clang"
+       AND CMAKE_CXX_COMPILER_VERSION VERSION_GREATER_EQUAL 16)
+      # Can treat __crc32cd() contanins function inlined
+      ADD_COMPILE_OPTIONS("-mcrc")
+      ADD_DEFINITIONS(-DCRC32_NOT_NEED_TARGET_ATTR)
+    ENDIF()
+  ENDIF()
 ENDIF()
 
 # Include directories under innobase
