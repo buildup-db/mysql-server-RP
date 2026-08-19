@@ -279,21 +279,21 @@ static inline ulint xdes_arr_size(const page_size_t &page_size) {
 }
 
 inline bool fsp_is_inode_page(page_no_t page) {
-  static const uint inode_per_page = FSP_SEG_INODES_PER_PAGE(univ_page_size);
+  const uint inode_per_page = FSP_SEG_INODES_PER_PAGE(univ_page_size);
 
   /* Every two inode would be allocated for one index, and all inodes in
   two inode pages are needed exactly for FSP_SEG_INODES_PER_PAGE indexes.
   One inode page is at the beginning of one cycle, the other is in the
   middle. If FSP_SEG_INODES_PER_PAGE is even, the second inode page
   is at cycle / 2, if odd, it should be (cycle + 1) / 2 in the cycle. */
-  static const uint cycle = inode_per_page + 2;
+  const uint cycle = inode_per_page + 2;
 
   /* Number of all hard-coded DD table indexes. Please sync it with
   innodb_dd_table array. */
-  static const uint indexes = 102;
+  constexpr uint indexes = 102;
 
   /* Max page number for index root pages of hard-coded DD tables. */
-  static const uint max_page_no =
+  const uint max_page_no =
       FSP_FIRST_INODE_PAGE_NO + 1 /* SDI Index page */
       + (indexes / inode_per_page) * cycle + (indexes % inode_per_page) +
       ((indexes % inode_per_page) / ((inode_per_page + 1) / 2));

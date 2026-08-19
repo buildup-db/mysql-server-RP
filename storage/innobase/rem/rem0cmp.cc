@@ -497,9 +497,15 @@ inline int cmp_data(ulint mtype, ulint prtype, bool is_asc, const byte *data1,
       }
     }
 
-    if (len) {
-#endif /* IA32 or AMD64 */
+    if (UNIV_LIKELY(len > 0)) {
+      if (len == 4) {
+        cmp = memcmp(data1, data2, 4);
+      } else {
+        cmp = memcmp(data1, data2, len);
+      }
+#else
       cmp = memcmp(data1, data2, len);
+#endif /* IA32 or AMD64 */
 
       if (cmp != 0) {
         return (is_asc ? cmp : -cmp);

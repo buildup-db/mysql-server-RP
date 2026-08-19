@@ -951,10 +951,8 @@ void Arch_Log_Sys::async_abort_if_below(lsn_t requested_lsn) {
   os_event_set(log_archiver_thread_event);
 }
 
-const std::string &Arch_log_consumer::get_name() const {
-  static std::string name{"log_archiver"};
-  return name;
-}
+static const std::string arch_log_name{"log_archiver"};
+const std::string &Arch_log_consumer::get_name() const { return arch_log_name; }
 
 lsn_t Arch_log_consumer::get_consumed_lsn() const {
   ut_a(arch_log_sys != nullptr);

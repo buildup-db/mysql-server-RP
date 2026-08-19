@@ -9748,8 +9748,44 @@ static dberr_t calc_row_difference(
       }
     }
 
+#if defined __i386__ || defined __x86_64__ || defined _M_IX86 || defined _M_X64
+    /* IA32 and AMD64 architectures need and enable optimization.
+    Same procedure with cmp_data() in rem/rem0cmp.cc */
+    bool changed;
+
+    if (o_len != n_len) {
+      changed = true;
+    } else if (o_len == UNIV_SQL_NULL || o_len == 0) {
+      changed = false;
+    } else {
+      ulint len = o_len;
+      const byte *data1 = o_ptr;
+      const byte *data2 = n_ptr;
+      changed = false;
+      for (ulint i = 4 + (len & 3); i > 0; i--) {
+        if ((*data1++) != (*data2++)) {
+          changed = true;
+          break;
+        }
+        if (!--len) {
+          break;
+        }
+      }
+      if (!changed && len > 0) {
+        if (len == 4) {
+          changed = (0 != memcmp(data1, data2, 4));
+        } else {
+          changed = (0 != memcmp(data1, data2, len));
+        }
+      }
+    }
+
+    if (changed)
+#else
     if (o_len != n_len || (o_len != UNIV_SQL_NULL && o_len != 0 &&
-                           0 != memcmp(o_ptr, n_ptr, o_len))) {
+                           0 != memcmp(o_ptr, n_ptr, o_len)))
+#endif /* IA32 or AMD64 */
+    {
       /* The field has changed */
       bool multi_value_calc_by_diff = false;
       dfield_t old_field, new_field;
@@ -13639,9 +13675,9 @@ void create_table_info_t::detach() {
 @param[in]      thd     connection
 @param[in]      str     string which might include 'MERGE_THRESHOLD='
 @return value parsed. 0 means not found or invalid value. */
+static const char *label = "MERGE_THRESHOLD=";
+static const size_t label_len = strlen(label);
 static ulint innobase_parse_merge_threshold(THD *thd, const char *str) {
-  static const char *label = "MERGE_THRESHOLD=";
-  static const size_t label_len = strlen(label);
   const char *pos = str;
 
   pos = strstr(str, label);
