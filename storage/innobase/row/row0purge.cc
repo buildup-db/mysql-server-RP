@@ -1343,8 +1343,11 @@ bool purge_node_t::check_duplicate_undo_no() const {
 void purge_node_t::add_lob_page(dict_index_t *index, const page_id_t &page_id) {
   const index_id_t id(page_id.space(), index->id);
   const auto tup = std::make_tuple(id, page_id, index->table->id);
-  ut_ad(m_lob_pages.find(tup) == m_lob_pages.end());
-  m_lob_pages.insert(tup);
+  if (m_lob_pages == nullptr) {
+    m_lob_pages = new LOB_free_set();
+  }
+  ut_ad(m_lob_pages->find(tup) == m_lob_pages->end());
+  m_lob_pages->insert(tup);
 }
 
 void purge_node_t::free_lob_pages() {
@@ -1356,12 +1359,15 @@ void purge_node_t::free_lob_pages() {
     mtr_t::check_my_thread_mtrs_are_not_latching();
   }
 #endif
+  if (m_lob_pages == nullptr) {
+    return;
+  }
 
   mtr_t local_mtr;
 
   THD *thd = current_thd;
 
-  for (const auto &tup : m_lob_pages) {
+  for (const auto &tup : *m_lob_pages) {
     const index_id_t index_id = std::get<0>(tup);
     const page_id_t &page_id = std::get<1>(tup);
     const table_id_t table_id = std::get<2>(tup);
@@ -1407,5 +1413,5 @@ void purge_node_t::free_lob_pages() {
     dd_table_close(table, thd, &mdl, false);
   }
 
-  m_lob_pages.clear();
+  m_lob_pages->clear();
 }
