@@ -2763,17 +2763,19 @@ static int clone_init_tablespaces(THD *thd) {
 
     /* Acquire dict mutex to prevent race against concurrent DML trying to
     load the space. */
-    IB_mutex_guard sys_mutex(&dict_sys->mutex, UT_LOCATION_HERE);
+    dict_sys_mutex_enter();
 
     /* Re-check if space exists after acquiring dict sys mutex. Concurrent
     DML could have already loaded the space. Space name is already adjusted
     in previous call. */
     if (fil_space_exists_in_mem(space_id, space_name, false, false)) {
+      dict_sys_mutex_exit();
       continue;
     }
 
     auto err = fil_ibd_open(false, FIL_TYPE_TABLESPACE, space_id, space_flags,
                             space_name, filename.c_str(), false, false);
+    dict_sys_mutex_exit();
 
     if (err != DB_SUCCESS) {
       ib::error(ER_IB_CLONE_INTERNAL)

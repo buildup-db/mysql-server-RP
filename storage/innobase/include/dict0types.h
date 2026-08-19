@@ -315,7 +315,7 @@ enum ib_quiesce_t {
 };
 
 #ifndef UNIV_HOTBACKUP
-typedef ib_mutex_t DictSysMutex;
+typedef rw_lock_t DictSysLock;
 #endif /* !UNIV_HOTBACKUP */
 
 /** Prefix for tmp tables, adopted from sql/table.h */

@@ -1241,7 +1241,7 @@ static void sync_latch_meta_init() UNIV_NOTHROW {
   LATCH_ADD_MUTEX(PERSIST_AUTOINC, SYNC_PERSIST_AUTOINC,
                   autoinc_persisted_mutex_key);
 
-  LATCH_ADD_MUTEX(DICT_SYS, SYNC_DICT, dict_sys_mutex_key);
+  LATCH_ADD_RWLOCK(DICT_SYS, SYNC_DICT, dict_sys_mutex_key);
 
   LATCH_ADD_MUTEX(DICT_TABLE, SYNC_TABLE, dict_table_mutex_key);
 

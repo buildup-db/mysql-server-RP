@@ -1,6 +1,7 @@
 /*****************************************************************************
 
 Copyright (c) 2015, 2026, Oracle and/or its affiliates.
+Copyright (c) 2026, buildup-db.
 
 This program is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License, version 2.0, as published by the
@@ -1166,11 +1167,13 @@ hold Shared MDL lock on it.
 table_id was found) mdl=NULL if we are resurrecting table IX locks in recovery
 @param[in]      dict_locked             dict_sys mutex is held
 @param[in]      check_corruption        check if the table is corrupted or not.
+@param[in]      for_modification        if false, dict_locked means s-lock.
 @return table
 @retval NULL if the table does not exist or cannot be opened */
 dict_table_t *dd_table_open_on_id(table_id_t table_id, THD *thd,
                                   MDL_ticket **mdl, bool dict_locked,
-                                  bool check_corruption);
+                                  bool check_corruption,
+                                  bool for_modification = true);
 
 /** Close an internal InnoDB table handle.
 @param[in,out]  table   InnoDB table handle
