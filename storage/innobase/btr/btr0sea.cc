@@ -1192,7 +1192,7 @@ retry:
     prev_hash_value = hash_value;
   }
 
-  if (UNIV_LIKELY_NULL(heap)) {
+  if (UNIV_LIKELY(heap != nullptr)) {
     mem_heap_free(heap);
   }
 

@@ -434,7 +434,7 @@ struct Aligned_alloc : public allocator_traits<false> {
       Aligned_alloc::alloc()
    */
   static inline void free(Aligned_alloc_impl::data_segment_ptr data) noexcept {
-    if (unlikely(!data)) return;
+    if (!data) return;
     // Here we make use of the offset which has been encoded by
     // Aligned_alloc::alloc() to be able to deduce the original pointer and
     // simply forward it to std::free.

@@ -594,18 +594,19 @@ static bool btr_cur_need_opposite_intention(const page_t *page,
                                             btr_intention_t lock_intention,
                                             const rec_t *rec) {
   switch (lock_intention) {
+    case BTR_INTENTION_BOTH:
+      return (false);
+    case BTR_INTENTION_INSERT:
+      return (mach_read_from_4(page + FIL_PAGE_NEXT) != FIL_NULL &&
+              page_rec_is_last(rec, page));
     case BTR_INTENTION_DELETE:
       return ((mach_read_from_4(page + FIL_PAGE_PREV) != FIL_NULL &&
                page_rec_is_first(rec, page)) ||
               (mach_read_from_4(page + FIL_PAGE_NEXT) != FIL_NULL &&
                page_rec_is_last(rec, page)));
-    case BTR_INTENTION_INSERT:
-      return (mach_read_from_4(page + FIL_PAGE_NEXT) != FIL_NULL &&
-              page_rec_is_last(rec, page));
-    case BTR_INTENTION_BOTH:
-      return (false);
   }
 
+  MY_ASSERT_UNREACHABLE();
   ut_error;
 }
 

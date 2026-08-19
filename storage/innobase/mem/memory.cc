@@ -326,7 +326,7 @@ mem_block_t *mem_heap_create_block(mem_heap_t *heap, ulint n,
   mem_block_set_start(block, MEM_BLOCK_HEADER_SIZE);
   mem_block_set_free(block, MEM_BLOCK_HEADER_SIZE);
 
-  if (UNIV_UNLIKELY(heap == nullptr)) {
+  if (UNIV_LIKELY(heap == nullptr)) {
     /* This is the first block of the heap. The field
     total_size should be initialized here */
     block->total_size = len;
@@ -449,7 +449,7 @@ void mem_heap_block_free(mem_heap_t *heap,   /*!< in: heap */
 /** Frees the free_block field from a memory heap. */
 void mem_heap_free_block_free(mem_heap_t *heap) /*!< in: heap */
 {
-  if (UNIV_LIKELY_NULL(heap->free_block)) {
+  if (UNIV_LIKELY(heap->free_block != nullptr)) {
 #ifdef UNIV_DEBUG_VALGRIND
     void *block = static_cast<buf_block_t *>(heap->free_block)->frame;
     /* Make memory available again for the buffer pool, since

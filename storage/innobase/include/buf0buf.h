@@ -1348,7 +1348,7 @@ class buf_page_t {
   void set_flush_observer(Flush_observer *flush_observer) noexcept {
     /* Don't allow to set flush observer from non-null to null, or from one
     observer to another. */
-    ut_a(m_flush_observer == nullptr || m_flush_observer == flush_observer);
+    ut_ad(m_flush_observer == nullptr || m_flush_observer == flush_observer);
     m_flush_observer = flush_observer;
   }
 

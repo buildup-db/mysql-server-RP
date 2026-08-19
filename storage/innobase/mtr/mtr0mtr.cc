@@ -1,6 +1,7 @@
 /*****************************************************************************
 
 Copyright (c) 1995, 2026, Oracle and/or its affiliates.
+Copyright (c) 2026, buildup-db.
 
 This program is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License, version 2.0, as published by the
@@ -585,21 +586,8 @@ void mtr_t::start(bool sync) {
   m_impl.m_marked_nolog = false;
 
 #ifndef UNIV_HOTBACKUP
-  check_nolog_and_mark();
-#endif /* !UNIV_HOTBACKUP */
-  ut_d(m_impl.m_magic_n = MTR_MAGIC_N);
-
-#ifdef UNIV_DEBUG
-  auto res = s_my_thread_active_mtrs.insert(this);
-  /* Assert there are no collisions in thread local context - it would mean
-  reusing MTR without committing or destructing it. */
-  ut_a(res.second);
-  m_restart_count++;
-#endif /* UNIV_DEBUG */
-}
-
-#ifndef UNIV_HOTBACKUP
-void mtr_t::check_nolog_and_mark() {
+  /** Check if redo logging is disabled globally and mark
+  the global counter till mtr ends. */
   /* Safe check to make this call idempotent. */
   if (m_impl.m_marked_nolog) {
     return;
@@ -614,8 +602,19 @@ void mtr_t::check_nolog_and_mark() {
     m_impl.m_log_mode = MTR_LOG_NO_REDO;
     m_impl.m_shard_index = shard_index;
   }
+#endif /* !UNIV_HOTBACKUP */
+  ut_d(m_impl.m_magic_n = MTR_MAGIC_N);
+
+#ifdef UNIV_DEBUG
+  auto res = s_my_thread_active_mtrs.insert(this);
+  /* Assert there are no collisions in thread local context - it would mean
+  reusing MTR without committing or destructing it. */
+  ut_a(res.second);
+  m_restart_count++;
+#endif /* UNIV_DEBUG */
 }
 
+#ifndef UNIV_HOTBACKUP
 void mtr_t::check_nolog_and_unmark() {
   if (m_impl.m_marked_nolog) {
     s_logging.unmark_mtr(m_impl.m_shard_index);
@@ -671,10 +670,11 @@ void mtr_t::commit() {
     ut_ad(!srv_read_only_mode || m_impl.m_log_mode == MTR_LOG_NO_REDO);
 
     cmd.execute();
-  } else {
-    cmd.release_all();
-    cmd.release_resources();
   }
+
+  cmd.release_all();
+  cmd.release_resources();
+
 #ifndef UNIV_HOTBACKUP
   check_nolog_and_unmark();
 #endif /* !UNIV_HOTBACKUP */
@@ -873,9 +873,6 @@ void mtr_t::Command::execute() {
     add_dirty_blocks_to_flush_list(0, 0);
   }
 #endif /* !UNIV_HOTBACKUP */
-
-  release_all();
-  release_resources();
 }
 
 std::ostream &mtr_memo_slot_t::print(std::ostream &out) const {
