@@ -120,7 +120,7 @@ is inserted.
 static inline void ha_insert_for_hash(hash_table_t *t, uint64_t f,
                                       buf_block_t *b, const rec_t *d) {
   ha_insert_for_hash_func(t, f, IF_AHI_DEBUG(b, ) d);
-  MONITOR_ATOMIC_INC(MONITOR_ADAPTIVE_HASH_ROW_ADDED);
+  MONITOR_INC(MONITOR_ADAPTIVE_HASH_ROW_ADDED);
 }
 
 /** Looks for an element when we know the pointer to the data and deletes it
@@ -135,14 +135,13 @@ static inline bool ha_search_and_delete_if_found(hash_table_t *table,
 
 #ifndef UNIV_HOTBACKUP
 
-/** Removes from the chain determined by hash value a single node whose data
-pointer points to the page given. Note that the node deleted can have a
-different hash value.
+/** Removes from the chain determined by hash all nodes whose data pointer
+ points to the page given.
 @param[in] table Hash table
 @param[in] hash_value Hash value
 @param[in] page Buffer page */
-void ha_remove_a_node_to_page(hash_table_t *table, uint64_t hash_value,
-                              const page_t *page);
+void ha_remove_all_nodes_to_page(hash_table_t *table, uint64_t hash_value,
+                                 const page_t *page);
 
 #if defined UNIV_AHI_DEBUG || defined UNIV_DEBUG
 /** Validates a given range of the cells in hash table.

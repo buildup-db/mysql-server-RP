@@ -279,7 +279,9 @@ static inline void mem_heap_empty(mem_heap_t *heap) {
   mem_heap_free_heap_top(heap, (byte *)heap + mem_block_get_start(heap));
 #ifndef UNIV_HOTBACKUP
 #ifndef UNIV_LIBRARY
-  mem_heap_free_block_free(heap);
+  if (heap->free_block) {
+    mem_heap_free_block_free(heap);
+  }
 #endif /* !UNIV_LIBRARY */
 #endif /* !UNIV_HOTBACKUP */
 }
@@ -435,6 +437,13 @@ static inline mem_heap_t *mem_heap_create(ulint size,
     return (nullptr);
   }
 
+#ifndef UNIV_HOTBACKUP
+#ifndef UNIV_LIBRARY
+  /* The first block should not be in buffer pool,
+  because it might be relocated to resize buffer pool. */
+  ut_ad(block->buf_block == nullptr);
+#endif /* !UNIV_LIBRARY */
+#endif /* UNIV_HOTBACKUP */
   UT_LIST_INIT(block->base);
 
   /* Add the created block itself as the first block in the list */
@@ -456,7 +465,9 @@ static inline void mem_heap_free(mem_heap_t *heap) {
 
 #ifndef UNIV_HOTBACKUP
 #ifndef UNIV_LIBRARY
-  mem_heap_free_block_free(heap);
+  if (heap->free_block) {
+    mem_heap_free_block_free(heap);
+  }
 #endif /* !UNIV_LIBRARY */
 #endif /* !UNIV_HOTBACKUP */
 
@@ -473,16 +484,16 @@ static inline void mem_heap_free(mem_heap_t *heap) {
 }
 
 /** Returns the space in bytes occupied by a memory heap. */
-static inline size_t mem_heap_get_size(mem_heap_t *heap) /*!< in: heap */
+static inline ulint mem_heap_get_size(mem_heap_t *heap) /*!< in: heap */
 {
-  size_t size = 0;
+  ulint size = 0;
 
   ut_d(mem_block_validate(heap));
 
   size = heap->total_size;
 
 #ifndef UNIV_LIBRARY
-  if (heap->free_block_ptr != nullptr && heap->free_block_ptr->load()) {
+  if (heap->free_block) {
     size += UNIV_PAGE_SIZE;
   }
 #endif /* !UNIV_LIBRARY */
