@@ -2,6 +2,7 @@
 
 Copyright (c) 1995, 2026, Oracle and/or its affiliates.
 Copyright (c) 2008, Google Inc.
+Copyright (c) 2026, buildup-db.
 
 Portions of this file contain modifications contributed and copyrighted by
 Google, Inc. Those modifications are gratefully acknowledged and are described
@@ -95,7 +96,7 @@ static inline void rw_lock_reset_waiter_flag(
 static inline ulint rw_lock_get_writer(
     const rw_lock_t *lock) /*!< in: rw-lock */
 {
-  lint lock_word = lock->lock_word;
+  int32_t lock_word = lock->lock_word;
 
   ut_ad(lock_word <= X_LOCK_DECR);
   if (lock_word > X_LOCK_HALF_DECR) {
@@ -122,7 +123,7 @@ static inline ulint rw_lock_get_writer(
 static inline ulint rw_lock_get_reader_count(
     const rw_lock_t *lock) /*!< in: rw-lock */
 {
-  lint lock_word = lock->lock_word;
+  int32_t lock_word = lock->lock_word;
   ut_ad(lock_word <= X_LOCK_DECR);
 
   if (lock_word > X_LOCK_HALF_DECR) {
@@ -154,7 +155,7 @@ static inline ulint rw_lock_get_reader_count(
 static inline ulint rw_lock_get_x_lock_count(
     const rw_lock_t *lock) /*!< in: rw-lock */
 {
-  lint lock_copy = lock->lock_word;
+  int32_t lock_copy = lock->lock_word;
   ut_ad(lock_copy <= X_LOCK_DECR);
 
   if (lock_copy == 0 || lock_copy == -X_LOCK_HALF_DECR) {
@@ -183,7 +184,7 @@ static inline ulint rw_lock_get_sx_lock_count(
     const rw_lock_t *lock) /*!< in: rw-lock */
 {
 #ifdef UNIV_DEBUG
-  lint lock_copy = lock->lock_word;
+  int32_t lock_copy = lock->lock_word;
 
   ut_ad(lock_copy <= X_LOCK_DECR);
 
@@ -209,13 +210,12 @@ static inline ulint rw_lock_get_sx_lock_count(
  @return true if decr occurs */
 ALWAYS_INLINE
 bool rw_lock_lock_word_decr(rw_lock_t *lock, /*!< in/out: rw-lock */
-                            ulint amount,    /*!< in: amount to decrement */
-                            lint threshold)  /*!< in: threshold of judgement */
+                            int32_t amount,    /*!< in: amount to decrement */
+                            int32_t threshold)  /*!< in: threshold of judgement */
 {
   int32_t local_lock_word;
 
-  os_rmb;
-  local_lock_word = lock->lock_word;
+  local_lock_word = lock->lock_word.load(std::memory_order_acquire);
   while (local_lock_word > threshold) {
     if (lock->lock_word.compare_exchange_strong(local_lock_word,
                                                 local_lock_word - amount)) {
@@ -227,9 +227,9 @@ bool rw_lock_lock_word_decr(rw_lock_t *lock, /*!< in/out: rw-lock */
 
 /** Increments lock_word the specified amount and returns new value.
  @return lock->lock_word after increment */
-static inline lint rw_lock_lock_word_incr(
+static inline int32_t rw_lock_lock_word_incr(
     rw_lock_t *lock, /*!< in/out: rw-lock */
-    ulint amount)    /*!< in: amount of increment */
+    int32_t amount)    /*!< in: amount of increment */
 {
   return (lock->lock_word.fetch_add(amount) + amount);
 }
@@ -315,10 +315,11 @@ static inline bool rw_lock_x_lock_func_nowait(rw_lock_t *lock,
     /* Relock: this lock_word modification is safe since no other
     threads can modify (lock, unlock, or reserve) lock_word while
     there is an exclusive writer and this is the writer thread. */
-    if (lock->lock_word == 0 || lock->lock_word == -X_LOCK_HALF_DECR) {
+    const int32_t lock_word = lock->lock_word;
+    if (lock_word == 0 || lock_word == -X_LOCK_HALF_DECR) {
       /* There are 1 x-locks */
       lock->lock_word -= X_LOCK_DECR;
-    } else if (lock->lock_word <= -X_LOCK_DECR) {
+    } else if (lock_word <= -X_LOCK_DECR) {
       /* There are 2 or more x-locks */
       lock->lock_word--;
     } else {
@@ -362,7 +363,7 @@ static inline void rw_lock_s_unlock_func(IF_DEBUG(ulint pass, )
   ut_d(rw_lock_remove_debug_info(lock, pass, RW_LOCK_S));
 
   /* Increment lock_word to indicate 1 less reader */
-  lint lock_word = rw_lock_lock_word_incr(lock, 1);
+  int32_t lock_word = rw_lock_lock_word_incr(lock, 1);
   if (lock_word == 0 || lock_word == -X_LOCK_HALF_DECR) {
     /* wait_ex waiter exists. It may not be asleep, but we signal
     anyway. We do not wake other waiters, because they can't
@@ -396,7 +397,8 @@ static inline void rw_lock_x_unlock_func(IF_DEBUG(ulint pass, )
 
   ut_d(rw_lock_remove_debug_info(lock, pass, RW_LOCK_X));
 
-  if (lock->lock_word == 0 || lock->lock_word == -X_LOCK_HALF_DECR) {
+  const int32_t lock_word = lock->lock_word;
+  if (lock_word == 0 || lock_word == -X_LOCK_HALF_DECR) {
     /* There is 1 x-lock */
     /* atomic increment is needed, because it is last */
     if (rw_lock_lock_word_incr(lock, X_LOCK_DECR) <= 0) {
@@ -413,13 +415,13 @@ static inline void rw_lock_x_unlock_func(IF_DEBUG(ulint pass, )
       os_event_set(lock->event);
       sync_array_object_signalled();
     }
-  } else if (lock->lock_word == -X_LOCK_DECR ||
-             lock->lock_word == -(X_LOCK_DECR + X_LOCK_HALF_DECR)) {
+  } else if (lock_word == -X_LOCK_DECR ||
+             lock_word == -(X_LOCK_DECR + X_LOCK_HALF_DECR)) {
     /* There are 2 x-locks */
     lock->lock_word += X_LOCK_DECR;
   } else {
     /* There are more than 2 x-locks. */
-    ut_ad(lock->lock_word < -X_LOCK_DECR);
+    ut_ad(lock_word < -X_LOCK_DECR);
     lock->lock_word += 1;
   }
 
