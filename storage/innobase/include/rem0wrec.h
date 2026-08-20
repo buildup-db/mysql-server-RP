@@ -67,7 +67,7 @@ path. One must run performance tests if they intend to improve this method.
 @return offset from the origin of rec */
 inline ulint rec_get_nth_field_offs(const dict_index_t *index,
                                     const ulint *offsets, ulint n, ulint *len) {
-  if (index && UNIV_UNLIKELY(index->has_row_versions())) {
+  if (UNIV_LIKELY(index) && UNIV_UNLIKELY(index->has_row_versions())) {
     n = index->get_field_off_pos(n);
   }
 
@@ -84,11 +84,11 @@ inline ulint rec_get_nth_field_offs(const dict_index_t *index,
 
   length = rec_offs_base(offsets)[1 + n];
 
-  if (length & REC_OFFS_SQL_NULL) {
+  if (UNIV_UNLIKELY(length & REC_OFFS_SQL_NULL)) {
     length = UNIV_SQL_NULL;
-  } else if (length & REC_OFFS_DEFAULT) {
+  } else if (UNIV_UNLIKELY(length & REC_OFFS_DEFAULT)) {
     length = UNIV_SQL_ADD_COL_DEFAULT;
-  } else if (length & REC_OFFS_DROP) {
+  } else if (UNIV_UNLIKELY(length & REC_OFFS_DROP)) {
     length = UNIV_SQL_INSTANT_DROP_COL;
   } else {
     length &= REC_OFFS_MASK;
@@ -150,7 +150,7 @@ void validate_rec_offset(const dict_index_t *index, const ulint *offsets,
 @return nonzero if externally stored */
 [[nodiscard]] inline ulint rec_offs_nth_extern(const dict_index_t *index,
                                                const ulint *offsets, ulint n) {
-  if (index && UNIV_UNLIKELY(index->has_row_versions())) {
+  if (UNIV_LIKELY(index) && UNIV_UNLIKELY(index->has_row_versions())) {
     n = index->get_field_off_pos(n);
   }
 

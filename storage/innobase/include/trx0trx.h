@@ -1,6 +1,7 @@
 /*****************************************************************************
 
 Copyright (c) 1996, 2026, Oracle and/or its affiliates.
+Copyright (c) 2026, buildup-db.
 
 This program is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License, version 2.0, as published by the
@@ -1458,7 +1459,7 @@ class TrxInInnoDB {
   @param[in]    trx     transaction
   @param[in]    disable true if called from COMMIT/ROLLBACK method */
   static void enter(trx_t *trx, bool disable) {
-    if (srv_read_only_mode) {
+    if (UNIV_UNLIKELY(srv_read_only_mode)) {
       return;
     }
 
@@ -1467,7 +1468,7 @@ class TrxInInnoDB {
 
     /* If it hasn't already been marked for async rollback.
     and it will be committed/rolled back. */
-    if (disable) {
+    if (UNIV_UNLIKELY(disable)) {
       trx_mutex_enter(trx);
       if (!is_forced_rollback(trx) && is_started(trx) &&
           !trx_is_autocommit_non_locking(trx)) {
@@ -1506,7 +1507,7 @@ class TrxInInnoDB {
   /**
   Note that we are exiting InnoDB code */
   static void exit(trx_t *trx) {
-    if (srv_read_only_mode) {
+    if (UNIV_UNLIKELY(srv_read_only_mode)) {
       return;
     }
 
@@ -1546,7 +1547,7 @@ class TrxInInnoDB {
     /* start with optimistic sleep time - 20 micro seconds. */
     ulint sleep_time = 20;
 
-    while (is_forced_rollback(trx)) {
+    while (UNIV_UNLIKELY(is_forced_rollback(trx))) {
       /* Wait for the async rollback to complete */
 
       trx_mutex_exit(trx);

@@ -1,6 +1,7 @@
 /*****************************************************************************
 
 Copyright (c) 2013, 2026, Oracle and/or its affiliates.
+Copyright (c) 2026, buildup-db.
 
 This program is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License, version 2.0, as published by the
@@ -161,7 +162,7 @@ class dyn_buf_t {
 
   /** Reset the buffer vector */
   void erase() {
-    if (m_heap != nullptr) {
+    if (UNIV_UNLIKELY(m_heap != nullptr)) {
       mem_heap_free(m_heap);
       m_heap = nullptr;
 
@@ -187,7 +188,7 @@ class dyn_buf_t {
 
     block_t *block;
 
-    block = has_space(size) ? back() : add_block();
+    block = UNIV_LIKELY(has_space(size)) ? back() : add_block();
 
     ut_ad(block->m_used <= MAX_DATA_SIZE);
     ut_d(block->m_buf_end = block->m_used + size);
@@ -221,7 +222,7 @@ class dyn_buf_t {
 
     block_t *block;
 
-    block = has_space(size) ? back() : add_block();
+    block = UNIV_LIKELY(has_space(size)) ? back() : add_block();
 
     m_size += size;
 
@@ -367,8 +368,9 @@ class dyn_buf_t {
   block_t *find(ulint &pos) {
     ut_ad(UT_LIST_GET_LEN(m_list) > 0);
 
-    for (auto block : m_list) {
-      if (pos < block->used()) {
+    for (auto it = m_list.begin(); UNIV_LIKELY(it != m_list.end()); ++it) {
+      auto block = *it;
+      if (UNIV_LIKELY(pos < block->used())) {
         return block;
       }
 

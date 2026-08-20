@@ -1,6 +1,7 @@
 /*****************************************************************************
 
 Copyright (c) 1995, 2026, Oracle and/or its affiliates.
+Copyright (c) 2026, buildup-db.
 
 This program is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License, version 2.0, as published by the
@@ -44,8 +45,8 @@ static inline bool mlog_open(mtr_t *mtr, ulint size, byte *&buffer) {
 }
 
 static inline bool mlog_open_metadata(mtr_t *mtr, ulint size, byte *&buffer) {
-  if (mtr_get_log_mode(mtr) == MTR_LOG_NONE ||
-      mtr_get_log_mode(mtr) == MTR_LOG_NO_REDO) {
+  if (UNIV_UNLIKELY(mtr_get_log_mode(mtr) == MTR_LOG_NONE) ||
+      UNIV_UNLIKELY(mtr_get_log_mode(mtr) == MTR_LOG_NO_REDO)) {
     buffer = nullptr;
     return (false);
   }
@@ -214,7 +215,7 @@ static inline byte *mlog_write_initial_log_record_fast(
   system tablespace */
 
   /* We don't redo log the double write buffer */
-  if (space == TRX_SYS_SPACE && offset >= FSP_EXTENT_SIZE &&
+  if (UNIV_UNLIKELY(space == TRX_SYS_SPACE) && offset >= FSP_EXTENT_SIZE &&
       offset < 3 * FSP_EXTENT_SIZE) {
     return (log_ptr);
   }

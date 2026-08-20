@@ -82,7 +82,7 @@ class Seq_lock : private Non_copyable {
     int try_count = 0;
     while (true) {
       const auto seq_before = m_seq.load(std::memory_order_acquire);
-      if ((seq_before & 1) == 1) {
+      if (unlikely((seq_before & 1) == 1)) {
         /* Someone is currently writing to the stored value. Try a few times to
         read the seq value, if this not help, try to yield execution. */
         if ((++try_count & 7) == 0) {
@@ -93,7 +93,7 @@ class Seq_lock : private Non_copyable {
       auto res = op(m_value);
       std::atomic_thread_fence(std::memory_order_acquire);
       const auto seq_after = m_seq.load(std::memory_order_relaxed);
-      if (seq_before == seq_after) {
+      if (likely(seq_before == seq_after)) {
         return res;
       }
       /* The begin and end seq number is different, so the value read from T may

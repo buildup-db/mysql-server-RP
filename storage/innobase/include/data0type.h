@@ -1,6 +1,7 @@
 /*****************************************************************************
 
 Copyright (c) 1996, 2026, Oracle and/or its affiliates.
+Copyright (c) 2026, buildup-db.
 
 This program is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License, version 2.0, as published by the
@@ -279,7 +280,7 @@ inline bool DATA_LARGE_MTYPE(ulint mtype) {
 
 /* For checking if data type is big length data type. */
 inline bool DATA_BIG_LEN_MTYPE(ulint len, ulint mtype) {
-  return len > 255 || DATA_LARGE_MTYPE(mtype);
+  return UNIV_UNLIKELY(len > 255) || DATA_LARGE_MTYPE(mtype);
 }
 
 /* For checking if the column is a big length column. */

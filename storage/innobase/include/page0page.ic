@@ -174,7 +174,7 @@ static inline void page_header_set_ptr(
   ut_ad((field == PAGE_FREE) || (field == PAGE_LAST_INSERT) ||
         (field == PAGE_HEAP_TOP));
 
-  if (ptr == nullptr) {
+  if (UNIV_UNLIKELY(ptr == nullptr)) {
     offs = 0;
   } else {
     offs = ptr - page;
@@ -617,7 +617,7 @@ static inline const rec_t *page_rec_get_next_low(
             (ulong)offs, (ulong)page_offset(rec), (void *)rec,
             (ulong)page_get_space_id(page), (ulong)page_get_page_no(page));
     ut_error;
-  } else if (offs == 0) {
+  } else if (UNIV_UNLIKELY(offs == 0)) {
     return (nullptr);
   }
 
@@ -674,7 +674,7 @@ static inline void page_rec_set_next(
   ut_ad(!next || !page_rec_is_infimum(next));
   ut_ad(!next || page_align(rec) == page_align(next));
 
-  offs = next != nullptr ? page_offset(next) : 0;
+  offs = UNIV_LIKELY(next != nullptr) ? page_offset(next) : 0;
 
   if (page_rec_is_comp(rec)) {
     rec_set_next_offs_new(rec, offs);

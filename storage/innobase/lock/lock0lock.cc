@@ -5216,7 +5216,7 @@ dberr_t lock_rec_insert_check_and_lock(
     }
   } /* Shard_latch_guard */
 
-  switch (err) {
+  switch (UNIV_EXPECT(err, DB_SUCCESS)) {
     case DB_SUCCESS_LOCKED_REC:
       err = DB_SUCCESS;
       [[fallthrough]];

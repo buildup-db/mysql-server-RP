@@ -2964,8 +2964,8 @@ bool buf_pool_watch_is_sentinel(const buf_pool_t *buf_pool,
   ut_ad(buf_page_hash_lock_held_s_or_x(buf_pool, bpage));
   ut_ad(buf_page_in_file(bpage));
 
-  if (bpage < &buf_pool->watch[0] ||
-      bpage >= &buf_pool->watch[BUF_POOL_WATCH_SIZE]) {
+  if (UNIV_LIKELY(bpage < &buf_pool->watch[0] ||
+                  bpage >= &buf_pool->watch[BUF_POOL_WATCH_SIZE])) {
     ut_ad(buf_page_get_state(bpage) != BUF_BLOCK_ZIP_PAGE ||
           bpage->zip.data != nullptr);
 
@@ -3584,7 +3584,7 @@ static void buf_wait_for_read(buf_block_t *block) {
 
   The repeated reads of io_fix will not be optimized out because it's an atomic
   variable.*/
-  while (block->page.was_io_fix_read()) {
+  while (UNIV_UNLIKELY(block->page.was_io_fix_read())) {
     /* Page is X-latched on block->lock until the read is completed.
     Let's just wait for S-lock on block->lock, it will be granted as soon as the
     read completes. */
@@ -3850,7 +3850,7 @@ buf_block_t *Buf_fetch<T>::lookup() {
 
   const auto bpage = &block->page;
 
-  if (buf_pool_watch_is_sentinel(m_buf_pool, bpage)) {
+  if (UNIV_UNLIKELY(buf_pool_watch_is_sentinel(m_buf_pool, bpage))) {
     rw_lock_s_unlock(m_hash_lock);
 
     return (nullptr);
@@ -4065,7 +4065,7 @@ dberr_t Buf_fetch<T>::check_state(buf_block_t *&block) {
         seeing buf_fix_count>0. If it was after, then it must also be after
         buf_flush_page()'s setting io_fix to BUF_IO_WRITE which it does in the
         same critical section, and then we will give up here. */
-        if (m_is_temp_space && block->page.was_io_fixed()) {
+        if (UNIV_UNLIKELY(m_is_temp_space) && block->page.was_io_fixed()) {
           /* This suggest that page is being flushed.  Avoid returning
           reference to this page.  Instead wait for flush action to
           complete.  For normal page this sync is done using SX lock but for
@@ -4292,7 +4292,7 @@ buf_block_t *Buf_fetch<T>::single_page() {
     }
     ut_a(!block->page.was_stale());
 
-    if (is_optimistic()) {
+    if (UNIV_UNLIKELY(is_optimistic())) {
       const auto bpage = &block->page;
       auto block_mutex = buf_page_get_mutex(bpage);
 
@@ -4312,7 +4312,7 @@ buf_block_t *Buf_fetch<T>::single_page() {
       }
     }
 
-    switch (check_state(block)) {
+    switch (UNIV_EXPECT(check_state(block), DB_SUCCESS)) {
       case DB_NOT_FOUND:
         return (nullptr);
       case DB_FAIL:
@@ -4374,7 +4374,7 @@ buf_block_t *Buf_fetch<T>::single_page() {
   const auto access_time = buf_page_is_accessed(&block->page);
 
   /* This is a heuristic and we don't care about ordering issues. */
-  if (access_time == std::chrono::steady_clock::time_point{}) {
+  if (UNIV_UNLIKELY(access_time == std::chrono::steady_clock::time_point{})) {
     buf_page_mutex_enter(block);
 
     buf_page_set_accessed(&block->page);
@@ -4384,7 +4384,8 @@ buf_block_t *Buf_fetch<T>::single_page() {
 
   /* Don't move the page to the head of the LRU list so that the
   page can be discarded quickly if it is not accessed again. */
-  if (m_mode != Page_fetch::PEEK_IF_IN_POOL && m_mode != Page_fetch::SCAN) {
+  if (UNIV_LIKELY(m_mode != Page_fetch::PEEK_IF_IN_POOL) &&
+      UNIV_LIKELY(m_mode != Page_fetch::SCAN)) {
     buf_page_make_young_if_needed(&block->page);
   }
 
@@ -4405,15 +4406,15 @@ buf_block_t *Buf_fetch<T>::single_page() {
   set the dirty state to true and second mtr mark it as false the last
   updated dirty state is retained. Which means we can loose flushing of
   a modified block. */
-  if (m_dirty_with_no_latch) {
+  if (UNIV_UNLIKELY(m_dirty_with_no_latch)) {
     block->made_dirty_with_no_latch = m_dirty_with_no_latch;
   }
 
   mtr_add_page(block);
 
-  if (m_mode != Page_fetch::PEEK_IF_IN_POOL &&
-      m_mode != Page_fetch::POSSIBLY_FREED_NO_READ_AHEAD &&
-      access_time == std::chrono::steady_clock::time_point{}) {
+  if (UNIV_LIKELY(m_mode != Page_fetch::PEEK_IF_IN_POOL) &&
+      UNIV_LIKELY(m_mode != Page_fetch::POSSIBLY_FREED_NO_READ_AHEAD) &&
+      UNIV_UNLIKELY(access_time == std::chrono::steady_clock::time_point{})) {
     /* In the case of a first access, try to apply linear read-ahead */
 
     buf_read_ahead_linear(m_page_id, m_page_size, ibuf_inside(m_mtr));
@@ -4470,7 +4471,8 @@ buf_block_t *buf_page_get_gen(const page_id_t &page_id,
   ut_ad(!found || page_size.equals_to(space_page_size));
 #endif /* UNIV_DEBUG */
 
-  if (mode == Page_fetch::NORMAL && !fsp_is_system_temporary(page_id.space())) {
+  if (UNIV_LIKELY(mode == Page_fetch::NORMAL) &&
+      UNIV_LIKELY(!fsp_is_system_temporary(page_id.space()))) {
     Buf_fetch_normal fetch(page_id, page_size);
 
     fetch.m_rw_latch = rw_latch;

@@ -186,13 +186,14 @@ static inline bool buf_page_peek_if_too_old(const buf_page_t *bpage) {
     statistics or move blocks in the LRU list.  This is
     either the warm-up phase or an in-memory workload. */
     return false;
-  } else if (get_buf_LRU_old_threshold() != std::chrono::seconds::zero() &&
+  } else if (UNIV_LIKELY(get_buf_LRU_old_threshold() !=
+                         std::chrono::seconds::zero()) &&
              bpage->old) {
     const auto access_time = buf_page_is_accessed(bpage);
 
     if (access_time != std::chrono::steady_clock::time_point{} &&
-        (std::chrono::steady_clock::now() - access_time) >=
-            get_buf_LRU_old_threshold()) {
+        UNIV_UNLIKELY((std::chrono::steady_clock::now() - access_time) >=
+                      get_buf_LRU_old_threshold())) {
       return true;
     }
 
@@ -349,9 +350,9 @@ static inline bool buf_page_in_file(
 {
   auto state = buf_page_get_state(bpage);
 
-  if (likely(state == BUF_BLOCK_FILE_PAGE) ||
-      unlikely(state == BUF_BLOCK_ZIP_PAGE) ||
-      unlikely(state == BUF_BLOCK_ZIP_DIRTY)) {
+  if (UNIV_LIKELY(state == BUF_BLOCK_FILE_PAGE) ||
+      UNIV_UNLIKELY(state == BUF_BLOCK_ZIP_PAGE) ||
+      UNIV_UNLIKELY(state == BUF_BLOCK_ZIP_DIRTY)) {
     return true;
   }
 

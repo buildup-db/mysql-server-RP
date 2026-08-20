@@ -2,6 +2,7 @@
 
 Copyright (c) 1995, 2026, Oracle and/or its affiliates.
 Copyright (c) 2012, Facebook Inc.
+Copyright (c) 2026, buildup-db.
 
 This program is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License, version 2.0, as published by the
@@ -272,7 +273,7 @@ struct mtr_t {
     bool mark_mtr(size_t index) {
       /* Have initial check to avoid incrementing global counter for regular
       case when redo logging is enabled. */
-      if (is_disabled()) {
+      if (UNIV_UNLIKELY(is_disabled())) {
         /* Increment counter to restrict state change DISABLED to ENABLED. */
         Counter::inc(m_count_nologging_mtr, index);
 

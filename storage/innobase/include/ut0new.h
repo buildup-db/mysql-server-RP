@@ -808,7 +808,7 @@ inline T *new_(Args &&...args) {
  */
 template <typename T>
 inline void delete_(T *ptr) noexcept {
-  if (!ptr) return;
+  if (unlikely(!ptr)) return;
   ptr->~T();
   ut::free(ptr);
 }
@@ -1033,7 +1033,7 @@ inline T *new_arr_withkey(PSI_memory_key_t key, Count count) {
 
   size_t offset = 0;
   try {
-    for (; offset < sizeof(T) * count(); offset += sizeof(T)) {
+    for (; UNIV_LIKELY(offset < sizeof(T) * count()); offset += sizeof(T)) {
       new (reinterpret_cast<uint8_t *>(mem) + offset) T{};
     }
   } catch (...) {
@@ -1108,7 +1108,7 @@ inline T *new_arr(Count count) {
  */
 template <typename T>
 inline void delete_arr(T *ptr) noexcept {
-  if (!ptr) return;
+  if (unlikely(!ptr)) return;
   using impl = detail::select_malloc_impl_t<WITH_PFS_MEMORY, true>;
   using malloc_impl = detail::Alloc_<impl>;
   const auto data_len = malloc_impl::datalen(ptr);
@@ -1784,7 +1784,7 @@ inline T *aligned_new_arr_withkey(PSI_memory_key_t key, std::size_t alignment,
 
   size_t offset = 0;
   try {
-    for (; offset < sizeof(T) * count(); offset += sizeof(T)) {
+    for (; UNIV_LIKELY(offset < sizeof(T) * count()); offset += sizeof(T)) {
       new (reinterpret_cast<uint8_t *>(mem) + offset) T{};
     }
   } catch (...) {

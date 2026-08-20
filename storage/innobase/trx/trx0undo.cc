@@ -1416,7 +1416,7 @@ ulint trx_undo_lists_init(
   rseg_header =
       trx_rsegf_get_new(rseg->space_id, rseg->page_no, rseg->page_size, &mtr);
 
-  for (i = 0; i < TRX_RSEG_N_SLOTS; i++) {
+  for (i = 0; UNIV_LIKELY(i < TRX_RSEG_N_SLOTS); i++) {
     page_no_t page_no;
 
     page_no = trx_rsegf_get_nth_undo(rseg_header, i, &mtr);
@@ -1426,7 +1426,7 @@ ulint trx_undo_lists_init(
     the probability that they are in an inconsistent state is
     high */
 
-    if (page_no != FIL_NULL &&
+    if (UNIV_UNLIKELY(page_no != FIL_NULL) &&
         srv_force_recovery < SRV_FORCE_NO_UNDO_LOG_SCAN) {
       trx_undo_t *undo;
 

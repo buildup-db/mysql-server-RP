@@ -74,7 +74,7 @@ struct counter_indexer_t : public generic_indexer_t<Type, N> {
   static size_t get_rnd_index() UNIV_NOTHROW {
     size_t c = static_cast<size_t>(my_timer_cycles());
 
-    if (c != 0) {
+    if (UNIV_LIKELY(c != 0)) {
       return (c);
     } else {
       /* We may go here if my_timer_cycles() returns 0,

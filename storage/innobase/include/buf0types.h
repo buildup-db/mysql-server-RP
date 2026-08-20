@@ -1,6 +1,7 @@
 /*****************************************************************************
 
 Copyright (c) 1995, 2026, Oracle and/or its affiliates.
+Copyright (c) 2026, buildup-db.
 
 This program is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License, version 2.0, as published by the
@@ -265,7 +266,7 @@ class page_id_t {
   @param[in]    a       page_id_t object to compare
   @return true if equal */
   inline bool operator==(const page_id_t &a) const {
-    return (a.space() == m_space && a.page_no() == m_page_no);
+    return (UNIV_LIKELY(a.space() == m_space) && a.page_no() == m_page_no);
   }
 
   /** Check if a given page_id_t object is not equal to the current one.

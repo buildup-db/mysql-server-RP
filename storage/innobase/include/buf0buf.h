@@ -1,6 +1,7 @@
 /*****************************************************************************
 
 Copyright (c) 1995, 2026, Oracle and/or its affiliates.
+Copyright (c) 2026, buildup-db.
 
 This program is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License, version 2.0, as published by the
@@ -1266,7 +1267,7 @@ class buf_page_t {
     these values need to be executed in reversed order. The atomic reads
     cannot be relaxed for it to work. */
     bool was_not_deleted = m_space->was_not_deleted();
-    if (m_version == m_space->get_recent_version()) {
+    if (UNIV_LIKELY(m_version == m_space->get_recent_version())) {
       ut_a(was_not_deleted);
       return false;
     } else {
@@ -1966,7 +1967,7 @@ struct buf_block_t {
   if applicable.
   @return page descriptor or nullptr. */
   page_zip_des_t *get_page_zip() noexcept {
-    return page.zip.data != nullptr ? &page.zip : nullptr;
+    return UNIV_UNLIKELY(page.zip.data != nullptr) ? &page.zip : nullptr;
   }
 
   /** Const version.

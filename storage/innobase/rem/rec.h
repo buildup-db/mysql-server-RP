@@ -314,9 +314,9 @@ inline bool rec_info_bits_valid(ulint bits) {
 @param[in]      comp    nonzero=compact page format
 @return info bits */
 static inline ulint rec_get_info_bits(const rec_t *rec, ulint comp) {
-  const ulint val =
-      rec_get_bit_field_1(rec, comp ? REC_NEW_INFO_BITS : REC_OLD_INFO_BITS,
-                          REC_INFO_BITS_MASK, REC_INFO_BITS_SHIFT);
+  const ulint val = rec_get_bit_field_1(
+      rec, UNIV_LIKELY(comp) ? REC_NEW_INFO_BITS : REC_OLD_INFO_BITS,
+      REC_INFO_BITS_MASK, REC_INFO_BITS_SHIFT);
   ut_ad(rec_info_bits_valid(val));
   return (val);
 }
@@ -1223,7 +1223,8 @@ inline void rec_init_offsets_comp_ordinary(const rec_t *rec, bool temp,
       null_mask <<= 1;
     }
 
-    if (!field->fixed_len || (temp && !col->get_fixed_size(temp))) {
+    if (UNIV_UNLIKELY(!field->fixed_len) ||
+        (temp && !col->get_fixed_size(temp))) {
       ut_ad(col->mtype != DATA_POINT);
       /* Variable-length field: read the length */
       len = *lens--;
@@ -1234,7 +1235,7 @@ inline void rec_init_offsets_comp_ordinary(const rec_t *rec, bool temp,
       stored in one byte for 0..127.  The length
       will be encoded in two bytes when it is 128 or
       more, or when the field is stored externally. */
-      if (DATA_BIG_COL(col)) {
+      if (UNIV_UNLIKELY(DATA_BIG_COL(col))) {
         if (len & 0x80) {
           /* 1exxxxxxx xxxxxxxx */
           len <<= 8;
@@ -1259,7 +1260,7 @@ inline void rec_init_offsets_comp_ordinary(const rec_t *rec, bool temp,
     }
   resolved:
     rec_offs_base(offsets)[i + 1] = len;
-  } while (++i < rec_offs_n_fields(offsets));
+  } while (UNIV_LIKELY(++i < rec_offs_n_fields(offsets)));
 
   *rec_offs_base(offsets) = (rec - (lens + 1)) | REC_OFFS_COMPACT | any_ext;
 }

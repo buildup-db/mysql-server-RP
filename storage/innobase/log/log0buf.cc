@@ -1,6 +1,7 @@
 /*****************************************************************************
 
 Copyright (c) 1995, 2026, Oracle and/or its affiliates.
+Copyright (c) 2026, buildup-db.
 
 This program is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License, version 2.0,
@@ -534,7 +535,7 @@ static inline sn_t log_buffer_s_lock_enter_reserve(log_t &log, size_t len) {
 #ifdef UNIV_PFS_RWLOCK
   PSI_rwlock_locker *locker = nullptr;
   PSI_rwlock_locker_state state;
-  if (log.pfs_psi != nullptr) {
+  if (UNIV_UNLIKELY(log.pfs_psi != nullptr)) {
     if (log.pfs_psi->m_enabled) {
       /* Instrumented to inform we are acquiring a shared rwlock */
       locker = PSI_RWLOCK_CALL(start_rwlock_rdwait)(
@@ -570,7 +571,7 @@ static inline sn_t log_buffer_s_lock_enter_reserve(log_t &log, size_t len) {
 static inline void log_buffer_s_lock_exit_close(log_t &log, lsn_t start_lsn,
                                                 lsn_t end_lsn) {
 #ifdef UNIV_PFS_RWLOCK
-  if (log.pfs_psi != nullptr) {
+  if (UNIV_UNLIKELY(log.pfs_psi != nullptr)) {
     if (log.pfs_psi->m_enabled) {
       /* Inform performance schema we are unlocking the lock */
       PSI_RWLOCK_CALL(unlock_rwlock)
@@ -589,7 +590,7 @@ void log_buffer_x_lock_enter(log_t &log) {
 #ifdef UNIV_PFS_RWLOCK
   PSI_rwlock_locker *locker = nullptr;
   PSI_rwlock_locker_state state;
-  if (log.pfs_psi != nullptr) {
+  if (UNIV_UNLIKELY(log.pfs_psi != nullptr)) {
     if (log.pfs_psi->m_enabled) {
       /* Record the acquisition of a read-write lock in exclusive
       mode in performance schema */
@@ -661,7 +662,7 @@ void log_buffer_x_lock_exit(log_t &log) {
   log_sync_point("log_buffer_x_lock_exit_before_unlock");
 
 #ifdef UNIV_PFS_RWLOCK
-  if (log.pfs_psi != nullptr) {
+  if (UNIV_UNLIKELY(log.pfs_psi != nullptr)) {
     if (log.pfs_psi->m_enabled) {
       /* Inform performance schema we are unlocking the lock */
       PSI_RWLOCK_CALL(unlock_rwlock)
@@ -971,7 +972,7 @@ lsn_t log_buffer_write(log_t &log, const byte *str, size_t str_len,
 
     size_t len, lsn_diff;
 
-    if (left > str_len) {
+    if (UNIV_LIKELY(left > str_len)) {
       /* There are enough free bytes to finish copying
       the remaining part, leaving at least single free
       data byte in the log block. */
@@ -1012,14 +1013,14 @@ lsn_t log_buffer_write(log_t &log, const byte *str, size_t str_len,
 
     ut_a(log_is_data_lsn(lsn));
 
-    if (ptr >= buf_end) {
+    if (UNIV_UNLIKELY(ptr >= buf_end)) {
       /* Wrap - next copy operation will write at the
       beginning of the log buffer. */
 
       ptr -= log.buf_size;
     }
 
-    if (lsn_diff > left) {
+    if (UNIV_UNLIKELY(lsn_diff > left)) {
       /* We have crossed boundaries between consecutive log
       blocks. Either we finish in next block, in which case
       user will set the proper first_rec_group field after
@@ -1075,7 +1076,7 @@ void log_buffer_write_completed(log_t &log, lsn_t start_lsn, lsn_t end_lsn) {
 
   uint64_t wait_loops = 0;
 
-  while (!log.recent_written.has_space(start_lsn)) {
+  while (UNIV_UNLIKELY(!log.recent_written.has_space(start_lsn))) {
     os_event_set(log.writer_event);
     ++wait_loops;
     std::this_thread::sleep_for(std::chrono::microseconds(20));
@@ -1109,7 +1110,7 @@ void log_buffer_write_completed(log_t &log, lsn_t start_lsn, lsn_t end_lsn) {
   lsn_t ready_lsn = log_buffer_ready_for_write_lsn(log);
 
   if (log.current_ready_waiting_lsn > 0 &&
-      log.current_ready_waiting_lsn <= ready_lsn &&
+      UNIV_UNLIKELY(log.current_ready_waiting_lsn <= ready_lsn) &&
       !os_event_is_set(log.closer_event) &&
       log_closer_mutex_enter_nowait(log) == 0) {
     if (log.current_ready_waiting_lsn > 0 &&
@@ -1129,7 +1130,7 @@ void log_wait_for_space_in_log_recent_closed(log_t &log, lsn_t lsn) {
 
   uint64_t wait_loops = 0;
 
-  while (!log.recent_closed.has_space(lsn)) {
+  while (UNIV_UNLIKELY(!log.recent_closed.has_space(lsn))) {
     ++wait_loops;
     std::this_thread::sleep_for(std::chrono::microseconds(20));
   }

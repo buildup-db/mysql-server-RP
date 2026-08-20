@@ -46,7 +46,7 @@ this program; if not, write to the Free Software Foundation, Inc.,
 @param[in]      b_lo    LSB of the second pair */
 static inline void ut_pair_min(ulint *min_hi, ulint *min_lo, ulint a_hi,
                                ulint a_lo, ulint b_hi, ulint b_lo) {
-  if (a_hi == b_hi) {
+  if (UNIV_LIKELY(a_hi == b_hi)) {
     *min_hi = a_hi;
     *min_lo = std::min(a_lo, b_lo);
   } else if (a_hi < b_hi) {

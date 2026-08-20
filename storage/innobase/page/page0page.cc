@@ -2020,7 +2020,7 @@ bool page_simple_validate_new(
       }
     }
 
-    if (page_rec_is_supremum(rec)) {
+    if (UNIV_UNLIKELY(page_rec_is_supremum(rec))) {
       break;
     }
 

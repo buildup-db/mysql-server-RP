@@ -741,7 +741,7 @@ struct dict_col_t {
   bool is_dropped_in_or_before(uint8_t version) const {
     ut_ad(is_valid_row_version(version));
 
-    if (!is_instant_dropped()) {
+    if (UNIV_LIKELY(!is_instant_dropped())) {
       return false;
     }
 
@@ -754,7 +754,7 @@ struct dict_col_t {
   bool is_added_after(uint8_t version) const {
     ut_ad(is_valid_row_version(version));
 
-    if (!is_instant_added()) {
+    if (UNIV_LIKELY(!is_instant_added())) {
       return false;
     }
 
@@ -766,7 +766,8 @@ struct dict_col_t {
   return true if column is visible in version. */
   bool is_visible_in_version(uint8_t version) const {
     ut_ad(is_valid_row_version(version));
-    return (!is_added_after(version) && !is_dropped_in_or_before(version));
+    return (UNIV_LIKELY(!is_added_after(version)) &&
+            !is_dropped_in_or_before(version));
   }
 
 #ifdef UNIV_DEBUG
@@ -1352,12 +1353,12 @@ struct dict_index_t {
   /** check if either instant or versioned.
   @return true if table has row versions or instant cols, otherwise false */
   bool has_instant_cols_or_row_versions() const {
-    if (!is_clustered()) {
+    if (UNIV_LIKELY(!is_clustered())) {
       ut_ad(!has_row_versions() && !has_instant_cols());
       return false;
     }
 
-    return (has_row_versions() || has_instant_cols());
+    return (UNIV_UNLIKELY(has_row_versions()) || has_instant_cols());
   }
 
   /** Check if tuple is having instant format.

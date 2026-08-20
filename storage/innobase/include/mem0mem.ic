@@ -1,6 +1,7 @@
 /*****************************************************************************
 
 Copyright (c) 1994, 2026, Oracle and/or its affiliates.
+Copyright (c) 2026, buildup-db.
 
 This program is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License, version 2.0, as published by the
@@ -108,7 +109,7 @@ static inline ulint mem_block_get_start(mem_block_t *block) {
 /** Checks that an object is a memory heap (or a block of it)
 @param[in]      block   Memory heap to check */
 static inline void mem_block_validate(const mem_block_t *block) {
-  if (block->magic_n != MEM_BLOCK_MAGIC_N) {
+  if (UNIV_UNLIKELY(block->magic_n != MEM_BLOCK_MAGIC_N)) {
     ib::fatal error(UT_LOCATION_HERE);
     error << "Memory block is invalid (correctness field value"
              " should be "
@@ -426,14 +427,14 @@ static inline mem_heap_t *mem_heap_create(ulint size,
                                           ulint type) {
   mem_block_t *block;
 
-  if (!size) {
+  if (UNIV_UNLIKELY(!size)) {
     size = MEM_BLOCK_START_SIZE;
   }
 
   block = mem_heap_create_block(nullptr, size,
                                 IF_DEBUG(loc.filename, loc.line, ) type);
 
-  if (block == nullptr) {
+  if (UNIV_UNLIKELY(block == nullptr)) {
     return (nullptr);
   }
 

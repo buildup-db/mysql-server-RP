@@ -610,7 +610,7 @@ static inline uint32_t consume_chunk(uint32_t crc0, const unsigned char *data) {
       slice_len % sizeof(uint64_t) == 0,
       "we must be able to process a slice efficiently using 8-byte updates");
   constexpr auto iters = slice_len / sizeof(uint64_t);
-  for (size_t i = 0; i < iters; ++i) {
+  for (size_t i = 0; UNIV_LIKELY(i < iters); ++i) {
     Loop<slices_count>::template run<
         Update_step_executor<algo_to_use, slice_len>>(crc, data64);
     ++data64;
@@ -676,7 +676,7 @@ which starts at position aligned  mod 8, but has less than 8 bytes.
 @param[in,out]  len     data length, allowed to be processed. */
 template <typename Chunk, typename algo_to_use>
 static inline void consume_pow2(uint32_t &crc, const byte *&data, size_t len) {
-  if (len & sizeof(Chunk)) {
+  if (UNIV_UNLIKELY(len & sizeof(Chunk))) {
     crc = algo_to_use::update(crc, *(Chunk *)data);
     data += sizeof(Chunk);
   }

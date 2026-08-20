@@ -2261,11 +2261,11 @@ Slot *LinuxAIOHandler::find_completed_slot(ulint *n_pending) {
 
   Slot *slot = m_array->at(offset);
 
-  for (ulint i = 0; i < m_n_slots; ++i, ++slot) {
-    if (slot->is_reserved) {
+  for (ulint i = 0; UNIV_LIKELY(i < m_n_slots); ++i, ++slot) {
+    if (UNIV_UNLIKELY(slot->is_reserved)) {
       ++*n_pending;
 
-      if (slot->io_already_done) {
+      if (UNIV_LIKELY(slot->io_already_done)) {
         /* Something for us to work on.
         Note: We don't release the mutex. */
         return (slot);

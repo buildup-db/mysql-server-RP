@@ -173,7 +173,7 @@ static inline ulint rec_get_next_offs(const rec_t *rec, ulint comp) {
     ut_ad(static_cast<uint16_t>(field_value +
                                 ut_align_offset(rec, UNIV_PAGE_SIZE)));
 
-    if (field_value == 0) {
+    if (UNIV_UNLIKELY(field_value == 0)) {
       return (0);
     }
 
@@ -215,7 +215,7 @@ static inline void rec_set_next_offs_new(
   ut_ad(rec);
   ut_ad(UNIV_PAGE_SIZE > next);
 
-  if (!next) {
+  if (UNIV_UNLIKELY(!next)) {
     field_value = 0;
   } else {
     /* The following two statements calculate

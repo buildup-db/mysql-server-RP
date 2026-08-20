@@ -1613,8 +1613,10 @@ static inline void buf_LRU_remove_block(buf_page_t *bpage) {
 
   /* If the LRU list is so short that LRU_old is not defined,
   clear the "old" flags and return */
-  if (UT_LIST_GET_LEN(buf_pool->LRU) < BUF_LRU_OLD_MIN_LEN) {
-    for (auto bpage : buf_pool->LRU) {
+  if (UNIV_UNLIKELY(UT_LIST_GET_LEN(buf_pool->LRU) < BUF_LRU_OLD_MIN_LEN)) {
+    for (auto it = buf_pool->LRU.begin();
+         UNIV_LIKELY(it != buf_pool->LRU.end()); ++it) {
+      auto bpage = *it;
       /* This loop temporarily violates the
       assertions of buf_page_set_old(). */
       bpage->old = false;

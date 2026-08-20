@@ -1,6 +1,7 @@
 /*****************************************************************************
 
 Copyright (c) 2017, 2026, Oracle and/or its affiliates.
+Copyright (c) 2026, buildup-db.
 
 This program is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License, version 2.0,
@@ -152,7 +153,11 @@ class Log_test {
 };
 
 /** Represents currently running test of redo log, nullptr otherwise. */
+#ifdef UNIV_DEBUG
 extern std::unique_ptr<Log_test> log_test;
+#else
+static constexpr Log_test *log_test = nullptr;
+#endif /* UNIV_DEBUG */
 
 /** This function is responsible for three actions:
 

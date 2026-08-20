@@ -95,9 +95,10 @@ static inline int innobase_mysql_cmp(ulint prtype, const byte *a,
 
   uint cs_num = (uint)dtype_get_charset_coll(prtype);
 
-  if (CHARSET_INFO *cs = get_charset(cs_num, MYF(MY_WME))) {
-    if ((prtype & DATA_MYSQL_TYPE_MASK) == MYSQL_TYPE_STRING &&
-        cs->pad_attribute == NO_PAD) {
+  CHARSET_INFO *cs = get_charset(cs_num, MYF(MY_WME));
+  if (UNIV_LIKELY(cs)) {
+    if (UNIV_UNLIKELY((prtype & DATA_MYSQL_TYPE_MASK) == MYSQL_TYPE_STRING) &&
+        UNIV_UNLIKELY(cs->pad_attribute == NO_PAD)) {
       /* MySQL specifies that CHAR fields are stripped of
       trailing spaces before being returned from the database.
       Normally this is done in Field_string::val_str(),
@@ -399,8 +400,8 @@ inline int cmp_data(ulint mtype, ulint prtype, bool is_asc, const byte *data1,
         (len1 != UNIV_MULTI_VALUE_ARRAY_MARKER && len1 != UNIV_NO_INDEX_VALUE &&
          len2 != UNIV_MULTI_VALUE_ARRAY_MARKER && len2 != UNIV_NO_INDEX_VALUE));
 
-  if (len1 == UNIV_SQL_NULL || len2 == UNIV_SQL_NULL) {
-    if (len1 == len2) {
+  if (UNIV_UNLIKELY(len1 == UNIV_SQL_NULL || len2 == UNIV_SQL_NULL)) {
+    if (UNIV_LIKELY(len1 == len2)) {
       return (0);
     }
 
@@ -412,46 +413,49 @@ inline int cmp_data(ulint mtype, ulint prtype, bool is_asc, const byte *data1,
   ulint pad;
   int cmp;
 
-  switch (UNIV_EXPECT(mtype, DATA_INT)) {
-    case DATA_FIXBINARY:
-    case DATA_BINARY:
-      if (dtype_get_charset_coll(prtype) != DATA_MYSQL_BINARY_CHARSET_COLL) {
-        pad = 0x20;
-        break;
-      }
-      [[fallthrough]];
-    case DATA_INT:
-    case DATA_SYS_CHILD:
-    case DATA_SYS:
-      pad = ULINT_UNDEFINED;
-      break;
-    case DATA_VARMYSQL:
-    case DATA_MYSQL:
-      cmp = innobase_mysql_cmp(prtype, data1, (unsigned)len1, data2,
-                               (unsigned)len2);
-      return (is_asc ? cmp : -cmp);
-    case DATA_POINT:
-    case DATA_VAR_POINT:
-      /* Since DATA_POINT has a fixed length of DATA_POINT_LEN,
-      currently, pad is not needed. Meanwhile, DATA_VAR_POINT acts
-      the same as DATA_GEOMETRY */
-    case DATA_GEOMETRY:
-      ut_ad(prtype & DATA_BINARY_TYPE);
-      pad = ULINT_UNDEFINED;
-      if (prtype & DATA_GIS_MBR) {
-        goto return_default;
-      }
-      break;
-    case DATA_BLOB:
-      if (prtype & DATA_BINARY_TYPE) {
+  if (UNIV_LIKELY(mtype == DATA_INT)) {
+    pad = ULINT_UNDEFINED;
+  } else {
+    switch (UNIV_EXPECT(mtype, DATA_VARMYSQL)) {
+      case DATA_FIXBINARY:
+      case DATA_BINARY:
+        if (dtype_get_charset_coll(prtype) != DATA_MYSQL_BINARY_CHARSET_COLL) {
+          pad = 0x20;
+          break;
+        }
+        [[fallthrough]];
+      case DATA_SYS_CHILD:
+      case DATA_SYS:
         pad = ULINT_UNDEFINED;
         break;
-      }
-      [[fallthrough]];
-    default:
-    return_default:
-      return (cmp_whole_field(mtype, prtype, is_asc, data1, (unsigned)len1,
-                              data2, (unsigned)len2));
+      case DATA_VARMYSQL:
+      case DATA_MYSQL:
+        cmp = innobase_mysql_cmp(prtype, data1, (unsigned)len1, data2,
+                                 (unsigned)len2);
+        return (UNIV_LIKELY(is_asc) ? cmp : -cmp);
+      case DATA_POINT:
+      case DATA_VAR_POINT:
+        /* Since DATA_POINT has a fixed length of DATA_POINT_LEN,
+        currently, pad is not needed. Meanwhile, DATA_VAR_POINT acts
+        the same as DATA_GEOMETRY */
+      case DATA_GEOMETRY:
+        ut_ad(prtype & DATA_BINARY_TYPE);
+        pad = ULINT_UNDEFINED;
+        if (prtype & DATA_GIS_MBR) {
+          goto return_default;
+        }
+        break;
+      case DATA_BLOB:
+        if (prtype & DATA_BINARY_TYPE) {
+          pad = ULINT_UNDEFINED;
+          break;
+        }
+        [[fallthrough]];
+      default:
+      return_default:
+        return (cmp_whole_field(mtype, prtype, is_asc, data1, (unsigned)len1,
+                                data2, (unsigned)len2));
+    }
   }
 
   ulint len;
@@ -466,7 +470,7 @@ inline int cmp_data(ulint mtype, ulint prtype, bool is_asc, const byte *data1,
     len2 = 0;
   }
 
-  if (len > 0) {
+  if (UNIV_LIKELY(len > 0)) {
 #if defined __i386__ || defined __x86_64__ || defined _M_IX86 || defined _M_X64
     /* Compare the first bytes with a loop to avoid the call
     overhead of memcmp(). On x86 and x86-64, the GCC built-in
@@ -485,20 +489,20 @@ inline int cmp_data(ulint mtype, ulint prtype, bool is_asc, const byte *data1,
     be a built-in memcmp() that is faster than the loop.
     We only use the loop where we know that it can improve
     the performance. */
-    for (ulint i = 4 + (len & 3); i > 0; i--) {
+    for (ulint i = 4 + (len & 3); UNIV_LIKELY(i > 0); i--) {
       cmp = int(*data1++) - int(*data2++);
 
-      if (cmp != 0) {
+      if (UNIV_UNLIKELY(cmp != 0)) {
         return (is_asc ? cmp : -cmp);
       }
 
-      if (!--len) {
+      if (UNIV_UNLIKELY(!--len)) {
         break;
       }
     }
 
     if (UNIV_LIKELY(len > 0)) {
-      if (len == 4) {
+      if (UNIV_LIKELY(len == 4)) {
         cmp = memcmp(data1, data2, 4);
       } else {
         cmp = memcmp(data1, data2, len);
@@ -520,7 +524,7 @@ inline int cmp_data(ulint mtype, ulint prtype, bool is_asc, const byte *data1,
 
   cmp = (int)(len1 - len2);
 
-  if (cmp == 0) {
+  if (UNIV_LIKELY(cmp == 0)) {
     return (0);
   }
 
@@ -620,16 +624,16 @@ int cmp_dtuple_rec_with_match_low(const dtuple_t *dtuple, const rec_t *rec,
   ut_ad(*matched_fields == DISABLE_MIN_REC_FLAG_CHECK ||
         *matched_fields <= rec_offs_n_fields(offsets));
 
-  if (*matched_fields == 0) {
+  if (UNIV_LIKELY(*matched_fields == 0)) {
     ulint rec_info = rec_get_info_bits(rec, rec_offs_comp(offsets));
     ulint tup_info = dtuple_get_info_bits(dtuple);
 
     /* The leftmost node pointer record is defined as
     smaller than any other node pointer, independent of
     any ASC/DESC flags. It is an "infimum node pointer". */
-    if (rec_info & REC_INFO_MIN_REC_FLAG) {
+    if (UNIV_UNLIKELY(rec_info & REC_INFO_MIN_REC_FLAG)) {
       return (!(tup_info & REC_INFO_MIN_REC_FLAG));
-    } else if (tup_info & REC_INFO_MIN_REC_FLAG) {
+    } else if (UNIV_UNLIKELY(tup_info & REC_INFO_MIN_REC_FLAG)) {
       return (-1);
     }
   } else if (*matched_fields == DISABLE_MIN_REC_FLAG_CHECK) {
@@ -638,7 +642,7 @@ int cmp_dtuple_rec_with_match_low(const dtuple_t *dtuple, const rec_t *rec,
   }
 
   /* Compare fields in a loop. */
-  for (auto i = *matched_fields; i < n_cmp; ++i) {
+  for (auto i = *matched_fields; UNIV_LIKELY(i < n_cmp); ++i) {
     const auto dtuple_field = dtuple_get_nth_field(dtuple, i);
 
     const auto dtuple_b_ptr =
@@ -682,10 +686,10 @@ int cmp_dtuple_rec_with_match_low(const dtuple_t *dtuple, const rec_t *rec,
     } else {
       /* For now, change buffering is only supported on
       indexes with ascending order on the columns. */
-      ret = cmp_data(
-          type->mtype, type->prtype,
-          dict_index_is_ibuf(index) || index->get_field(i)->is_ascending,
-          dtuple_b_ptr, dtuple_f_len, rec_b_ptr, rec_f_len);
+      ret = cmp_data(type->mtype, type->prtype,
+                     UNIV_UNLIKELY(dict_index_is_ibuf(index)) ||
+                         index->get_field(i)->is_ascending,
+                     dtuple_b_ptr, dtuple_f_len, rec_b_ptr, rec_f_len);
     }
 
     if (ret) {
@@ -705,7 +709,7 @@ int cmp_dtuple_rec_with_match_low(const dtuple_t *dtuple, const rec_t *rec,
 @return         pad character code point
 @retval         ULINT_UNDEFINED if no padding is specified */
 static inline ulint cmp_get_pad_char(const dtype_t *type) {
-  switch (type->mtype) {
+  switch (UNIV_EXPECT(type->mtype, DATA_INT)) {
     case DATA_FIXBINARY:
     case DATA_BINARY:
       if (dtype_get_charset_coll(type->prtype) ==
@@ -761,7 +765,7 @@ int cmp_dtuple_rec_with_match_bytes(const dtuple_t *dtuple, const rec_t *rec,
   /* Match fields in a loop; stop if we run out of fields in dtuple
   or find an externally stored field */
 
-  while (cur_field < n_cmp) {
+  while (UNIV_LIKELY(cur_field < n_cmp)) {
     const dfield_t *dfield = dtuple_get_nth_field(dtuple, cur_field);
     const dtype_t *type = dfield_get_type(dfield);
     ulint dtuple_f_len = dfield_get_len(dfield);
@@ -773,8 +777,8 @@ int cmp_dtuple_rec_with_match_bytes(const dtuple_t *dtuple, const rec_t *rec,
 
     /* For now, change buffering is only supported on
     indexes with ascending order on the columns. */
-    const bool is_ascending =
-        dict_index_is_ibuf(index) || index->fields[cur_field].is_ascending;
+    const bool is_ascending = UNIV_UNLIKELY(dict_index_is_ibuf(index)) ||
+                              index->fields[cur_field].is_ascending;
 
     dtuple_b_ptr = static_cast<const byte *>(dfield_get_data(dfield));
     rec_b_ptr = rec_get_nth_field(index, rec, offsets, cur_field, &rec_f_len);
@@ -783,15 +787,15 @@ int cmp_dtuple_rec_with_match_bytes(const dtuple_t *dtuple, const rec_t *rec,
     /* If we have matched yet 0 bytes, it may be that one or
     both the fields are SQL null, or the record or dtuple may be
     the predefined minimum record. */
-    if (cur_bytes == 0) {
-      if (dtuple_f_len == UNIV_SQL_NULL) {
+    if (UNIV_LIKELY(cur_bytes == 0)) {
+      if (UNIV_UNLIKELY(dtuple_f_len == UNIV_SQL_NULL)) {
         if (rec_f_len == UNIV_SQL_NULL) {
           goto next_field;
         }
 
         ret = is_ascending ? -1 : 1;
         goto order_resolved;
-      } else if (rec_f_len == UNIV_SQL_NULL) {
+      } else if (UNIV_UNLIKELY(rec_f_len == UNIV_SQL_NULL)) {
         /* We define the SQL null to be the
         smallest possible value of a field
         in the alphabetical order */
@@ -801,7 +805,7 @@ int cmp_dtuple_rec_with_match_bytes(const dtuple_t *dtuple, const rec_t *rec,
       }
     }
 
-    switch (type->mtype) {
+    switch (UNIV_EXPECT(type->mtype, DATA_INT)) {
       case DATA_FIXBINARY:
       case DATA_BINARY:
       case DATA_INT:
@@ -837,7 +841,7 @@ int cmp_dtuple_rec_with_match_bytes(const dtuple_t *dtuple, const rec_t *rec,
       ulint rec_byte = pad;
       ulint dtuple_byte = pad;
 
-      if (rec_f_len <= cur_bytes) {
+      if (UNIV_UNLIKELY(rec_f_len <= cur_bytes)) {
         if (dtuple_f_len <= cur_bytes) {
           goto next_field;
         }
@@ -850,7 +854,7 @@ int cmp_dtuple_rec_with_match_bytes(const dtuple_t *dtuple, const rec_t *rec,
         rec_byte = *rec_b_ptr++;
       }
 
-      if (dtuple_f_len <= cur_bytes) {
+      if (UNIV_UNLIKELY(dtuple_f_len <= cur_bytes)) {
         if (dtuple_byte == ULINT_UNDEFINED) {
           ret = is_ascending ? -1 : 1;
           goto order_resolved;
@@ -1012,24 +1016,25 @@ int cmp_rec_rec_with_match(const rec_t *rec1, const rec_t *rec2,
 
   /* NOTE: This is an optimisation where we're comparing two B-tree records
   during index validation. */
-  if (cmp_btree_recs) {
+  if (UNIV_LIKELY(cmp_btree_recs)) {
     /* Test if rec is the predefined minimum record */
-    if (rec_get_info_bits(rec1, comp) & REC_INFO_MIN_REC_FLAG) {
+    if (UNIV_UNLIKELY(rec_get_info_bits(rec1, comp) & REC_INFO_MIN_REC_FLAG)) {
       ut_ad(!(rec_get_info_bits(rec2, comp) & REC_INFO_MIN_REC_FLAG));
       return (-1);
-    } else if (rec_get_info_bits(rec2, comp) & REC_INFO_MIN_REC_FLAG) {
+    } else if (UNIV_UNLIKELY(rec_get_info_bits(rec2, comp) &
+                             REC_INFO_MIN_REC_FLAG)) {
       return (1);
     }
   }
 
   ulint i;
 
-  for (i = 0; i < rec1_n_fields && i < rec2_n_fields; ++i) {
+  for (i = 0; UNIV_LIKELY(i < rec1_n_fields && i < rec2_n_fields); ++i) {
     /* If this is node-ptr records then avoid comparing node-ptr
     field. Only key field needs to be compared. In case of a
     spatial index we need to compare the node-ptr for a non-leaf
     page */
-    if (i == dict_index_get_n_unique_in_tree(index)) {
+    if (UNIV_UNLIKELY(i == dict_index_get_n_unique_in_tree(index))) {
       *matched_fields = i;
       return (0);
     }
@@ -1038,7 +1043,7 @@ int cmp_rec_rec_with_match(const rec_t *rec1, const rec_t *rec2,
     ulint prtype;
     bool is_asc;
 
-    if (dict_index_is_ibuf(index)) {
+    if (UNIV_UNLIKELY(dict_index_is_ibuf(index))) {
       /* This is for the insert buffer B-tree. */
       mtype = DATA_BINARY;
       prtype = 0;
@@ -1088,14 +1093,15 @@ int cmp_rec_rec_with_match(const rec_t *rec1, const rec_t *rec2,
     const auto r2 =
         rec_get_nth_field_instant(rec2, offsets2, i, index, &r2_len);
 
-    if (nulls_unequal && r1_len == UNIV_SQL_NULL && r2_len == UNIV_SQL_NULL) {
+    if (UNIV_UNLIKELY(nulls_unequal) && r1_len == UNIV_SQL_NULL &&
+        r2_len == UNIV_SQL_NULL) {
       *matched_fields = i;
       return (-1);
     }
 
     auto ret = cmp_data(mtype, prtype, is_asc, r1, r1_len, r2, r2_len);
 
-    if (ret != 0) {
+    if (UNIV_LIKELY(ret != 0)) {
       *matched_fields = i;
       return (ret);
     }

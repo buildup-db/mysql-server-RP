@@ -1,6 +1,7 @@
 /*****************************************************************************
 
 Copyright (c) 2017, 2026, Oracle and/or its affiliates.
+Copyright (c) 2026, buildup-db.
 
 This program is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License, version 2.0,
@@ -44,7 +45,9 @@ static constexpr size_t MLOG_TEST_PAYLOAD_MAX_LEN = 50;
 static constexpr size_t MLOG_TEST_PAGE_SPACE_ID = 1;
 
 /** Represents currently running test of redo log, nullptr otherwise. */
+#ifdef UNIV_DEBUG
 std::unique_ptr<Log_test> log_test;
+#endif /* UNIV_DEBUG */
 
 lsn_t Log_test::oldest_modification_approx() const {
   std::lock_guard<std::mutex> lock{m_mutex};

@@ -1,6 +1,7 @@
 /*****************************************************************************
 
 Copyright (c) 2013, 2026, Oracle and/or its affiliates.
+Copyright (c) 2026, buildup-db.
 
 This program is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License, version 2.0, as published by the
@@ -427,7 +428,7 @@ struct TTASEventMutex {
   void exit() UNIV_NOTHROW {
     m_owner.store(std::thread::id{});
 
-    if (m_waiters.load()) {
+    if (UNIV_UNLIKELY(m_waiters.load())) {
       signal();
     }
   }
@@ -439,7 +440,7 @@ struct TTASEventMutex {
   @param[in]    line            within filename */
   void enter(uint32_t max_spins, uint32_t max_delay, const char *filename,
              uint32_t line) UNIV_NOTHROW {
-    if (!try_lock()) {
+    if (UNIV_UNLIKELY(!try_lock())) {
       spin_and_try_lock(max_spins, max_delay, filename, line);
     }
   }
@@ -729,7 +730,7 @@ struct PolicyMutex {
   PSI_mutex_locker *pfs_begin_lock(PSI_mutex_locker_state *state,
                                    const char *name,
                                    uint32_t line) UNIV_NOTHROW {
-    if (m_ptr != nullptr) {
+    if (UNIV_UNLIKELY(m_ptr != nullptr)) {
       if (m_ptr->m_enabled) {
         return (PSI_MUTEX_CALL(start_mutex_wait)(state, m_ptr, PSI_MUTEX_LOCK,
                                                  name, (uint)line));
@@ -760,14 +761,14 @@ struct PolicyMutex {
   @param locker - PFS identifier
   @param ret - 0 for success and 1 for failure */
   void pfs_end(PSI_mutex_locker *locker, int ret) UNIV_NOTHROW {
-    if (locker != nullptr) {
+    if (UNIV_UNLIKELY(locker != nullptr)) {
       PSI_MUTEX_CALL(end_mutex_wait)(locker, ret);
     }
   }
 
   /** Performance schema monitoring - register mutex release */
   void pfs_exit() {
-    if (m_ptr != nullptr) {
+    if (UNIV_UNLIKELY(m_ptr != nullptr)) {
       if (m_ptr->m_enabled) {
         PSI_MUTEX_CALL(unlock_mutex)(m_ptr);
       }

@@ -93,7 +93,7 @@ page_no_t trx_rseg_header_create(space_id_t space_id,
   flst_init(rsegf + TRX_RSEG_HISTORY, mtr);
 
   /* Reset the undo log slots */
-  for (i = 0; i < TRX_RSEG_N_SLOTS; i++) {
+  for (i = 0; UNIV_LIKELY(i < TRX_RSEG_N_SLOTS); i++) {
     trx_rsegf_set_nth_undo(rsegf, i, FIL_NULL, mtr);
   }
 

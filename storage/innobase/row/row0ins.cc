@@ -3404,7 +3404,7 @@ dberr_t row_ins_index_entry_set_vals(const dict_index_t *index, dtuple_t *entry,
 
   n_fields = dtuple_get_n_fields(entry);
 
-  for (i = 0; i < n_fields + num_v; i++) {
+  for (i = 0; UNIV_LIKELY(i < n_fields + num_v); i++) {
     dict_field_t *ind_field = nullptr;
     dfield_t *field;
     const dfield_t *row_field;
@@ -3433,7 +3433,7 @@ dberr_t row_ins_index_entry_set_vals(const dict_index_t *index, dtuple_t *entry,
     len = dfield_get_len(row_field);
 
     /* Check column prefix indexes */
-    if (ind_field != nullptr && ind_field->prefix_len > 0 &&
+    if (ind_field != nullptr && UNIV_UNLIKELY(ind_field->prefix_len > 0) &&
         dfield_get_len(row_field) != UNIV_SQL_NULL) {
       const dict_col_t *col = ind_field->col;
 
@@ -3463,7 +3463,7 @@ dberr_t row_ins_index_entry_set_vals(const dict_index_t *index, dtuple_t *entry,
     }
 
     dfield_set_data(field, dfield_get_data(row_field), len);
-    if (dfield_is_ext(row_field)) {
+    if (UNIV_UNLIKELY(dfield_is_ext(row_field))) {
       ut_ad(index->is_clustered());
       dfield_set_ext(field);
     }
@@ -3740,7 +3740,7 @@ que_thr_t *row_ins_step(que_thr_t *thr) /*!< in: query thread */
 error_handling:
   trx->error_state = err;
 
-  if (err != DB_SUCCESS) {
+  if (UNIV_UNLIKELY(err != DB_SUCCESS)) {
     /* err == DB_LOCK_WAIT or SQL error detected */
     return (nullptr);
   }

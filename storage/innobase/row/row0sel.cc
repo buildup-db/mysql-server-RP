@@ -2749,7 +2749,7 @@ void row_sel_field_store_in_mysql_format_func(
     field_no = sec_field_no;
   }
 
-  if (rec_offs_nth_extern(index_used, offsets, field_no)) {
+  if (UNIV_UNLIKELY(rec_offs_nth_extern(index_used, offsets, field_no))) {
     /* Copy an externally stored field to a temporary heap */
 
     ut_a(!prebuilt->trx->has_search_latch);
@@ -2845,7 +2845,8 @@ void row_sel_field_store_in_mysql_format_func(
       return true;
     }
 
-    if (DATA_LARGE_MTYPE(templ->type) || DATA_GEOMETRY_MTYPE(templ->type)) {
+    if (UNIV_UNLIKELY(DATA_LARGE_MTYPE(templ->type)) ||
+        UNIV_UNLIKELY(DATA_GEOMETRY_MTYPE(templ->type))) {
       /* It is a BLOB field locally stored in the
       InnoDB record: we MUST copy its contents to
       prebuilt->blob_heap here because
@@ -2927,7 +2928,7 @@ bool row_sel_store_mysql_rec(byte *mysql_rec, row_prebuilt_t *prebuilt,
     }
   }
 
-  for (ulint i = 0; i < prebuilt->n_template; i++) {
+  for (ulint i = 0; UNIV_LIKELY(i < prebuilt->n_template); i++) {
     const auto templ = &prebuilt->mysql_template[i];
 
     /* Skip multi-value columns; since they can not be explicitly
@@ -3000,8 +3001,8 @@ bool row_sel_store_mysql_rec(byte *mysql_rec, row_prebuilt_t *prebuilt,
       continue;
     }
 
-    ulint field_no =
-        rec_clust ? templ->clust_rec_field_no : templ->rec_field_no;
+    ulint field_no = UNIV_LIKELY(rec_clust) ? templ->clust_rec_field_no
+                                            : templ->rec_field_no;
 
     ulint sec_field_no = ULINT_UNDEFINED;
 

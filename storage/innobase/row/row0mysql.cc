@@ -429,7 +429,7 @@ byte *row_mysql_store_col_in_innobase_format(
       mysql_data++;
     }
 
-    if (!(dtype->prtype & DATA_UNSIGNED)) {
+    if (UNIV_UNLIKELY(!(dtype->prtype & DATA_UNSIGNED))) {
       *buf ^= 128;
     }
 
@@ -525,7 +525,8 @@ byte *row_mysql_store_col_in_innobase_format(
     n_chars = dtype_get_len(dtype) / dtype_get_mbmaxlen(dtype);
 
     /* Strip space padding. */
-    while (col_len > n_chars && ptr[col_len - 1] == 0x20) {
+    while (UNIV_LIKELY(col_len > n_chars) &&
+           UNIV_LIKELY(ptr[col_len - 1] == 0x20)) {
       col_len--;
     }
   } else if (!row_format_col) {
@@ -571,7 +572,7 @@ static void row_mysql_convert_row_to_innobase(
   ut_ad(prebuilt->template_type == ROW_MYSQL_WHOLE_ROW);
   ut_ad(prebuilt->mysql_template);
 
-  for (i = 0; i < prebuilt->n_template; i++) {
+  for (i = 0; UNIV_LIKELY(i < prebuilt->n_template); i++) {
     bool is_multi_val = false;
 
     templ = prebuilt->mysql_template + i;

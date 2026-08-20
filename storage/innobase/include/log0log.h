@@ -1,6 +1,7 @@
 /*****************************************************************************
 
 Copyright (c) 1995, 2026, Oracle and/or its affiliates.
+Copyright (c) 2026, buildup-db.
 
 This program is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License, version 2.0, as published by the
@@ -100,7 +101,7 @@ inline sn_t log_translate_lsn_to_sn(lsn_t lsn) {
   The offset includes LOG_BLOCK_HDR_SIZE bytes of block's header. */
   const uint32_t diff = lsn % OS_FILE_LOG_BLOCK_SIZE;
 
-  if (diff < LOG_BLOCK_HDR_SIZE) {
+  if (UNIV_UNLIKELY(diff < LOG_BLOCK_HDR_SIZE)) {
     /* The lsn points to some bytes inside the block's header.
     Return sn for the beginning of the block. Note, that sn
     values don't enumerate bytes of blocks' headers, so the
@@ -108,7 +109,7 @@ inline sn_t log_translate_lsn_to_sn(lsn_t lsn) {
     return sn;
   }
 
-  if (diff > OS_FILE_LOG_BLOCK_SIZE - LOG_BLOCK_TRL_SIZE) {
+  if (UNIV_UNLIKELY(diff > OS_FILE_LOG_BLOCK_SIZE - LOG_BLOCK_TRL_SIZE)) {
     /* The lsn points to some bytes inside the block's footer.
     Return sn for the beginning of the next block. Note, that
     sn values don't enumerate bytes of blocks' footer, so the

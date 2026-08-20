@@ -296,7 +296,7 @@ static bool page_cur_has_null(const rec_t *rec, const dict_index_t *index) {
   ut_ad(index->rec_cache.offsets);
   const auto nullable_cols = index->rec_cache.nullable_cols;
   ut_ad(nullable_cols <= index->n_nullable);
-  if (!nullable_cols) {
+  if (UNIV_LIKELY(!nullable_cols)) {
     return false;
   }
   /* Check if this record has a NULL value. */
@@ -454,7 +454,7 @@ void page_cur_search_with_match(const buf_block_t *block,
   }
 #endif
   auto get_mid_rec_offsets = [&]() -> const auto * {
-    if (cached_offsets && !page_cur_has_null(mid_rec, index)) {
+    if (cached_offsets && UNIV_LIKELY(!page_cur_has_null(mid_rec, index))) {
 #ifdef UNIV_DEBUG
       {
         const size_t n = dtuple_get_n_fields_cmp(tuple);
@@ -533,7 +533,7 @@ void page_cur_search_with_match(const buf_block_t *block,
   /* Perform linear search until the upper and lower records come to
   distance 1 of each other. */
 
-  while (page_rec_get_next_const(low_rec) != up_rec) {
+  while (UNIV_LIKELY(page_rec_get_next_const(low_rec) != up_rec)) {
     mid_rec = page_rec_get_next_const(low_rec);
 
     cur_matched_fields = std::min(low_matched_fields, up_matched_fields);
@@ -542,7 +542,7 @@ void page_cur_search_with_match(const buf_block_t *block,
 
     cmp = tuple->compare(mid_rec, index, offsets, &cur_matched_fields);
 
-    if (cmp > 0) {
+    if (UNIV_LIKELY(cmp > 0)) {
     low_rec_match:
       low_rec = mid_rec;
       low_matched_fields = cur_matched_fields;
@@ -702,7 +702,7 @@ void page_cur_search_with_match_bytes(
   /* Perform binary search until the lower and upper limit directory
   slots come to the distance 1 of each other */
 
-  while (up - low > 1) {
+  while (UNIV_LIKELY(up - low > 1)) {
     mid = (low + up) / 2;
     slot = page_dir_get_nth_slot(page, mid);
     mid_rec = page_dir_slot_get_rec(slot);
@@ -718,7 +718,7 @@ void page_cur_search_with_match_bytes(
                                           &cur_matched_fields,
                                           &cur_matched_bytes);
 
-    if (cmp > 0) {
+    if (UNIV_LIKELY(cmp > 0)) {
     low_slot_match:
       low = mid;
       low_matched_fields = cur_matched_fields;
@@ -756,7 +756,7 @@ void page_cur_search_with_match_bytes(
   /* Perform linear search until the upper and lower records come to
   distance 1 of each other. */
 
-  while (page_rec_get_next_const(low_rec) != up_rec) {
+  while (UNIV_LIKELY(page_rec_get_next_const(low_rec) != up_rec)) {
     mid_rec = page_rec_get_next_const(low_rec);
 
     ut_pair_min(&cur_matched_fields, &cur_matched_bytes, low_matched_fields,
@@ -848,7 +848,7 @@ void page_cur_open_on_rnd_user_rec(buf_block_t *block, /*!< in: page */
 
   do {
     page_cur_move_to_next(cursor);
-  } while (rnd--);
+  } while (UNIV_LIKELY(rnd--));
 }
 
 /** Writes the log record of a record insert on a page. */
@@ -949,7 +949,7 @@ static void page_cur_insert_rec_write_log(
     cursor_rec; skip the bytes in the record info */
 
     do {
-      if (*ins_ptr == *cur_ptr) {
+      if (UNIV_LIKELY(*ins_ptr == *cur_ptr)) {
         i++;
         ins_ptr++;
         cur_ptr++;
@@ -961,7 +961,7 @@ static void page_cur_insert_rec_write_log(
       } else {
         break;
       }
-    } while (i < min_rec_size);
+    } while (UNIV_LIKELY(i < min_rec_size));
   }
 
   /* Length needed on REDO log :

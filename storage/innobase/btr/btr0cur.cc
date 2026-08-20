@@ -4584,7 +4584,7 @@ bool btr_cur_optimistic_delete_func(btr_cur_t *cursor,
       !rec_offs_any_extern(offsets) &&
       btr_cur_can_delete_without_compress(cursor, rec_offs_size(offsets), mtr);
 
-  if (no_compress_needed) {
+  if (UNIV_LIKELY(no_compress_needed)) {
     page_t *page = buf_block_get_frame(block);
     page_zip_des_t *page_zip = buf_block_get_page_zip(block);
 
@@ -5529,10 +5529,10 @@ bool btr_estimate_number_of_different_key_vals(
       }
     }
 
-    while (!page_rec_is_supremum(rec)) {
+    while (UNIV_LIKELY(!page_rec_is_supremum(rec))) {
       ulint matched_fields;
       rec_t *next_rec = page_rec_get_next(rec);
-      if (page_rec_is_supremum(next_rec)) {
+      if (UNIV_UNLIKELY(page_rec_is_supremum(next_rec))) {
         total_external_size +=
             lob::btr_rec_get_externally_stored_len(index, rec, offsets_rec);
         break;
@@ -5546,14 +5546,14 @@ bool btr_estimate_number_of_different_key_vals(
                              index, page_is_spatial_non_leaf(next_rec, index),
                              stats_null_not_equal, &matched_fields);
 
-      for (j = matched_fields; j < n_cols; j++) {
+      for (j = matched_fields; UNIV_LIKELY(j < n_cols); j++) {
         /* We add one if this index record has
         a different prefix from the previous */
 
         n_diff[j]++;
       }
 
-      if (n_not_null != nullptr) {
+      if (UNIV_UNLIKELY(n_not_null != nullptr)) {
         btr_record_not_null_field_in_rec(index, n_cols, offsets_next_rec,
                                          n_not_null);
       }
