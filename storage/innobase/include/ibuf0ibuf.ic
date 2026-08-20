@@ -1,6 +1,7 @@
 /*****************************************************************************
 
 Copyright (c) 1997, 2026, Oracle and/or its affiliates.
+Copyright (c) 2026, buildup-db.
 
 This program is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License, version 2.0, as published by the
@@ -230,7 +231,7 @@ static inline ulint ibuf_index_page_calc_free_zip(
 static inline ulint ibuf_index_page_calc_free(
     const buf_block_t *block) /*!< in: buffer block */
 {
-  if (!block->page.size.is_compressed()) {
+  if (UNIV_LIKELY(!block->page.size.is_compressed())) {
     ulint max_ins_size;
 
     max_ins_size = page_get_max_insert_size_after_reorganize(

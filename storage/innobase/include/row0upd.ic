@@ -1,6 +1,7 @@
 /*****************************************************************************
 
 Copyright (c) 1996, 2026, Oracle and/or its affiliates.
+Copyright (c) 2026, buildup-db.
 
 This program is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License, version 2.0, as published by the
@@ -119,7 +120,7 @@ inline const upd_field_t *upd_get_field_by_field_no(const upd_t *update,
     const upd_field_t *uf = upd_get_nth_field(update, i);
 
     /* matches only if the field matches that of is_virtual */
-    if ((!is_virtual) != (!uf->is_virtual())) {
+    if (UNIV_LIKELY(!is_virtual) != UNIV_LIKELY(!uf->is_virtual())) {
       continue;
     }
 
@@ -140,7 +141,7 @@ inline void row_upd_rec_sys_fields(rec_t *rec, page_zip_des_t *page_zip,
   ut_ad(index->is_clustered());
   ut_ad(rec_offs_validate(rec, index, offsets));
 
-  if (page_zip) {
+  if (UNIV_UNLIKELY(page_zip)) {
     ulint pos = index->get_sys_col_pos(DATA_TRX_ID);
     page_zip_write_trx_id_and_roll_ptr(page_zip, rec, offsets, pos, trx->id,
                                        roll_ptr);

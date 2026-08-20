@@ -2518,7 +2518,7 @@ void dd_import_instant_add_columns(const dict_table_t *table,
   ut_ad(table->has_instant_cols() || table->has_row_versions());
   ut_ad(dict_table_is_partition(table) == dd_table_is_partitioned(*dd_table));
 
-  if (table->has_instant_cols()) {
+  if (UNIV_UNLIKELY(table->has_instant_cols())) {
     ut_ad(table->is_upgraded_instant());
     if (!dd_table_is_partitioned(*dd_table)) {
       dd_table->se_private_data().set(
@@ -3016,7 +3016,7 @@ template const dict_index_t *dd_find_index<dd::Partition_index>(
     ut_ad(field == form->field[key_part->fieldnr - 1]);
     ut_ad(field == form->field[field->field_index()]);
 
-    if (field->is_virtual_gcol()) {
+    if (UNIV_UNLIKELY(field->is_virtual_gcol())) {
       index->type |= DICT_VIRTUAL;
 
       /* Whether it is a multi-value index */
@@ -3560,7 +3560,7 @@ void get_field_types(const dd::Table *dd_tab, const dict_table_t *m_table,
   them as non-nullabe in DD but treat as nullable in InnoDB.
   This way the compatibility with 5.7 FTS AUX tables is also
   maintained. */
-  if (dd_tab && m_table->is_fts_aux()) {
+  if (dd_tab && UNIV_UNLIKELY(m_table->is_fts_aux())) {
     const dd::Table &dd_table = dd_tab->table();
     const dd::Column *dd_col = dd_find_column(&dd_table, field->field_name);
     const dd::Properties &p = dd_col->se_private_data();
@@ -3591,11 +3591,11 @@ void get_field_types(const dd::Table *dd_tab, const dict_table_t *m_table,
   ulint is_multi_val =
       innobase_is_multi_value_fld(field) ? DATA_MULTI_VALUE : 0;
 
-  if (is_multi_val) {
+  if (UNIV_UNLIKELY(is_multi_val)) {
     col_len = field->key_length();
   }
 
-  if (!is_virtual) {
+  if (UNIV_LIKELY(!is_virtual)) {
     prtype =
         dtype_form_prtype((ulint)field->type() | nulls_allowed | unsigned_type |
                               binary_type | long_true_varchar,
@@ -3641,7 +3641,7 @@ static inline void fill_dict_existing_column(
 
   ulint is_virtual = (innobase_is_v_fld(field)) ? DATA_VIRTUAL : 0;
 
-  if (!is_virtual) {
+  if (UNIV_LIKELY(!is_virtual)) {
     const dd::Column *column =
         dd_find_column(&dd_tab->table(), field->field_name);
     ut_ad(column != nullptr);
@@ -3659,7 +3659,7 @@ static inline void fill_dict_existing_column(
 
     /* Get physical pos */
     uint32_t phy_pos = UINT32_UNDEFINED;
-    if (has_row_versions) {
+    if (UNIV_UNLIKELY(has_row_versions)) {
       ut_ad(!m_table->is_system_table && !m_table->is_fts_aux());
       const char *s = dd_column_key_strings[DD_INSTANT_PHYSICAL_POS];
 
@@ -3681,7 +3681,7 @@ static inline void fill_dict_existing_column(
   }
 
   bool is_stored = innobase_is_s_fld(field);
-  if (is_stored) {
+  if (UNIV_UNLIKELY(is_stored)) {
     ut_ad(!is_virtual);
     /* Added stored column in m_s_cols list. */
     dict_mem_table_add_s_col(m_table,
@@ -3732,7 +3732,7 @@ static inline void fill_dict_columns(const Table *dd_table, const TABLE *m_form,
   /* Add system columns to make adding index work */
   dict_table_add_system_columns(dict_table, heap);
 
-  if (dict_table->has_row_versions()) {
+  if (UNIV_UNLIKELY(dict_table->has_row_versions())) {
     /* Read physical pos for system columns. */
 
     auto fn = [&](uint32_t sys_col, const char *name) {
@@ -5273,7 +5273,7 @@ dict_table_t *dd_open_table_one(dd::cache::Dictionary_client *client,
 
     validate_index_len(m_table, table);
 
-    if (m_table->fts && dict_table_has_fts_index(m_table)) {
+    if (UNIV_UNLIKELY(m_table->fts) && dict_table_has_fts_index(m_table)) {
       fts_optimize_add_table(m_table);
     }
 
@@ -6060,7 +6060,7 @@ bool dd_process_dd_indexes_rec(mem_heap_t *heap, const rec_t *rec,
     }
 
     /* For fts aux table, we need to acquire mdl lock on parent. */
-    if (table->is_fts_aux()) {
+    if (UNIV_UNLIKELY(table->is_fts_aux())) {
       fts_aux_table_t fts_table;
 
       /* Find the parent ID. */
@@ -6097,7 +6097,7 @@ bool dd_process_dd_indexes_rec(mem_heap_t *heap, const rec_t *rec,
 
     if (*index == nullptr) {
       dd_table_close(table, thd, mdl, true);
-      if (table->is_fts_aux() && *parent) {
+      if (UNIV_UNLIKELY(table->is_fts_aux()) && *parent) {
         dd_table_close(*parent, thd, parent_mdl, true);
       }
       delete p;

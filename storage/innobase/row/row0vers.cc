@@ -1,6 +1,7 @@
 /*****************************************************************************
 
 Copyright (c) 1997, 2026, Oracle and/or its affiliates.
+Copyright (c) 2026, buildup-db.
 
 This program is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License, version 2.0, as published by the
@@ -685,7 +686,7 @@ static void row_vers_build_cur_vrow_low(
   *vrow = dtuple_create_with_vcol(v_heap, 0, num_v);
   dtuple_init_v_fld(*vrow);
 
-  for (i = 0; i < num_v; i++) {
+  for (i = 0; UNIV_UNLIKELY(i < num_v); i++) {
     dfield_get_type(dtuple_get_nth_v_field(*vrow, i))->mtype = DATA_MISSING;
   }
 
@@ -1326,7 +1327,7 @@ dberr_t row_vers_build_for_consistent_read(
       *old_vers = rec_copy(buf, prev_version, *offsets);
       rec_offs_make_valid(*old_vers, index, *offsets);
 
-      if (vrow && *vrow) {
+      if (UNIV_UNLIKELY(vrow) && *vrow) {
         *vrow = dtuple_copy(*vrow, in_heap);
         dtuple_dup_v_fld(*vrow, in_heap);
       }
@@ -1422,7 +1423,7 @@ void row_vers_build_for_semi_consistent_read(
 
       *old_vers = rec_copy(buf, version, *offsets);
       rec_offs_make_valid(*old_vers, index, *offsets);
-      if (vrow && *vrow) {
+      if (UNIV_UNLIKELY(vrow) && *vrow) {
         *vrow = dtuple_copy(*vrow, in_heap);
         dtuple_dup_v_fld(*vrow, in_heap);
       }

@@ -1,6 +1,7 @@
 /*****************************************************************************
 
 Copyright (c) 1995, 2026, Oracle and/or its affiliates.
+Copyright (c) 2026, buildup-db.
 
 This program is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License, version 2.0,
@@ -5566,7 +5567,7 @@ dberr_t fil_write_initial_pages(pfs_os_file_t file, const char *path,
   IORequest request(IORequest::WRITE);
   dberr_t err = DB_SUCCESS;
 
-  if (!page_size.is_compressed()) {
+  if (UNIV_LIKELY(!page_size.is_compressed())) {
     buf_flush_init_for_writing(nullptr, page, nullptr, 0,
                                fsp_is_checksum_disabled(space_id),
                                true /* skip_lsn_check */);

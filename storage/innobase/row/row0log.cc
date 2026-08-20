@@ -1,6 +1,7 @@
 /*****************************************************************************
 
 Copyright (c) 2011, 2026, Oracle and/or its affiliates.
+Copyright (c) 2026, buildup-db.
 
 This program is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License, version 2.0, as published by the
@@ -614,7 +615,7 @@ void row_log_table_delete(
   mrec_size = 2 + old_pk_size;
 
   /* Check if we need to log virtual column data */
-  if (ventry->n_v_fields > 0) {
+  if (UNIV_UNLIKELY(ventry->n_v_fields > 0)) {
     ulint v_extra;
     mrec_size += rec_get_serialize_size(new_index, nullptr, 0, ventry, &v_extra,
                                         MAX_ROW_VERSION);
@@ -630,10 +631,10 @@ void row_log_table_delete(
     b += old_pk_size;
 
     /* log virtual columns */
-    if (ventry->n_v_fields > 0) {
+    if (UNIV_UNLIKELY(ventry->n_v_fields > 0)) {
       rec_serialize_dtuple(b, new_index, nullptr, 0, ventry, MAX_ROW_VERSION);
       b += mach_read_from_2(b);
-    } else if (index->table->n_v_cols) {
+    } else if (UNIV_UNLIKELY(index->table->n_v_cols)) {
       mach_write_to_2(b, 2);
       b += 2;
     }
@@ -688,7 +689,7 @@ static void row_log_table_low_redundant(const rec_t *rec,
   dtuple_t *tuple = dtuple_create_with_vcol(heap, n_total_fields, num_v);
   dict_index_copy_types(tuple, index, n_total_fields);
 
-  if (num_v) {
+  if (UNIV_UNLIKELY(num_v)) {
     dict_table_copy_v_types(tuple, index->table);
   }
 
@@ -737,13 +738,13 @@ static void row_log_table_low_redundant(const rec_t *rec,
   ulint mrec_size = ROW_LOG_HEADER_SIZE + size + (extra_size >= 0x80) +
                     additional_size_for_instant;
 
-  if (num_v) {
+  if (UNIV_UNLIKELY(num_v)) {
     if (o_ventry) {
       ulint v_extra = 0;
       mrec_size += rec_get_serialize_size(new_index, nullptr, 0, o_ventry,
                                           &v_extra, MAX_ROW_VERSION);
     }
-  } else if (index->table->n_v_cols) {
+  } else if (UNIV_UNLIKELY(index->table->n_v_cols)) {
     mrec_size += 2;
   }
 
@@ -795,7 +796,7 @@ static void row_log_table_low_redundant(const rec_t *rec,
                          ventry, rec_version);
 
     /* Write instant metadata in 1 or 2 bytes */
-    if (index->has_instant_cols_or_row_versions()) {
+    if (UNIV_UNLIKELY(index->has_instant_cols_or_row_versions())) {
       /* Write infobit in 1 byte */
       byte *temp_rec = b + extra_size;
       rec_set_info_bits_new_temp(temp_rec, rec_get_info_bits(rec, false));
@@ -815,13 +816,13 @@ static void row_log_table_low_redundant(const rec_t *rec,
     /* Move 'b' to past record data */
     b += size;
 
-    if (num_v) {
+    if (UNIV_UNLIKELY(num_v)) {
       if (o_ventry) {
         rec_serialize_dtuple(b, new_index, nullptr, 0, o_ventry,
                              MAX_ROW_VERSION);
         b += mach_read_from_2(b);
       }
-    } else if (index->table->n_v_cols) {
+    } else if (UNIV_UNLIKELY(index->table->n_v_cols)) {
       /* The table contains virtual columns, but nothing
       has changed for them, so just mark a 2 bytes length
       field */
@@ -893,7 +894,7 @@ static void row_log_table_low(const rec_t *rec, const dtuple_t *ventry,
   ulint mrec_size = ROW_LOG_HEADER_SIZE + (extra_size >= 0x80) +
                     rec_offs_size(offsets) - omit_size;
 
-  if (ventry && ventry->n_v_fields > 0) {
+  if (ventry && UNIV_UNLIKELY(ventry->n_v_fields > 0)) {
     ulint v_extra = 0;
     uint64_t rec_size = rec_get_serialize_size(new_index, nullptr, 0, ventry,
                                                &v_extra, MAX_ROW_VERSION);
@@ -907,7 +908,7 @@ static void row_log_table_low(const rec_t *rec, const dtuple_t *ventry,
       mrec_size += rec_get_serialize_size(new_index, nullptr, 0, o_ventry,
                                           &v_extra, MAX_ROW_VERSION);
     }
-  } else if (index->table->n_v_cols) {
+  } else if (UNIV_UNLIKELY(index->table->n_v_cols)) {
     /* Always leave 2 bytes length marker for virtual column
     data logging even if there is none of them is indexed if table
     has virtual columns */
@@ -961,7 +962,7 @@ static void row_log_table_low(const rec_t *rec, const dtuple_t *ventry,
     memcpy(b, rec, rec_offs_data_size(offsets));
     b += rec_offs_data_size(offsets);
 
-    if (ventry && ventry->n_v_fields > 0) {
+    if (ventry && UNIV_UNLIKELY(ventry->n_v_fields > 0)) {
       uint64_t new_v_size;
 
       rec_serialize_dtuple(b, new_index, nullptr, 0, ventry, MAX_ROW_VERSION);
@@ -974,7 +975,7 @@ static void row_log_table_low(const rec_t *rec, const dtuple_t *ventry,
                              MAX_ROW_VERSION);
         b += mach_read_from_2(b);
       }
-    } else if (index->table->n_v_cols) {
+    } else if (UNIV_UNLIKELY(index->table->n_v_cols)) {
       /* The table contains virtual columns, but nothing
       has changed for them, so just mark a 2 bytes length
       field */
@@ -1482,7 +1483,7 @@ void row_log_table_blob_alloc(
   }
 
   /* read the virtual column data if any */
-  if (num_v) {
+  if (UNIV_UNLIKELY(num_v)) {
     byte *b = const_cast<byte *>(mrec) + rec_offs_data_size(offsets);
     trx_undo_read_v_cols(log->table, b, row, false, true,
                          &(log->col_map[log->n_old_col]), heap);
@@ -1578,13 +1579,13 @@ It is then unmarked. Otherwise, the entry is just inserted to the index.
       break;
     }
 
-    if (index->type & DICT_FTS) {
+    if (UNIV_UNLIKELY(index->type & DICT_FTS)) {
       continue;
     }
 
     entry = row_build_index_entry(row, nullptr, index, heap);
 
-    if (index->is_multi_value()) {
+    if (UNIV_UNLIKELY(index->is_multi_value())) {
       error = apply_insert_multi_value(flags, index, offsets_heap, heap, entry,
                                        trx_id, thr);
     } else {
@@ -1759,7 +1760,7 @@ flag_ok:
     /* Build a row template for purging secondary index entries. */
     row = row_build(ROW_COPY_DATA, index, pcur->get_rec(), offsets, nullptr,
                     nullptr, nullptr, &ext, heap);
-    if (ventry) {
+    if (ventry && UNIV_UNLIKELY(dtuple_get_n_v_fields(ventry) > 0)) {
       dtuple_copy_v_fields(row, ventry);
     }
   } else {
@@ -1776,11 +1777,11 @@ flag_ok:
   }
 
   while ((index = index->next()) != nullptr) {
-    if (index->type & DICT_FTS) {
+    if (UNIV_UNLIKELY(index->type & DICT_FTS)) {
       continue;
     }
 
-    if (index->is_multi_value()) {
+    if (UNIV_UNLIKELY(index->is_multi_value())) {
       error = apply_delete_multi_value(row, ext, index, pcur, heap);
       if (error == DB_INDEX_CORRUPT) {
         return (error);
@@ -1826,7 +1827,7 @@ flag_ok:
   old_pk = dtuple_create_with_vcol(heap, index->n_uniq, num_v);
   dict_index_copy_types(old_pk, index, index->n_uniq);
 
-  if (num_v) {
+  if (UNIV_UNLIKELY(num_v)) {
     dict_table_copy_v_types(old_pk, index->table);
   }
 
@@ -1912,7 +1913,7 @@ flag_ok:
     }
   }
 
-  if (num_v) {
+  if (UNIV_UNLIKELY(num_v)) {
     byte *b = (byte *)mrec + rec_offs_data_size(moffsets);
     trx_undo_read_v_cols(log->table, b, old_pk, false, true,
                          &(log->col_map[log->n_old_col]), heap);
@@ -2297,7 +2298,7 @@ flag_ok:
       break;
     }
 
-    if (index->type & DICT_FTS) {
+    if (UNIV_UNLIKELY(index->type & DICT_FTS)) {
       continue;
     }
 
@@ -2308,13 +2309,13 @@ flag_ok:
 
     if (!row_upd_changes_ord_field_binary(
             index, update, thr, old_row, nullptr,
-            (index->is_multi_value() ? &non_mv_upd : nullptr))) {
+            (UNIV_UNLIKELY(index->is_multi_value()) ? &non_mv_upd : nullptr))) {
       continue;
     }
 
     mtr_commit(&mtr);
 
-    if (index->is_multi_value()) {
+    if (UNIV_UNLIKELY(index->is_multi_value())) {
       error =
           apply_update_multi_value(index, n_index, old_row, old_ext, row,
                                    non_mv_upd, trx_id, thr, offsets_heap, heap);
@@ -2430,7 +2431,7 @@ flag_ok:
 
       next_mrec = mrec + rec_offs_data_size(offsets);
 
-      if (log->table->n_v_cols) {
+      if (UNIV_UNLIKELY(log->table->n_v_cols)) {
         if (next_mrec + 2 > mrec_end) {
           return (nullptr);
         }
@@ -2468,7 +2469,7 @@ flag_ok:
       rec_offs_set_n_fields(offsets, new_index->n_uniq + 2);
       rec_deserialize_init_offsets(mrec, new_index, offsets);
       next_mrec = mrec + rec_offs_data_size(offsets);
-      if (log->table->n_v_cols) {
+      if (UNIV_UNLIKELY(log->table->n_v_cols)) {
         if (next_mrec + 2 > mrec_end) {
           return (nullptr);
         }
@@ -2525,7 +2526,7 @@ flag_ok:
 
         old_pk = dtuple_create_with_vcol(heap, new_index->n_uniq, num_v);
         dict_index_copy_types(old_pk, new_index, old_pk->n_fields);
-        if (num_v) {
+        if (UNIV_UNLIKELY(num_v)) {
           dict_table_copy_v_types(old_pk, new_index->table);
         }
 
@@ -2567,7 +2568,7 @@ flag_ok:
         old_pk = dtuple_create_with_vcol(heap, new_index->n_uniq + 2, num_v);
         dict_index_copy_types(old_pk, new_index, old_pk->n_fields);
 
-        if (num_v) {
+        if (UNIV_UNLIKELY(num_v)) {
           dict_table_copy_v_types(old_pk, new_index->table);
         }
 
@@ -2615,7 +2616,7 @@ flag_ok:
       }
 
       /* Read virtual column info from log */
-      if (num_v) {
+      if (UNIV_UNLIKELY(num_v)) {
         ulint o_v_size = 0;
         ulint n_v_size = 0;
         if (next_mrec + 2 > mrec_end) {
@@ -3811,7 +3812,7 @@ dberr_t row_log_apply(const trx_t *trx, dict_index_t *index,
 
   rw_lock_x_lock(dict_index_get_lock(index), UT_LOCATION_HERE);
 
-  if (!index->table->is_corrupted()) {
+  if (UNIV_LIKELY(!index->table->is_corrupted())) {
     error = row_log_apply_ops(trx, index, &dup, stage);
   } else {
     error = DB_SUCCESS;

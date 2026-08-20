@@ -2,6 +2,7 @@
 
 Copyright (c) 1996, 2026, Oracle and/or its affiliates.
 Copyright (c) 2008, Google Inc.
+Copyright (c) 2026, buildup-db.
 
 Portions of this file contain modifications contributed and copyrighted by
 Google, Inc. Those modifications are gratefully acknowledged and are described
@@ -167,7 +168,7 @@ static void btr_search_check_free_space_in_heap(dict_index_t *index) {
 
     btr_search_x_lock(index, UT_LOCATION_HERE);
 
-    if (btr_search_enabled && heap->free_block == nullptr) {
+    if (UNIV_LIKELY(btr_search_enabled) && heap->free_block == nullptr) {
       heap->free_block = block;
     } else {
       buf_block_free(block);
@@ -407,7 +408,7 @@ ulint btr_search_info_get_ref_count(const btr_search_t *info,
                                     const dict_index_t *index) {
   ulint ret = 0;
 
-  if (!btr_search_enabled) {
+  if (UNIV_UNLIKELY(!btr_search_enabled)) {
     return (ret);
   }
 
@@ -874,7 +875,7 @@ bool btr_search_guess_on_hash(dict_index_t *index, btr_search_t *info,
   btr_pcur_t pcur;
 #endif
 
-  if (!btr_search_enabled) {
+  if (UNIV_UNLIKELY(!btr_search_enabled)) {
     return false;
   }
 
@@ -911,7 +912,7 @@ bool btr_search_guess_on_hash(dict_index_t *index, btr_search_t *info,
   if (!has_search_latch) {
     btr_search_s_lock(index, UT_LOCATION_HERE);
 
-    if (!btr_search_enabled) {
+    if (UNIV_UNLIKELY(!btr_search_enabled)) {
       btr_search_s_unlock(index);
 
       btr_search_failure(info, cursor);
@@ -1372,7 +1373,7 @@ void btr_drop_ahi_for_table(dict_table_t *table) {
 void btr_drop_ahi_for_index(const dict_index_t *index) {
   ut_ad(index->is_committed());
 
-  if (index->disable_ahi || index->search_info->ref_count == 0) {
+  if (UNIV_UNLIKELY(index->disable_ahi) || index->search_info->ref_count == 0) {
     return;
   }
 
@@ -1417,7 +1418,7 @@ static void btr_search_build_page_hash_index(dict_index_t *index,
   ulint offsets_[REC_OFFS_NORMAL_SIZE];
   ulint *offsets = offsets_;
 
-  if (index->disable_ahi || !btr_search_enabled) {
+  if (UNIV_UNLIKELY(index->disable_ahi) || UNIV_UNLIKELY(!btr_search_enabled)) {
     return;
   }
 
@@ -1533,7 +1534,7 @@ static void btr_search_build_page_hash_index(dict_index_t *index,
 
   btr_search_x_lock(index, UT_LOCATION_HERE);
 
-  if (!btr_search_enabled) {
+  if (UNIV_UNLIKELY(!btr_search_enabled)) {
     goto exit_func;
   }
 
@@ -1591,7 +1592,7 @@ void btr_search_move_or_delete_hash_entries(buf_block_t *new_block,
   /* AHI is disabled for intrinsic table as it depends on index-id
   which is dynamically assigned for intrinsic table indexes and not
   through a centralized index generator. */
-  if (index->disable_ahi || !btr_search_enabled) {
+  if (UNIV_UNLIKELY(index->disable_ahi) || UNIV_UNLIKELY(!btr_search_enabled)) {
     return;
   }
 
@@ -1652,7 +1653,8 @@ void btr_search_update_hash_on_delete(btr_cur_t *cursor) {
   mem_heap_t *heap = nullptr;
   rec_offs_init(offsets_);
 
-  if (cursor->index->disable_ahi || !btr_search_enabled) {
+  if (UNIV_UNLIKELY(cursor->index->disable_ahi) ||
+      UNIV_UNLIKELY(!btr_search_enabled)) {
     return;
   }
 
@@ -1714,7 +1716,8 @@ void btr_search_update_hash_node_on_insert(btr_cur_t *cursor) {
   dict_index_t *index;
   rec_t *rec;
 
-  if (cursor->index->disable_ahi || !btr_search_enabled) {
+  if (UNIV_UNLIKELY(cursor->index->disable_ahi) ||
+      UNIV_UNLIKELY(!btr_search_enabled)) {
     return;
   }
 
@@ -1784,7 +1787,8 @@ void btr_search_update_hash_on_insert(btr_cur_t *cursor) {
   ulint *offsets = offsets_;
   rec_offs_init(offsets_);
 
-  if (cursor->index->disable_ahi || !btr_search_enabled) {
+  if (UNIV_UNLIKELY(cursor->index->disable_ahi) ||
+      UNIV_UNLIKELY(!btr_search_enabled)) {
     return;
   }
 
@@ -1841,7 +1845,7 @@ void btr_search_update_hash_on_insert(btr_cur_t *cursor) {
 
       locked = true;
 
-      if (!btr_search_enabled) {
+      if (UNIV_UNLIKELY(!btr_search_enabled)) {
         goto function_exit;
       }
 
@@ -1857,7 +1861,7 @@ void btr_search_update_hash_on_insert(btr_cur_t *cursor) {
 
       locked = true;
 
-      if (!btr_search_enabled) {
+      if (UNIV_UNLIKELY(!btr_search_enabled)) {
         goto function_exit;
       }
     }
@@ -1877,7 +1881,7 @@ check_next_rec:
 
         locked = true;
 
-        if (!btr_search_enabled) {
+        if (UNIV_UNLIKELY(!btr_search_enabled)) {
           goto function_exit;
         }
       }
@@ -1894,7 +1898,7 @@ check_next_rec:
 
       locked = true;
 
-      if (!btr_search_enabled) {
+      if (UNIV_UNLIKELY(!btr_search_enabled)) {
         goto function_exit;
       }
     }
@@ -1929,7 +1933,7 @@ static bool btr_search_hash_table_validate(ulint hash_table_id) {
   ulint offsets_[REC_OFFS_NORMAL_SIZE];
   ulint *offsets = offsets_;
 
-  if (!btr_search_enabled) {
+  if (UNIV_UNLIKELY(!btr_search_enabled)) {
     return true;
   }
 

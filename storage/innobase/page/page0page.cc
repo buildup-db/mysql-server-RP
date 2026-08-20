@@ -2,6 +2,7 @@
 
 Copyright (c) 1994, 2026, Oracle and/or its affiliates.
 Copyright (c) 2012, Facebook Inc.
+Copyright (c) 2026, buildup-db.
 
 This program is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License, version 2.0, as published by the
@@ -205,7 +206,7 @@ void page_set_max_trx_id(buf_block_t *block, page_zip_des_t *page_zip,
   during a database recovery we assume that the max trx id of every
   page is the maximum trx id assigned before the crash. */
 
-  if (page_zip) {
+  if (UNIV_UNLIKELY(page_zip)) {
     mach_write_to_8(page + (PAGE_HEADER + PAGE_MAX_TRX_ID), trx_id);
     page_zip_write_header(page_zip, page + (PAGE_HEADER + PAGE_MAX_TRX_ID), 8,
                           mtr);
@@ -328,7 +329,7 @@ page_t *page_create_low(buf_block_t *block, ulint comp, page_type_t page_type) {
   page[PAGE_HEADER + PAGE_N_DIR_SLOTS + 1] = 2;
   page[PAGE_HEADER + PAGE_DIRECTION + 1] = PAGE_NO_DIRECTION;
 
-  if (comp) {
+  if (UNIV_LIKELY(comp)) {
     page[PAGE_HEADER + PAGE_N_HEAP] = 0x80; /*page_is_comp()*/
     page[PAGE_HEADER + PAGE_N_HEAP + 1] = PAGE_HEAP_NO_USER_LOW;
     page[PAGE_HEADER + PAGE_HEAP_TOP + 1] = PAGE_NEW_SUPREMUM_END;
@@ -443,7 +444,7 @@ void page_create_empty(buf_block_t *block, dict_index_t *index, mtr_t *mtr) {
     ut_ad(max_trx_id);
   }
 
-  if (page_zip) {
+  if (UNIV_UNLIKELY(page_zip)) {
     ut_ad(!index->table->is_temporary());
     page_create_zip(block, index, page_header_get_field(page, PAGE_LEVEL),
                     max_trx_id, mtr, fil_page_get_type(page));
@@ -562,7 +563,7 @@ rec_t *page_copy_rec_list_end(
 
   mtr_log_t log_mode = MTR_LOG_NONE;
 
-  if (new_page_zip) {
+  if (UNIV_UNLIKELY(new_page_zip)) {
     log_mode = mtr_set_log_mode(mtr, MTR_LOG_NONE);
   }
 
@@ -598,7 +599,7 @@ rec_t *page_copy_rec_list_end(
     page_update_max_trx_id(new_block, nullptr, page_get_max_trx_id(page), mtr);
   }
 
-  if (new_page_zip) {
+  if (UNIV_UNLIKELY(new_page_zip)) {
     mtr_set_log_mode(mtr, log_mode);
 
     if (!page_zip_compress(new_page_zip, new_page, index, page_zip_level,
@@ -692,7 +693,7 @@ rec_t *page_copy_rec_list_start(
 
   mtr_log_t log_mode = MTR_LOG_NONE;
 
-  if (new_page_zip) {
+  if (UNIV_UNLIKELY(new_page_zip)) {
     log_mode = mtr_set_log_mode(mtr, MTR_LOG_NONE);
   }
 
@@ -739,7 +740,7 @@ rec_t *page_copy_rec_list_start(
                            page_get_max_trx_id(page_align(rec)), mtr);
   }
 
-  if (new_page_zip) {
+  if (UNIV_UNLIKELY(new_page_zip)) {
     mtr_set_log_mode(mtr, log_mode);
 
     DBUG_EXECUTE_IF("page_copy_rec_list_start_compress_fail",
@@ -944,7 +945,7 @@ void page_delete_rec_list_end(
 
   page_delete_rec_list_write_log(rec, index, MLOG_LIST_END_DELETE, mtr);
 
-  if (page_zip) {
+  if (UNIV_UNLIKELY(page_zip)) {
     mtr_log_t log_mode;
 
     ut_a(page_is_comp(page));

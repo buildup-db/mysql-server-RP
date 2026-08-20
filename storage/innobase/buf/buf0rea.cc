@@ -1,6 +1,7 @@
 /*****************************************************************************
 
 Copyright (c) 1995, 2026, Oracle and/or its affiliates.
+Copyright (c) 2026, buildup-db.
 
 This program is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License, version 2.0, as published by the
@@ -114,7 +115,7 @@ ulint buf_read_page_low(dberr_t *err, bool sync, ulint type, ulint mode,
 
   void *dst;
 
-  if (page_size.is_compressed()) {
+  if (UNIV_UNLIKELY(page_size.is_compressed())) {
     dst = bpage->zip.data;
   } else {
     ut_a(buf_page_get_state(bpage) == BUF_BLOCK_FILE_PAGE);
@@ -479,7 +480,7 @@ ulint buf_read_ahead_linear(const page_id_t &page_id,
     return (0);
   }
 
-  switch (buf_page_get_state(bpage)) {
+  switch (UNIV_EXPECT(buf_page_get_state(bpage), BUF_BLOCK_FILE_PAGE)) {
     case BUF_BLOCK_ZIP_PAGE:
       frame = bpage->zip.data;
       break;

@@ -1,6 +1,7 @@
 /*****************************************************************************
 
 Copyright (c) 1996, 2026, Oracle and/or its affiliates.
+Copyright (c) 2026, buildup-db.
 
 This program is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License, version 2.0, as published by the
@@ -2653,7 +2654,7 @@ void lock_move_reorganize_page(
         ulint old_heap_no;
         ulint new_heap_no;
 
-        if (comp) {
+        if (UNIV_LIKELY(comp)) {
           old_heap_no = rec_get_heap_no_new(rec2);
           new_heap_no = rec_get_heap_no_new(rec1);
 
@@ -2714,7 +2715,7 @@ void lock_move_rec_list_end(const buf_block_t *new_block,
       const rec_t *rec2;
       const ulint type_mode = lock->type_mode;
 
-      if (comp) {
+      if (UNIV_LIKELY(comp)) {
         if (page_offset(rec1) == PAGE_NEW_INFIMUM) {
           rec1 = page_rec_get_next_low(rec1, true);
         }
@@ -2737,7 +2738,7 @@ void lock_move_rec_list_end(const buf_block_t *new_block,
         ulint rec1_heap_no;
         ulint rec2_heap_no;
 
-        if (comp) {
+        if (UNIV_LIKELY(comp)) {
           rec1_heap_no = rec_get_heap_no_new(rec1);
 
           if (rec1_heap_no == PAGE_HEAP_NO_SUPREMUM) {
@@ -2801,7 +2802,7 @@ void lock_move_rec_list_start(const buf_block_t *new_block,
       const rec_t *rec2;
       const ulint type_mode = lock->type_mode;
 
-      if (comp) {
+      if (UNIV_LIKELY(comp)) {
         rec1 = page_rec_get_next_low(
             buf_block_get_frame(block) + PAGE_NEW_INFIMUM, true);
         rec2 = page_rec_get_next_low(old_end, true);
@@ -2818,7 +2819,7 @@ void lock_move_rec_list_start(const buf_block_t *new_block,
         ulint rec1_heap_no;
         ulint rec2_heap_no;
 
-        if (comp) {
+        if (UNIV_LIKELY(comp)) {
           rec1_heap_no = rec_get_heap_no_new(rec1);
           rec2_heap_no = rec_get_heap_no_new(rec2);
 
@@ -2896,7 +2897,7 @@ void lock_rtr_move_rec_list(const buf_block_t *new_block,
         rec1 = rec_move[moved].old_rec;
         rec2 = rec_move[moved].new_rec;
 
-        if (comp) {
+        if (UNIV_LIKELY(comp)) {
           rec1_heap_no = rec_get_heap_no_new(rec1);
           rec2_heap_no = rec_get_heap_no_new(rec2);
 

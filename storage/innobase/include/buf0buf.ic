@@ -2,6 +2,7 @@
 
 Copyright (c) 1995, 2026, Oracle and/or its affiliates.
 Copyright (c) 2008, Google Inc.
+Copyright (c) 2026, buildup-db.
 
 Portions of this file contain modifications contributed and copyrighted by
 Google, Inc. Those modifications are gratefully acknowledged and are described
@@ -346,20 +347,15 @@ static inline void buf_block_set_state(
 static inline bool buf_page_in_file(
     const buf_page_t *bpage) /*!< in: pointer to control block */
 {
-  switch (buf_page_get_state(bpage)) {
-    case BUF_BLOCK_POOL_WATCH:
-      ut_error;
-      break;
-    case BUF_BLOCK_ZIP_PAGE:
-    case BUF_BLOCK_ZIP_DIRTY:
-    case BUF_BLOCK_FILE_PAGE:
-      return true;
-    case BUF_BLOCK_NOT_USED:
-    case BUF_BLOCK_READY_FOR_USE:
-    case BUF_BLOCK_MEMORY:
-    case BUF_BLOCK_REMOVE_HASH:
-      break;
+  auto state = buf_page_get_state(bpage);
+
+  if (likely(state == BUF_BLOCK_FILE_PAGE) ||
+      unlikely(state == BUF_BLOCK_ZIP_PAGE) ||
+      unlikely(state == BUF_BLOCK_ZIP_DIRTY)) {
+    return true;
   }
+
+  ut_a(state != BUF_BLOCK_POOL_WATCH);
 
   return false;
 }
@@ -382,7 +378,7 @@ static inline BPageMutex *buf_page_get_mutex(
 {
   buf_pool_t *buf_pool = buf_pool_from_bpage(bpage);
 
-  switch (buf_page_get_state(bpage)) {
+  switch (UNIV_EXPECT(buf_page_get_state(bpage), BUF_BLOCK_FILE_PAGE)) {
     case BUF_BLOCK_POOL_WATCH:
       ut_error;
     case BUF_BLOCK_ZIP_PAGE:
@@ -616,7 +612,7 @@ static inline buf_frame_t *buf_block_get_frame(
 {
   ut_ad(block);
 
-  switch (buf_block_get_state(block)) {
+  switch (UNIV_EXPECT(buf_block_get_state(block), BUF_BLOCK_FILE_PAGE)) {
     case BUF_BLOCK_POOL_WATCH:
     case BUF_BLOCK_ZIP_PAGE:
     case BUF_BLOCK_ZIP_DIRTY:
@@ -1124,7 +1120,7 @@ withdraw target of the currently ongoing buffer pool resize.
 if the buffer pool is not currently being resized. */
 static inline ulint buf_get_withdraw_depth(buf_pool_t *buf_pool) {
   os_rmb;
-  if (buf_pool->curr_size >= buf_pool->old_size) return 0;
+  if (UNIV_LIKELY(buf_pool->curr_size >= buf_pool->old_size)) return 0;
   ulint withdraw_len = UT_LIST_GET_LEN(buf_pool->withdraw);
   return (buf_pool->withdraw_target > withdraw_len
               ? buf_pool->withdraw_target - withdraw_len

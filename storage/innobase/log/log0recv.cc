@@ -2,6 +2,7 @@
 
 Copyright (c) 1997, 2026, Oracle and/or its affiliates.
 Copyright (c) 2012, Facebook Inc.
+Copyright (c) 2026, buildup-db.
 
 This program is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License, version 2.0, as published by the
@@ -2708,7 +2709,7 @@ void recv_recover_page_func(
       memset(FIL_PAGE_LSN + page, 0, 8);
       memset(UNIV_PAGE_SIZE - FIL_PAGE_END_LSN_OLD_CHKSUM + page, 0, 8);
 
-      if (page_zip) {
+      if (UNIV_UNLIKELY(page_zip)) {
         memset(FIL_PAGE_LSN + page_zip->data, 0, 8);
       }
     }

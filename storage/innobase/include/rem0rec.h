@@ -1,6 +1,7 @@
 /*****************************************************************************
 
 Copyright (c) 1994, 2026, Oracle and/or its affiliates.
+Copyright (c) 2026, buildup-db.
 
 This program is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License, version 2.0, as published by the
@@ -239,7 +240,8 @@ static inline bool rec_field_not_null_not_add_col_def(ulint len);
 /** Determine if the offsets are for a record in the new compact format.
 @param[in]      offsets         array returned by rec_get_offsets()
 @return nonzero if compact format */
-[[nodiscard]] static inline bool rec_offs_comp(const ulint *offsets);
+[[nodiscard]] static inline bool rec_offs_comp_func(const ulint *offsets);
+#define rec_offs_comp(OFFS) UNIV_LIKELY(rec_offs_comp_func(OFFS))
 
 /** Determine if the offsets are for a record containing externally stored
 columns.

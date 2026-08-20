@@ -2,6 +2,7 @@
 
 Copyright (c) 1994, 2026, Oracle and/or its affiliates.
 Copyright (c) 2012, Facebook Inc.
+Copyright (c) 2026, buildup-db.
 
 This program is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License, version 2.0, as published by the
@@ -153,8 +154,8 @@ void btr_corruption_report(const buf_block_t *block, /*!< in: corrupted block */
 @param index the B-tree index */
 inline void btr_assert_not_corrupted(const buf_block_t *block,
                                      const dict_index_t *index) {
-  if (page_is_comp(buf_block_get_frame(block)) !=
-      dict_table_is_comp((index)->table)) {
+  if (UNIV_UNLIKELY(page_is_comp(buf_block_get_frame(block)) !=
+                    dict_table_is_comp((index)->table))) {
     btr_corruption_report(block, index);
     ut_error;
   }

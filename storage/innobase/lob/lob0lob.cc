@@ -1,6 +1,7 @@
 /*****************************************************************************
 
 Copyright (c) 2015, 2026, Oracle and/or its affiliates.
+Copyright (c) 2026, buildup-db.
 
 This program is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License, version 2.0, as published by the
@@ -980,7 +981,7 @@ void BtrContext::free_updated_extern_fields(trx_id_t trx_id, undo_no_t undo_no,
 
     /* No need to free the column if it is a virtual column as it does not
     consume any storage. */
-    if (!ufield->is_virtual() &&
+    if (UNIV_LIKELY(!ufield->is_virtual()) &&
         rec_offs_nth_extern(m_index, m_offsets, ufield->field_no)) {
       /* Skip freeing fields which are added as part of updating a record in
       table having instant index */
@@ -1322,7 +1323,7 @@ dberr_t mark_not_partially_updatable(trx_t *trx, dict_index_t *index,
   for (ulint i = 0; i < n_fields; i++) {
     const upd_field_t *ufield = upd_get_nth_field(update, i);
 
-    if (ufield->is_virtual()) {
+    if (UNIV_UNLIKELY(ufield->is_virtual())) {
       continue;
     }
 

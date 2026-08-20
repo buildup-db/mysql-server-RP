@@ -1,6 +1,7 @@
 /*****************************************************************************
 
 Copyright (c) 2007, 2026, Oracle and/or its affiliates.
+Copyright (c) 2026, buildup-db.
 
 This program is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License, version 2.0, as published by the
@@ -5974,7 +5975,7 @@ static int i_s_innodb_indexes_fill_table(THD *thd, Table_ref *tables, Item *) {
       dd_table_close(index_rec->table, thd, &mdl_on_tab, true);
 
       /* Close parent table if it's a fts aux table. */
-      if (index_rec->table->is_fts_aux() && parent) {
+      if (UNIV_UNLIKELY(index_rec->table->is_fts_aux()) && parent) {
         dd_table_close(parent, thd, &mdl_on_parent, true);
       }
     }

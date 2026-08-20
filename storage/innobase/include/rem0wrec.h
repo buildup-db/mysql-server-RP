@@ -1,5 +1,6 @@
 /*****************************************************************************
 Copyright (c) 2021, 2026, Oracle and/or its affiliates.
+Copyright (c) 2026, buildup-db.
 
 This program is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License, version 2.0, as published by the
@@ -66,7 +67,7 @@ path. One must run performance tests if they intend to improve this method.
 @return offset from the origin of rec */
 inline ulint rec_get_nth_field_offs(const dict_index_t *index,
                                     const ulint *offsets, ulint n, ulint *len) {
-  if (index && index->has_row_versions()) {
+  if (index && UNIV_UNLIKELY(index->has_row_versions())) {
     n = index->get_field_off_pos(n);
   }
 
@@ -149,7 +150,7 @@ void validate_rec_offset(const dict_index_t *index, const ulint *offsets,
 @return nonzero if externally stored */
 [[nodiscard]] inline ulint rec_offs_nth_extern(const dict_index_t *index,
                                                const ulint *offsets, ulint n) {
-  if (index && index->has_row_versions()) {
+  if (index && UNIV_UNLIKELY(index->has_row_versions())) {
     n = index->get_field_off_pos(n);
   }
 

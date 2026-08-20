@@ -1,6 +1,7 @@
 /*****************************************************************************
 
 Copyright (c) 1994, 2026, Oracle and/or its affiliates.
+Copyright (c) 2026, buildup-db.
 
 This program is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License, version 2.0, as published by the
@@ -222,7 +223,7 @@ static inline void dfield_dup(
   }
 }
 
-static inline bool dfield_is_multi_value(const dfield_t *field) {
+static inline bool dfield_is_multi_value_func(const dfield_t *field) {
   /* The value should be initialized already. */
   ut_ad(field->type.prtype != DATA_ERROR);
   return ((field->type.prtype & DATA_MULTI_VALUE) != 0);
@@ -532,7 +533,7 @@ static inline dtuple_t *dtuple_copy(
                 dtuple_get_nth_field(tuple, i));
   }
 
-  for (i = 0; i < n_v_fields; i++) {
+  for (i = 0; UNIV_UNLIKELY(i < n_v_fields); i++) {
     dfield_copy(dtuple_get_nth_v_field(new_tuple, i),
                 dtuple_get_nth_v_field(tuple, i));
   }

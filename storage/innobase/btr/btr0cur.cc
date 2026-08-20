@@ -204,7 +204,7 @@ btr_latch_leaves_t btr_cur_latch_leaves(buf_block_t *block,
     case BTR_SEARCH_LEAF:
     case BTR_MODIFY_LEAF:
     case BTR_SEARCH_TREE:
-      if (spatial) {
+      if (UNIV_UNLIKELY(spatial)) {
         cursor->rtr_info->tree_savepoints[RTR_MAX_LEVELS] =
             mtr_set_savepoint(mtr);
       }
@@ -217,7 +217,7 @@ btr_latch_leaves_t btr_cur_latch_leaves(buf_block_t *block,
 #ifdef UNIV_BTR_DEBUG
       ut_a(page_is_comp(get_block->frame) == page_is_comp(page));
 #endif /* UNIV_BTR_DEBUG */
-      if (spatial) {
+      if (UNIV_UNLIKELY(spatial)) {
         cursor->rtr_info->tree_blocks[RTR_MAX_LEVELS] = get_block;
       }
 
@@ -232,7 +232,7 @@ btr_latch_leaves_t btr_cur_latch_leaves(buf_block_t *block,
       left_page_no = btr_page_get_prev(page, mtr);
 
       if (left_page_no != FIL_NULL) {
-        if (spatial) {
+        if (UNIV_UNLIKELY(spatial)) {
           cursor->rtr_info->tree_savepoints[RTR_MAX_LEVELS] =
               mtr_set_savepoint(mtr);
         }
@@ -243,12 +243,12 @@ btr_latch_leaves_t btr_cur_latch_leaves(buf_block_t *block,
                           RW_X_LATCH, UT_LOCATION_HERE, cursor->index, mtr);
         latch_leaves.blocks[0] = get_block;
 
-        if (spatial) {
+        if (UNIV_UNLIKELY(spatial)) {
           cursor->rtr_info->tree_blocks[RTR_MAX_LEVELS] = get_block;
         }
       }
 
-      if (spatial) {
+      if (UNIV_UNLIKELY(spatial)) {
         cursor->rtr_info->tree_savepoints[RTR_MAX_LEVELS + 1] =
             mtr_set_savepoint(mtr);
       }
@@ -268,14 +268,14 @@ btr_latch_leaves_t btr_cur_latch_leaves(buf_block_t *block,
       ut_a(page_is_comp(get_block->frame) == page_is_comp(page));
 #endif /* UNIV_BTR_DEBUG */
 
-      if (spatial) {
+      if (UNIV_UNLIKELY(spatial)) {
         cursor->rtr_info->tree_blocks[RTR_MAX_LEVELS + 1] = get_block;
       }
 
       right_page_no = btr_page_get_next(page, mtr);
 
       if (right_page_no != FIL_NULL) {
-        if (spatial) {
+        if (UNIV_UNLIKELY(spatial)) {
           cursor->rtr_info->tree_savepoints[RTR_MAX_LEVELS + 2] =
               mtr_set_savepoint(mtr);
         }
@@ -289,7 +289,7 @@ btr_latch_leaves_t btr_cur_latch_leaves(buf_block_t *block,
         ut_a(btr_page_get_prev(get_block->frame, mtr) ==
              page_get_page_no(page));
 #endif /* UNIV_BTR_DEBUG */
-        if (spatial) {
+        if (UNIV_UNLIKELY(spatial)) {
           cursor->rtr_info->tree_blocks[RTR_MAX_LEVELS + 2] = get_block;
         }
       }
@@ -573,7 +573,7 @@ static bool btr_cur_will_modify_tree(dict_index_t *index, const page_t *page,
     also compressed page page_zip_available() if already in the
     buffer pool */
     /* needs 2 records' space also for worst compress rate. */
-    if (page_size.is_compressed() &&
+    if (UNIV_UNLIKELY(page_size.is_compressed()) &&
         page_zip_empty_size(index->n_fields, page_size.physical()) <
             rec_size * 2 + page_get_data_size(page) +
                 page_dir_calc_reserved_space(page_get_n_recs(page) + 2) + 1) {
@@ -782,7 +782,7 @@ void btr_cur_search_to_nth_level(
   the index-id and AHI validation is based on index-id. */
   if (rw_lock_get_writer(btr_get_search_latch(index)) == RW_LOCK_NOT_LOCKED &&
       latch_mode <= BTR_MODIFY_LEAF && info->last_hash_succ &&
-      !index->disable_ahi && !estimate
+      UNIV_LIKELY(!index->disable_ahi) && !estimate
 #ifdef PAGE_CUR_LE_OR_EXTENDS
       && mode != PAGE_CUR_LE_OR_EXTENDS
 #endif /* PAGE_CUR_LE_OR_EXTENDS */
@@ -1250,7 +1250,7 @@ retry_page_get:
     if (found && page_mode == PAGE_CUR_RTREE_GET_FATHER) {
       cursor->low_match = DICT_INDEX_SPATIAL_NODEPTR_SIZE + 1;
     }
-  } else if (height == 0 && btr_search_enabled &&
+  } else if (height == 0 && UNIV_LIKELY(btr_search_enabled) &&
              !dict_index_is_spatial(index)) {
     /* The adaptive hash index is only used when searching
     for leaf pages (height==0), but not in r-trees.
@@ -1262,9 +1262,9 @@ retry_page_get:
   } else {
     /* Search for complete index fields. */
     up_bytes = low_bytes = 0;
-    page_cur_search_with_match(block, index, tuple, page_mode, &up_match,
-                               &low_match, page_cursor,
-                               need_path ? cursor->rtr_info : nullptr);
+    page_cur_search_with_match(
+        block, index, tuple, page_mode, &up_match, &low_match, page_cursor,
+        UNIV_UNLIKELY(need_path) ? cursor->rtr_info : nullptr);
   }
 
   if (estimate) {
@@ -1451,7 +1451,7 @@ retry_page_get:
     if (!detected_same_key_root && latch_mode == BTR_MODIFY_TREE &&
         !btr_cur_will_modify_tree(index, page, lock_intention, node_ptr,
                                   node_ptr_max_size, page_size, mtr) &&
-        !rtree_parent_modified) {
+        UNIV_LIKELY(!rtree_parent_modified)) {
       ut_ad(upper_rw_latch == RW_X_LATCH);
       ut_ad(n_releases <= n_blocks);
 
@@ -1663,7 +1663,7 @@ retry_page_get:
     will properly check btr_search_enabled again in
     btr_search_build_page_hash_index() before building a
     page hash index, while holding search latch. */
-    if (btr_search_enabled && !index->disable_ahi) {
+    if (UNIV_LIKELY(btr_search_enabled) && UNIV_LIKELY(!index->disable_ahi)) {
       btr_search_info_update(index, cursor);
     }
     ut_ad(cursor->up_match != ULINT_UNDEFINED || mode != PAGE_CUR_GE);
@@ -1700,7 +1700,7 @@ func_exit:
     rw_lock_s_lock(btr_get_search_latch(index), UT_LOCATION_HERE);
   }
 
-  if (mbr_adj) {
+  if (UNIV_UNLIKELY(mbr_adj)) {
     /* remember that we will need to adjust parent MBR */
     cursor->rtr_info->mbr_adj = true;
   }
@@ -2547,7 +2547,7 @@ bool btr_cur_open_at_rnd_pos(dict_index_t *index, /*!< in: index */
   /* If the record did not fit, reorganize.
   For compressed pages, page_cur_tuple_insert()
   attempted this already. */
-  if (!rec && !page_cur_get_page_zip(page_cursor) &&
+  if (!rec && UNIV_LIKELY(!page_cur_get_page_zip(page_cursor)) &&
       btr_page_reorganize(page_cursor, cursor->index, mtr)) {
     rec = page_cur_tuple_insert(page_cursor, tuple, cursor->index, offsets,
                                 heap, mtr);
@@ -2740,7 +2740,8 @@ dberr_t btr_cur_optimistic_insert(
     rec_size = rec_get_converted_size(index, entry);
   }
 
-  if (page_size.is_compressed() && page_zip_is_too_big(index, entry)) {
+  if (UNIV_UNLIKELY(page_size.is_compressed()) &&
+      page_zip_is_too_big(index, entry)) {
     if (big_rec_vec != nullptr) {
       dtuple_convert_back_big_rec(entry, big_rec_vec);
     }
@@ -2750,7 +2751,7 @@ dberr_t btr_cur_optimistic_insert(
 
   LIMIT_OPTIMISTIC_INSERT_DEBUG(page_get_n_recs(page), goto fail);
 
-  if (leaf && page_size.is_compressed() &&
+  if (leaf && UNIV_UNLIKELY(page_size.is_compressed()) &&
       (page_get_data_size(page) + rec_size >=
        dict_index_zip_pad_optimal_page_size(index))) {
     /* If compression padding tells us that insertion will
@@ -2791,8 +2792,8 @@ dberr_t btr_cur_optimistic_insert(
   we have to split the page to reserve enough free space for
   future updates of records. */
 
-  if (leaf && !page_size.is_compressed() && index->is_clustered() &&
-      page_get_n_recs(page) >= 2 &&
+  if (leaf && UNIV_LIKELY(!page_size.is_compressed()) &&
+      index->is_clustered() && page_get_n_recs(page) >= 2 &&
       dict_index_get_space_reserve() + rec_size > max_size &&
       (btr_page_get_split_rec_to_right(cursor, &dummy) ||
        btr_page_get_split_rec_to_left(cursor, &dummy))) {
@@ -2850,7 +2851,7 @@ dberr_t btr_cur_optimistic_insert(
   }
 
   if (*rec) {
-  } else if (page_size.is_compressed()) {
+  } else if (UNIV_UNLIKELY(page_size.is_compressed())) {
     ut_ad(!index->table->is_temporary());
     /* Reset the IBUF_BITMAP_FREE bits, because
     page_cur_tuple_insert() will have attempted page
@@ -2888,7 +2889,7 @@ dberr_t btr_cur_optimistic_insert(
     }
   }
 
-  if (!index->disable_ahi) {
+  if (UNIV_LIKELY(!index->disable_ahi)) {
     if (!reorg && leaf && (cursor->flag == BTR_CUR_HASH)) {
       btr_search_update_hash_node_on_insert(cursor);
     } else {
@@ -2914,7 +2915,7 @@ dberr_t btr_cur_optimistic_insert(
     committed mini-transaction, because in crash recovery,
     the free bits could momentarily be set too high. */
 
-    if (page_size.is_compressed()) {
+    if (UNIV_UNLIKELY(page_size.is_compressed())) {
       /* Update the bits in the same mini-transaction. */
       ibuf_update_free_bits_zip(block, mtr);
     } else {
@@ -3061,7 +3062,7 @@ dberr_t btr_cur_pessimistic_insert(
     }
   }
 
-  if (!index->disable_ahi) {
+  if (UNIV_LIKELY(!index->disable_ahi)) {
     btr_search_update_hash_on_insert(cursor);
   }
   if (inherit && !(flags & BTR_NO_LOCKING_FLAG)) {
@@ -3373,7 +3374,7 @@ dberr_t btr_cur_update_in_place(ulint flags, btr_cur_t *cursor, ulint *offsets,
   page_zip = buf_block_get_page_zip(block);
 
   /* Check that enough space is available on the compressed page. */
-  if (page_zip) {
+  if (UNIV_UNLIKELY(page_zip)) {
     ut_ad(!index->table->is_temporary());
 
     if (!btr_cur_update_alloc_zip(page_zip, btr_cur_get_page_cur(cursor), index,
@@ -3445,8 +3446,8 @@ dberr_t btr_cur_update_in_place(ulint flags, btr_cur_t *cursor, ulint *offsets,
   ut_ad(err == DB_SUCCESS);
 
 func_exit:
-  if (page_zip && !(flags & BTR_KEEP_IBUF_BITMAP) && !index->is_clustered() &&
-      page_is_leaf(buf_block_get_frame(block))) {
+  if (UNIV_UNLIKELY(page_zip) && !(flags & BTR_KEEP_IBUF_BITMAP) &&
+      !index->is_clustered() && page_is_leaf(buf_block_get_frame(block))) {
     /* Update the free bits in the insert buffer. */
     ibuf_update_free_bits_zip(block, mtr);
   }
@@ -3494,13 +3495,13 @@ bool materialize_instant_default(const dict_index_t *index, const rec_t *rec) {
   /* If table has version (i.e. INSTANT ADD/DROP is done), this is gauranteed
   that the maximum row will fit within the limit or else INSTANT ADD/DROP would
   have failed. So it is safe to materialize it. */
-  if (index->has_row_versions()) {
+  if (UNIV_UNLIKELY(index->has_row_versions())) {
     return true;
   }
 
   /* The record is not versioned. If the index has instant default from older
   version, we must not materialize it. */
-  if (index->has_instant_cols()) {
+  if (UNIV_UNLIKELY(index->has_instant_cols())) {
     return false;
   }
 
@@ -3625,7 +3626,7 @@ dberr_t btr_cur_optimistic_update(ulint flags, btr_cur_t *cursor,
   ut_a(!page_zip || page_zip_validate(page_zip, page, index));
 #endif /* UNIV_ZIP_DEBUG */
 
-  if (page_zip) {
+  if (UNIV_UNLIKELY(page_zip)) {
     ut_ad(!index->table->is_temporary());
 
     if (!btr_cur_update_alloc_zip(page_zip, page_cursor, index, *offsets,
@@ -3666,11 +3667,11 @@ dberr_t btr_cur_optimistic_update(ulint flags, btr_cur_t *cursor,
   /* We do not attempt to reorganize if the page is compressed.
   This is because the page may fail to compress after reorganization. */
   max_size =
-      page_zip
+      UNIV_UNLIKELY(page_zip)
           ? page_get_max_insert_size(page, 1)
           : (old_rec_size + page_get_max_insert_size_after_reorganize(page, 1));
 
-  if (!page_zip) {
+  if (UNIV_LIKELY(!page_zip)) {
     max_ins_size = page_get_max_insert_size_after_reorganize(page, 1);
   }
 
@@ -3856,8 +3857,8 @@ dberr_t btr_cur_pessimistic_update(ulint flags, btr_cur_t *cursor,
       For DB_ZIP_OVERFLOW, the IBUF_BITMAP_FREE bits were
       already reset by btr_cur_update_alloc_zip() if the
       page was recompressed. */
-      if (page_zip && optim_err != DB_ZIP_OVERFLOW && !index->is_clustered() &&
-          page_is_leaf(page)) {
+      if (UNIV_UNLIKELY(page_zip) && optim_err != DB_ZIP_OVERFLOW &&
+          !index->is_clustered() && page_is_leaf(page)) {
         ut_ad(!index->table->is_temporary());
         ibuf_update_free_bits_zip(block, mtr);
       }
@@ -4004,7 +4005,7 @@ dberr_t btr_cur_pessimistic_update(ulint flags, btr_cur_t *cursor,
     row_upd_index_entry_sys_field(new_entry, index, DATA_TRX_ID, trx_id);
   }
 
-  if (!page_zip) {
+  if (UNIV_LIKELY(!page_zip)) {
     max_ins_size = page_get_max_insert_size_after_reorganize(page, 1);
   }
 
@@ -4059,7 +4060,7 @@ dberr_t btr_cur_pessimistic_update(ulint flags, btr_cur_t *cursor,
       /* Update the free bits in the insert buffer.
       This is the same block which was skipped by
       BTR_KEEP_IBUF_BITMAP. */
-      if (page_zip) {
+      if (UNIV_UNLIKELY(page_zip)) {
         ibuf_update_free_bits_zip(block, mtr);
       } else {
         ibuf_update_free_bits_low(block, max_ins_size, mtr);
@@ -4591,7 +4592,7 @@ bool btr_cur_optimistic_delete_func(btr_cur_t *cursor,
 
     btr_search_update_hash_on_delete(cursor);
 
-    if (page_zip) {
+    if (UNIV_UNLIKELY(page_zip)) {
 #ifdef UNIV_ZIP_DEBUG
       ut_a(page_zip_validate(page_zip, page, cursor->index));
 #endif /* UNIV_ZIP_DEBUG */

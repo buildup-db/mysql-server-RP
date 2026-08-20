@@ -1,6 +1,7 @@
 /*****************************************************************************
 
 Copyright (c) 1994, 2026, Oracle and/or its affiliates.
+Copyright (c) 2026, buildup-db.
 
 This program is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License, version 2.0, as published by the
@@ -349,10 +350,12 @@ ulint page_dir_find_owner_slot(
 /** Determine whether the page is in new-style compact format.
  @return nonzero if the page is in compact format, zero if it is in
  old-style format */
-static inline bool page_is_comp(const page_t *page); /*!< in: index page */
+static inline bool page_is_comp_func(const page_t *page); /*!< in: index page */
+#define page_is_comp(P) UNIV_LIKELY(page_is_comp_func(P))
 /** true if the record is on a page in compact format.
  @return nonzero if in compact format */
-static inline bool page_rec_is_comp(const rec_t *rec); /*!< in: record */
+static inline bool page_rec_is_comp_func(const rec_t *rec); /*!< in: record */
+#define page_rec_is_comp(R) UNIV_LIKELY(page_rec_is_comp_func(R))
 /** Returns the heap number of a record.
  @return heap number */
 static inline ulint page_rec_get_heap_no(

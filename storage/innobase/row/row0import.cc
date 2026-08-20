@@ -1,6 +1,7 @@
 /*****************************************************************************
 
 Copyright (c) 2012, 2026, Oracle and/or its affiliates.
+Copyright (c) 2026, buildup-db.
 
 This program is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License, version 2.0, as published by the
@@ -1625,7 +1626,7 @@ dberr_t row_import::set_root_by_heuristic() UNIV_NOTHROW {
   }
 
   for (auto index : m_table->indexes) {
-    if (index->type & DICT_FTS) {
+    if (UNIV_UNLIKELY(index->type & DICT_FTS)) {
       dict_set_corrupted(index);
       ib::warn(ER_IB_MSG_940) << "Skipping FTS index: " << index->name;
     } else if (i < m_n_indexes) {
@@ -1640,7 +1641,7 @@ dberr_t row_import::set_root_by_heuristic() UNIV_NOTHROW {
       DBUG_EXECUTE_IF("ib_import_OOM_14", ut::delete_arr(cfg_index[i].m_name);
                       cfg_index[i].m_name = nullptr;);
 
-      if (cfg_index[i].m_name == nullptr) {
+      if (UNIV_UNLIKELY(cfg_index[i].m_name == nullptr)) {
         err = DB_OUT_OF_MEMORY;
         break;
       }
@@ -2466,7 +2467,7 @@ dberr_t PageConverter::update_records(buf_block_t *block) UNIV_NOTHROW {
 
     /* CFG file is required to process records having version */
 
-    if (m_cfg->m_missing && has_version) {
+    if (m_cfg->m_missing && UNIV_UNLIKELY(has_version)) {
       return (DB_SCHEMA_MISMATCH);
     }
 
@@ -4647,7 +4648,8 @@ dberr_t row_import_for_mysql(dict_table_t *table, dd::Table *table_def,
 
   row_mysql_lock_data_dictionary(trx, UT_LOCATION_HERE);
 
-  if (table->has_instant_cols() || table->has_row_versions()) {
+  if (UNIV_UNLIKELY(table->has_instant_cols()) ||
+      UNIV_UNLIKELY(table->has_row_versions())) {
     dd_import_instant_add_columns(table, table_def);
   }
 

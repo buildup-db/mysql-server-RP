@@ -2,6 +2,7 @@
 
 Copyright (c) 2005, 2026, Oracle and/or its affiliates.
 Copyright (c) 2012, Facebook Inc.
+Copyright (c) 2026, buildup-db.
 
 This program is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License, version 2.0, as published by the
@@ -143,7 +144,7 @@ static inline bool page_zip_rec_needs_ext(ulint rec_size, ulint comp,
     return true;
   }
 
-  if (page_size.is_compressed()) {
+  if (UNIV_UNLIKELY(page_size.is_compressed())) {
     ut_ad(comp);
     /* On a compressed page, there is a two-byte entry in
     the dense page directory for every record.  But there

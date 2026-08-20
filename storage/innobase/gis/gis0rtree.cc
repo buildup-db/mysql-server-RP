@@ -1,6 +1,7 @@
 /*****************************************************************************
 
 Copyright (c) 2014, 2026, Oracle and/or its affiliates.
+Copyright (c) 2026, buildup-db.
 
 This program is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License, version 2.0, as published by the
@@ -312,7 +313,7 @@ bool rtr_update_mbr_field(
     /* When the rec is minimal rec in this level, we do
      in-place update for avoiding it move to other place. */
 
-    if (page_zip) {
+    if (UNIV_UNLIKELY(page_zip)) {
       /* Check if there's enough space for in-place
       update the zip page. */
       if (!btr_cur_update_alloc_zip(page_zip, btr_cur_get_page_cur(cursor),
@@ -345,14 +346,14 @@ bool rtr_update_mbr_field(
 
     rtr_update_mbr_field_in_place(index, rec, offsets, mbr, mtr);
 
-    if (page_zip) {
+    if (UNIV_UNLIKELY(page_zip)) {
       page_zip_write_rec(page_zip, rec, index, offsets, 0);
     }
 
     if (cursor2) {
       ulint *offsets2;
 
-      if (page_zip) {
+      if (UNIV_UNLIKELY(page_zip)) {
         cursor2->page_cur.rec = page_rec_get_nth(page, cur2_pos);
       }
       offsets2 = rec_get_offsets(btr_cur_get_rec(cursor2), index, nullptr,
@@ -772,7 +773,7 @@ static bool rtr_split_page_move_rec_list(
 
   mtr_log_t log_mode = MTR_LOG_NONE;
 
-  if (new_page_zip) {
+  if (UNIV_UNLIKELY(new_page_zip)) {
     log_mode = mtr_set_log_mode(mtr, MTR_LOG_NONE);
   }
 
@@ -824,7 +825,7 @@ static bool rtr_split_page_move_rec_list(
     page_update_max_trx_id(new_block, nullptr, page_get_max_trx_id(page), mtr);
   }
 
-  if (new_page_zip) {
+  if (UNIV_UNLIKELY(new_page_zip)) {
     mtr_set_log_mode(mtr, log_mode);
 
     if (!page_zip_compress(new_page_zip, new_page, index, page_zip_level,
@@ -1124,7 +1125,7 @@ func_start:
   For compressed pages, page_cur_tuple_insert() will have
   attempted this already. */
   if (rec == nullptr) {
-    if (!page_cur_get_page_zip(page_cursor) &&
+    if (UNIV_LIKELY(!page_cur_get_page_zip(page_cursor)) &&
         btr_page_reorganize(page_cursor, cursor->index, mtr)) {
       rec = page_cur_tuple_insert(page_cursor, tuple, cursor->index, offsets,
                                   heap, mtr);

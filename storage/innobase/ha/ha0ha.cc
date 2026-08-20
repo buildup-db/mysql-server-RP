@@ -1,6 +1,7 @@
 /*****************************************************************************
 
 Copyright (c) 1994, 2026, Oracle and/or its affiliates.
+Copyright (c) 2026, buildup-db.
 
 This program is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License, version 2.0, as published by the
@@ -233,7 +234,7 @@ bool ha_search_and_update_if_found_func(hash_table_t *table,
 
   ut_d(ha_btr_search_latch_x_locked(table));
 
-  if (!btr_search_enabled) {
+  if (UNIV_UNLIKELY(!btr_search_enabled)) {
     return false;
   }
 

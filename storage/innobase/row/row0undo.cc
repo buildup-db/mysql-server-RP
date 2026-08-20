@@ -1,6 +1,7 @@
 /*****************************************************************************
 
 Copyright (c) 1997, 2026, Oracle and/or its affiliates.
+Copyright (c) 2026, buildup-db.
 
 This program is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License, version 2.0, as published by the
@@ -225,7 +226,8 @@ bool row_undo_search_clust_to_pcur(
     /* We will need to parse out virtual column info from undo
     log, first mark them DATA_MISSING. So we will know if the
     value gets updated */
-    if (node->table->n_v_cols && node->state != UNDO_NODE_INSERT &&
+    if (UNIV_UNLIKELY(node->table->n_v_cols) &&
+        node->state != UNDO_NODE_INSERT &&
         !(node->cmpl_info & UPD_NODE_NO_ORD_CHANGE)) {
       for (ulint i = 0; i < dict_table_get_n_v_cols(node->table); i++) {
         dfield_get_type(dtuple_get_nth_v_field(node->row, i))->mtype =

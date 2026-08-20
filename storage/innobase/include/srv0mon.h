@@ -2,6 +2,7 @@
 
 Copyright (c) 2010, 2026, Oracle and/or its affiliates.
 Copyright (c) 2012, Facebook Inc.
+Copyright (c) 2026, buildup-db.
 
 This program is free software; you can redistribute it and/or modify
 it under the terms of the GNU General Public License, version 2.0,
@@ -698,7 +699,7 @@ inline void monitor_set_min_value(monitor_id_t monitor, mon_type_t value) {
 }
 
 inline void monitor_atomic_inc(monitor_id_t monitor) {
-  if (MONITOR_IS_ON(monitor)) {
+  if (UNIV_UNLIKELY(MONITOR_IS_ON(monitor))) {
     const mon_type_t value = ++MONITOR_VALUE(monitor);
     /* Note: This is not 100% accurate because of the inherent race, we ignore
     it due to performance. */
@@ -707,7 +708,7 @@ inline void monitor_atomic_inc(monitor_id_t monitor) {
 }
 
 inline void monitor_atomic_dec(monitor_id_t monitor) {
-  if (MONITOR_IS_ON(monitor)) {
+  if (UNIV_UNLIKELY(MONITOR_IS_ON(monitor))) {
     const mon_type_t value = --MONITOR_VALUE(monitor);
     /* Note: This is not 100% accurate because of the inherent race, we ignore
     it due to performance. */
@@ -730,7 +731,7 @@ inline void monitor_inc_value_nocheck(monitor_id_t monitor, mon_type_t value,
 
 inline void monitor_inc_value(monitor_id_t monitor, mon_type_t value) {
   MONITOR_CHECK_DEFINED(value);
-  if (MONITOR_IS_ON(monitor)) {
+  if (UNIV_UNLIKELY(MONITOR_IS_ON(monitor))) {
     monitor_inc_value_nocheck(monitor, value);
   }
 }
@@ -747,14 +748,14 @@ inline void monitor_dec_value_nocheck(monitor_id_t monitor, mon_type_t value) {
 
 inline void monitor_dec_value(monitor_id_t monitor, mon_type_t value) {
   MONITOR_CHECK_DEFINED(value);
-  if (MONITOR_IS_ON(monitor)) {
+  if (UNIV_UNLIKELY(MONITOR_IS_ON(monitor))) {
     ut_ad(MONITOR_VALUE(monitor) >= value);
     monitor_dec_value_nocheck(monitor, value);
   }
 }
 
 inline void monitor_dec(monitor_id_t monitor) {
-  if (MONITOR_IS_ON(monitor)) {
+  if (UNIV_UNLIKELY(MONITOR_IS_ON(monitor))) {
     monitor_dec_value_nocheck(monitor, 1);
   }
 }
@@ -770,7 +771,7 @@ inline void monitor_dec(monitor_id_t monitor) {
 inline void monitor_set(monitor_id_t monitor, mon_type_t value, bool set_max,
                         bool set_min) {
   MONITOR_CHECK_DEFINED(value);
-  if (MONITOR_IS_ON(monitor)) {
+  if (UNIV_UNLIKELY(MONITOR_IS_ON(monitor))) {
     MONITOR_VALUE(monitor).store(value, std::memory_order_relaxed);
     if (set_max) {
       monitor_set_max_value(monitor, value);
@@ -789,7 +790,7 @@ inline void monitor_set(monitor_id_t monitor, mon_type_t value, bool set_max,
 inline void monitor_inc_time(monitor_id_t monitor,
                              std::chrono::steady_clock::time_point value) {
   MONITOR_CHECK_DEFINED(value);
-  if (MONITOR_IS_ON(monitor)) {
+  if (UNIV_UNLIKELY(MONITOR_IS_ON(monitor))) {
     const mon_type_t new_value =
         MONITOR_VALUE(monitor).load(std::memory_order_relaxed) +
         std::chrono::duration_cast<std::chrono::microseconds>(
@@ -819,7 +820,7 @@ inline void monitor_inc_value_cumulative(monitor_id_t monitor,
                                          monitor_id_t monitor_per_call,
                                          mon_type_t value) {
   MONITOR_CHECK_DEFINED(value);
-  if (MONITOR_IS_ON(monitor)) {
+  if (UNIV_UNLIKELY(MONITOR_IS_ON(monitor))) {
     monitor_inc_value_nocheck(monitor_n_calls, 1, false);
     monitor_set(monitor_per_call, value, true, false);
     monitor_inc_value_nocheck(monitor, value);

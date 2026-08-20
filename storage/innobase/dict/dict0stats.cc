@@ -1,6 +1,7 @@
 /*****************************************************************************
 
 Copyright (c) 2009, 2026, Oracle and/or its affiliates.
+Copyright (c) 2026, buildup-db.
 
 This program is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License, version 2.0, as published by the
@@ -165,7 +166,7 @@ typedef std::map<const char *, dict_index_t *, ut_strcmp_functor,
 static inline bool dict_stats_should_ignore_index(
     const dict_index_t *index) /*!< in: index */
 {
-  return ((index->type & DICT_FTS) || index->is_corrupted() ||
+  return (UNIV_UNLIKELY(index->type & DICT_FTS) || index->is_corrupted() ||
           dict_index_is_spatial(index) || index->to_be_dropped ||
           !index->is_committed());
 }
@@ -422,7 +423,7 @@ static void dict_stats_empty_table(dict_table_t *table) /*!< in/out: table */
   dict_index_t *index;
 
   for (index = table->first_index(); index != nullptr; index = index->next()) {
-    if (index->type & DICT_FTS) {
+    if (UNIV_UNLIKELY(index->type & DICT_FTS)) {
       continue;
     }
 
@@ -523,7 +524,7 @@ static void dict_stats_copy(dict_table_t *dst, /*!< in/out: destination table */
       src_idx = src_idx->next();
     }
     if (dict_stats_should_ignore_index(dst_idx)) {
-      if (!(dst_idx->type & DICT_FTS)) {
+      if (UNIV_LIKELY(!(dst_idx->type & DICT_FTS))) {
         dict_stats_empty_index(dst_idx);
       }
       continue;
@@ -718,7 +719,7 @@ static void dict_stats_update_transient(
   for (; index != nullptr; index = index->next()) {
     ut_ad(!dict_index_is_ibuf(index));
 
-    if (index->type & DICT_FTS || dict_index_is_spatial(index)) {
+    if (UNIV_UNLIKELY(index->type & DICT_FTS) || dict_index_is_spatial(index)) {
       continue;
     }
 
@@ -2055,7 +2056,7 @@ static dberr_t dict_stats_update_persistent(
   for (index = index->next(); index != nullptr; index = index->next()) {
     ut_ad(!dict_index_is_ibuf(index));
 
-    if (index->type & DICT_FTS || dict_index_is_spatial(index)) {
+    if (UNIV_UNLIKELY(index->type & DICT_FTS) || dict_index_is_spatial(index)) {
       continue;
     }
 

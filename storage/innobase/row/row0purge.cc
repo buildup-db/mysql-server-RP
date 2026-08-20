@@ -318,7 +318,7 @@ index tree.  Does not try to buffer the delete.
   log_free_check();
   mtr_start(&mtr);
 
-  if (!index->is_committed()) {
+  if (UNIV_UNLIKELY(!index->is_committed())) {
     /* The index->online_status may change if the index is
     or was being created online, but not committed yet. It
     is protected by index->lock. */
@@ -443,7 +443,7 @@ if possible.
 
   mtr_start(&mtr);
 
-  if (!index->is_committed()) {
+  if (UNIV_UNLIKELY(!index->is_committed())) {
     /* For uncommitted spatial index, we also skip the purge. */
     if (dict_index_is_spatial(index)) {
       goto func_exit_no_pcur;
@@ -671,8 +671,8 @@ static inline void row_purge_remove_multi_sec_if_poss(purge_node_t *node,
       break;
     }
 
-    if (node->index->type != DICT_FTS) {
-      if (node->index->is_multi_value()) {
+    if (UNIV_LIKELY(node->index->type != DICT_FTS)) {
+      if (UNIV_UNLIKELY(node->index->is_multi_value())) {
         row_purge_remove_multi_sec_if_poss(node, heap, false);
       } else {
         dtuple_t *entry = row_build_index_entry_low(
@@ -727,8 +727,9 @@ static void row_purge_upd_exist_or_extern_func(IF_DEBUG(const que_thr_t *thr, )
 
     if (row_upd_changes_ord_field_binary(
             node->index, node->update, thr, nullptr, nullptr,
-            (node->index->is_multi_value() ? &non_mv_upd : nullptr))) {
-      if (node->index->is_multi_value()) {
+            (UNIV_UNLIKELY(node->index->is_multi_value()) ? &non_mv_upd
+                                                          : nullptr))) {
+      if (UNIV_UNLIKELY(node->index->is_multi_value())) {
         row_purge_remove_multi_sec_if_poss(node, heap, !non_mv_upd);
       } else {
         /* Build the older version of the index entry */
@@ -932,7 +933,7 @@ try_again:
       dict_sys_s_unlock();
 
       if (node->table != nullptr) {
-        if (node->table->is_fts_aux()) {
+        if (UNIV_UNLIKELY(node->table->is_fts_aux())) {
           table_id_t parent_id = node->table->parent_id;
 
           dd_table_close(node->table, thd, &node->mdl, false);
@@ -980,7 +981,7 @@ try_again:
         bool is_aux = node->table->is_fts_aux();
 
         dd_table_close(node->table, thd, &node->mdl, false);
-        if (is_aux && node->parent) {
+        if (UNIV_UNLIKELY(is_aux) && node->parent) {
           dd_table_close(node->parent, thd & node->parent_mdl, false);
         }
       }
@@ -1011,7 +1012,7 @@ try_again:
     } else {
       bool is_aux = node->table->is_fts_aux();
       dd_table_close(node->table, thd, &node->mdl, false);
-      if (is_aux && node->parent) {
+      if (UNIV_UNLIKELY(is_aux) && node->parent) {
         dd_table_close(node->parent, thd, &node->parent_mdl, false);
       }
     }
@@ -1039,7 +1040,7 @@ try_again:
     } else {
       bool is_aux = node->table->is_fts_aux();
       dd_table_close(node->table, thd, &node->mdl, false);
-      if (is_aux && node->parent) {
+      if (UNIV_UNLIKELY(is_aux) && node->parent) {
         dd_table_close(node->parent, thd, &node->parent_mdl, false);
       }
     }
@@ -1132,7 +1133,7 @@ try_again:
     } else {
       bool is_aux = node->table->is_fts_aux();
       dd_table_close(node->table, thd, &node->mdl, false);
-      if (is_aux && node->parent) {
+      if (UNIV_UNLIKELY(is_aux) && node->parent) {
         dd_table_close(node->parent, thd, &node->parent_mdl, false);
       }
     }
@@ -1270,7 +1271,7 @@ bool purge_node_t::validate_pcur() {
     return (true);
   }
 
-  if (index->type == DICT_FTS) {
+  if (UNIV_UNLIKELY(index->type == DICT_FTS)) {
     return (true);
   }
 

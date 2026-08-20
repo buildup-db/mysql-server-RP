@@ -1,6 +1,7 @@
 /*****************************************************************************
 
 Copyright (c) 1994, 2026, Oracle and/or its affiliates.
+Copyright (c) 2026, buildup-db.
 
 This program is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License, version 2.0, as published by the
@@ -244,7 +245,7 @@ ulint rec_get_n_extern_new(
 }
 
 bool is_store_version(const dict_index_t *index, size_t n_tuple_fields) {
-  if (!index->has_instant_cols_or_row_versions()) return false;
+  if (UNIV_LIKELY(!index->has_instant_cols_or_row_versions())) return false;
 
   ut_ad(index->table->has_row_versions() ||
         index->table->is_upgraded_instant());
@@ -278,11 +279,11 @@ static size_t get_nullable_fields_for_rec(const dict_index_t *index,
     return nullable_fields;
   }
 
-  if (index->has_row_versions()) {
+  if (UNIV_UNLIKELY(index->has_row_versions())) {
     /* Table has version. New records will be stored in latest format. */
     ut_ad(is_valid_version);
     nullable_fields = index->get_nullable_in_version(rec_version);
-  } else if (index->has_instant_cols()) {
+  } else if (UNIV_UNLIKELY(index->has_instant_cols())) {
     /* Table has no version. New records will be written as of old way. */
     nullable_fields =
         index->get_n_nullable_before(static_cast<uint32_t>(n_fields));
@@ -334,7 +335,7 @@ static size_t get_nullable_fields_for_rec(const dict_index_t *index,
     switch (UNIV_EXPECT(*status, REC_STATUS_ORDINARY)) {
       case REC_STATUS_ORDINARY:
         ut_ad(!temp && n_fields > 0);
-        if (index->has_instant_cols_or_row_versions()) {
+        if (UNIV_UNLIKELY(index->has_instant_cols_or_row_versions())) {
           ut_ad(index->table->has_row_versions() ||
                 index->table->is_upgraded_instant());
           if (is_store_version(index, n_fields)) {
@@ -378,7 +379,7 @@ static size_t get_nullable_fields_for_rec(const dict_index_t *index,
     col = field->col;
 
     /* Skip the columns which are not in the version */
-    if (!col->is_visible_in_version(rec_version)) {
+    if (UNIV_UNLIKELY(!col->is_visible_in_version(rec_version))) {
       continue;
     }
 
@@ -459,7 +460,7 @@ static size_t get_nullable_fields_for_rec(const dict_index_t *index,
   }
 
   /* Log virtual columns */
-  if (n_v_fields != 0) {
+  if (UNIV_UNLIKELY(n_v_fields != 0)) {
     /* length marker */
     data_size += 2;
 
@@ -663,7 +664,7 @@ static rec_t *rec_convert_dtuple_to_rec_old(byte *buf,
 
   size_t n_inst_dropped = 0;
   size_t n_fields_stored = 0;
-  if (index->has_instant_cols_or_row_versions()) {
+  if (UNIV_UNLIKELY(index->has_instant_cols_or_row_versions())) {
     ut_ad(index->is_clustered());
     size_t n_total_fields = index->get_n_total_fields();
 
@@ -714,7 +715,7 @@ more bytes needed in record header to store this info.
 @return number of bytes NULL pointer should be adjusted. */
 size_t get_extra_bytes_for_temp_redundant(const dict_index_t *index,
                                           bool valid_version) {
-  if (!index->has_instant_cols_or_row_versions()) {
+  if (UNIV_LIKELY(!index->has_instant_cols_or_row_versions())) {
     return 0;
   }
 
@@ -796,7 +797,7 @@ static inline Rec_instant_state rec_convert_dtuple_to_rec_comp(
         ut_ad(n_fields <= dict_index_get_n_fields(index));
         n_node_ptr_field = ULINT_UNDEFINED;
 
-        if (index->has_instant_cols_or_row_versions()) {
+        if (UNIV_UNLIKELY(index->has_instant_cols_or_row_versions())) {
           ut_ad(index->table->has_row_versions() ||
                 index->table->is_upgraded_instant());
 
@@ -938,7 +939,7 @@ static inline Rec_instant_state rec_convert_dtuple_to_rec_comp(
       end += len;
     };
 
-    if (index->has_instant_cols_or_row_versions()) {
+    if (UNIV_UNLIKELY(index->has_instant_cols_or_row_versions())) {
       ut_ad(index->is_clustered());
 
       size_t n_total_fields = index->get_n_total_fields();
@@ -952,7 +953,8 @@ static inline Rec_instant_state rec_convert_dtuple_to_rec_comp(
 
         {
           dict_field_t *phy_dict_field = index->get_physical_field(i);
-          if (!phy_dict_field->col->is_visible_in_version(rec_version)) {
+          if (UNIV_UNLIKELY(
+                  !phy_dict_field->col->is_visible_in_version(rec_version))) {
             continue;
           }
 
@@ -992,7 +994,7 @@ static inline Rec_instant_state rec_convert_dtuple_to_rec_comp(
     }
   }
 
-  if (!num_v) {
+  if (UNIV_LIKELY(!num_v)) {
     return rec_instant_info;
   }
 
@@ -1073,15 +1075,15 @@ static rec_t *rec_convert_dtuple_to_rec_new(byte *buf,
   /* Set the info bits of the record from dtuple */
   rec_set_info_and_status_bits(rec, dtuple_get_info_bits(dtuple));
 
-  switch (rec_state) {
-    case Rec_instant_state::REC_IS_SIMPLE:
+  switch (UNIV_EXPECT((int)rec_state, (int)Rec_instant_state::REC_IS_SIMPLE)) {
+    case (int)Rec_instant_state::REC_IS_SIMPLE:
       rec_new_reset_instant_version(rec);
       break;
-    case Rec_instant_state::REC_IS_VERSIONED:
+    case (int)Rec_instant_state::REC_IS_VERSIONED:
       ut_a(index->has_instant_cols_or_row_versions());
       rec_new_set_versioned(rec);
       break;
-    case Rec_instant_state::REC_IS_INSTANT:
+    case (int)Rec_instant_state::REC_IS_INSTANT:
       ut_a(index->has_instant_cols_or_row_versions());
       ut_a(index->table->has_instant_cols());
       rec_new_set_instant(rec);
@@ -1091,7 +1093,7 @@ static rec_t *rec_convert_dtuple_to_rec_new(byte *buf,
   }
 
   /* Only one of the bit (INSTANT or VERSION) could be set */
-  ut_a(!(rec_get_instant_flag_new(rec) && rec_new_is_versioned(rec)));
+  ut_ad(!(rec_get_instant_flag_new(rec) && rec_new_is_versioned(rec)));
   return (rec);
 }
 
@@ -1122,7 +1124,7 @@ rec_t *rec_convert_dtuple_to_rec(
   /* Can't check this if it's an index with instantly added columns,
   because if it comes from UPDATE, the fields of dtuple may be less than
   the on from index itself. */
-  if (!index->has_instant_cols_or_row_versions()) {
+  if (UNIV_LIKELY(!index->has_instant_cols_or_row_versions())) {
     mem_heap_t *heap = nullptr;
     ulint offsets_[REC_OFFS_NORMAL_SIZE];
     const ulint *offsets;

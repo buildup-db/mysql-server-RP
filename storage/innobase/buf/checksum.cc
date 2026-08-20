@@ -288,7 +288,7 @@ bool BlockReporter::is_corrupted() const {
     return true;
   }
 
-  if (!m_page_size.is_compressed() &&
+  if (UNIV_LIKELY(!m_page_size.is_compressed()) &&
       memcmp(
           m_read_buf + FIL_PAGE_LSN + 4,
           m_read_buf + m_page_size.logical() - FIL_PAGE_END_LSN_OLD_CHKSUM + 4,
@@ -308,7 +308,7 @@ bool BlockReporter::is_corrupted() const {
     return (false);
   }
 
-  if (m_page_size.is_compressed()) {
+  if (UNIV_UNLIKELY(m_page_size.is_compressed())) {
     return (!verify_zip_checksum());
   }
 

@@ -1,6 +1,7 @@
 /*****************************************************************************
 
 Copyright (c) 1994, 2026, Oracle and/or its affiliates.
+Copyright (c) 2026, buildup-db.
 
 This program is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License, version 2.0, as published by the
@@ -133,7 +134,7 @@ static inline const rec_t *rec_get_next_ptr_const(const rec_t *rec,
     return (nullptr);
   }
 
-  if (comp) {
+  if (UNIV_LIKELY(comp)) {
     /** Check if the result offset is still on the same page. We allow
     `field_value` to be interpreted as negative 16bit integer. This check does
     nothing for 64KB pages. */
@@ -165,7 +166,7 @@ static inline ulint rec_get_next_offs(const rec_t *rec, ulint comp) {
 
   field_value = mach_read_from_2(rec - REC_NEXT);
 
-  if (comp) {
+  if (UNIV_LIKELY(comp)) {
     /** Check if the result offset is still on the same page. We allow
     `field_value` to be interpreted as negative 16bit integer. This check does
     nothing for 64KB pages. */
@@ -280,7 +281,7 @@ static inline void rec_set_n_owned_new(
 {
   rec_set_bit_field_1(rec, n_owned, REC_NEW_N_OWNED, REC_N_OWNED_MASK,
                       REC_N_OWNED_SHIFT);
-  if (page_zip && rec_get_status(rec) != REC_STATUS_SUPREMUM) {
+  if (UNIV_UNLIKELY(page_zip) && rec_get_status(rec) != REC_STATUS_SUPREMUM) {
     page_zip_rec_set_owned(page_zip, rec, n_owned);
   }
 }
@@ -328,7 +329,7 @@ static inline ulint rec_get_info_and_status_bits(const rec_t *rec, bool comp) {
                  (REC_INFO_BITS_MASK >> REC_INFO_BITS_SHIFT)) == 0,
                 "REC_NEW_STATUS_MASK and REC_INFO_BITS_MASK overlap");
 
-  if (comp) {
+  if (UNIV_LIKELY(comp)) {
     bits = rec_get_info_bits(rec, true) | rec_get_status(rec);
   } else {
     bits = rec_get_info_bits(rec, false);
@@ -351,7 +352,7 @@ static inline void rec_set_info_and_status_bits(
 }
 
 static inline bool rec_get_deleted_flag(const rec_t *rec, bool comp) {
-  if (comp) {
+  if (UNIV_LIKELY(comp)) {
     return (rec_get_bit_field_1(rec, REC_NEW_INFO_BITS, REC_INFO_DELETED_FLAG,
                                 REC_INFO_BITS_SHIFT));
   } else {
@@ -394,7 +395,7 @@ static inline void rec_set_deleted_flag_new(
 
   rec_set_info_bits_new(rec, val);
 
-  if (page_zip) {
+  if (UNIV_UNLIKELY(page_zip)) {
     page_zip_rec_set_deleted(page_zip, rec, flag);
   }
 }
@@ -550,7 +551,7 @@ static inline bool rec_field_not_null_not_add_col_def(ulint len) {
 /** Determine if the offsets are for a record in the new
  compact format.
  @return nonzero if compact format */
-static inline bool rec_offs_comp(
+static inline bool rec_offs_comp_func(
     const ulint *offsets) /*!< in: array returned by rec_get_offsets() */
 {
   ut_ad(rec_offs_validate(nullptr, nullptr, offsets));
@@ -976,7 +977,7 @@ static inline const byte *rec_get_nth_field_old_instant(
     const rec_t *rec, uint16_t n, const dict_index_t *index, ulint *len) {
   ut_a(index != nullptr);
 
-  if (index->has_row_versions()) {
+  if (UNIV_UNLIKELY(index->has_row_versions())) {
     /* Fields are stored in record in order of the version they are added in.
     Get the field number on physical record. */
 
@@ -1015,7 +1016,7 @@ static inline const byte *rec_get_nth_field_instant(const rec_t *rec,
                                                     ulint n,
                                                     const dict_index_t *index,
                                                     ulint *len) {
-  if (index->has_row_versions()) {
+  if (UNIV_UNLIKELY(index->has_row_versions())) {
     /* Fields are stored in record in order of the version they are added in.
     Get the field number on physical record. */
     n = index->get_field_off_pos(n);

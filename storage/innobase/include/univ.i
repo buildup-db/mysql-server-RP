@@ -2,6 +2,7 @@
 
 Copyright (c) 1994, 2026, Oracle and/or its affiliates.
 Copyright (c) 2008, Google Inc.
+Copyright (c) 2026, buildup-db.
 
 Portions of this file contain modifications contributed and copyrighted by
 Google, Inc. Those modifications are gratefully acknowledged and are described
@@ -516,9 +517,9 @@ it is read or written. */
 #endif
 
 /* Tell the compiler that cond is likely to hold */
-#define UNIV_LIKELY(cond) UNIV_EXPECT(cond, true)
+#define UNIV_LIKELY(cond) UNIV_EXPECT(!!(cond), true)
 /* Tell the compiler that cond is unlikely to hold */
-#define UNIV_UNLIKELY(cond) UNIV_EXPECT(cond, false)
+#define UNIV_UNLIKELY(cond) UNIV_EXPECT(!!(cond), false)
 
 /* Compile-time constant of the given array's size. */
 #define UT_ARR_SIZE(a) (sizeof(a) / sizeof((a)[0]))

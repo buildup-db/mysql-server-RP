@@ -1,6 +1,7 @@
 /*****************************************************************************
 
 Copyright (c) 1994, 2026, Oracle and/or its affiliates.
+Copyright (c) 2026, buildup-db.
 
 This program is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License, version 2.0, as published by the
@@ -208,7 +209,7 @@ static inline rec_t *page_cur_tuple_insert(page_cur_t *cursor,
 
   ut_ad(cmp_dtuple_rec(tuple, rec, index, *offsets) == 0);
 
-  if (buf_block_get_page_zip(cursor->block)) {
+  if (UNIV_UNLIKELY(buf_block_get_page_zip(cursor->block))) {
     insert_rec = page_cur_insert_rec_zip(cursor, index, rec, *offsets, mtr);
   } else {
     insert_rec =
@@ -268,7 +269,7 @@ static inline rec_t *page_cur_rec_insert(
     ulint *offsets,      /*!< in/out: rec_get_offsets(rec, index) */
     mtr_t *mtr)          /*!< in: mini-transaction handle, or NULL */
 {
-  if (buf_block_get_page_zip(cursor->block)) {
+  if (UNIV_UNLIKELY(buf_block_get_page_zip(cursor->block))) {
     return (page_cur_insert_rec_zip(cursor, index, rec, offsets, mtr));
   } else {
     return (page_cur_insert_rec_low(cursor->rec, index, rec, offsets, mtr));

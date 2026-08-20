@@ -1,6 +1,7 @@
 /*****************************************************************************
 
 Copyright (c) 2000, 2026, Oracle and/or its affiliates.
+Copyright (c) 2026, buildup-db.
 
 This program is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License, version 2.0, as published by the
@@ -1287,16 +1288,17 @@ void innodb_base_col_setup_for_stored(const dict_table_t *table,
                                       const Field *field, dict_s_col_t *s_col);
 
 /** whether this is a stored column */
-static inline bool innobase_is_s_fld(const Field *field) {
-  return field->gcol_info && field->stored_in_db;
-}
+#define innobase_is_s_fld(field) \
+  (UNIV_UNLIKELY((field)->gcol_info) && (field)->stored_in_db)
 
 /** Whether this is a computed multi-value virtual column.
 This condition check should be equal to the following one:
 (innobase_is_v_fld(field) && (field)->gcol_info->expr_item &&
  field->gcol_info->expr_item->returns_array())
 */
-static inline bool innobase_is_multi_value_fld(const Field *field) {
+#define innobase_is_multi_value_fld(field) \
+  UNIV_UNLIKELY(innobase_is_multi_value_fld_func(field))
+static inline bool innobase_is_multi_value_fld_func(const Field *field) {
   return field->is_array();
 }
 

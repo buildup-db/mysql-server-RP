@@ -1,6 +1,7 @@
 /*****************************************************************************
 
 Copyright (c) 1997, 2026, Oracle and/or its affiliates.
+Copyright (c) 2026, buildup-db.
 
 This program is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License, version 2.0, as published by the
@@ -349,7 +350,7 @@ static void row_undo_ins_parse_undo_rec(undo_node_t *node, THD *thd,
       if (!row_undo_search_clust_to_pcur(node)) {
         goto close_table;
       }
-      if (node->table->n_v_cols) {
+      if (UNIV_UNLIKELY(node->table->n_v_cols)) {
         trx_undo_read_v_cols(node->table, ptr, node->row, false, false, nullptr,
                              node->heap);
       }
@@ -406,12 +407,12 @@ static dberr_t row_undo_ins_remove_multi_sec(dict_index_t *index,
   while (index != nullptr) {
     dtuple_t *entry;
 
-    if (index->type & DICT_FTS) {
+    if (UNIV_UNLIKELY(index->type & DICT_FTS)) {
       dict_table_next_uncorrupted_index(index);
       continue;
     }
 
-    if (index->is_multi_value()) {
+    if (UNIV_UNLIKELY(index->is_multi_value())) {
       err = row_undo_ins_remove_multi_sec(index, node, thr, heap);
       if (err != DB_SUCCESS) {
         goto func_exit;

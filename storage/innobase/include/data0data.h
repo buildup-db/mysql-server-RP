@@ -1,6 +1,7 @@
 /*****************************************************************************
 
 Copyright (c) 1994, 2026, Oracle and/or its affiliates.
+Copyright (c) 2026, buildup-db.
 
 This program is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License, version 2.0, as published by the
@@ -144,7 +145,9 @@ static inline void dfield_multi_value_dup(dfield_t *field, mem_heap_t *heap);
 /** Determine if a field is of multi-value type
 @param[in]      field   data field
 @return true if multi-value type field, otherwise false */
-static inline bool dfield_is_multi_value(const dfield_t *field);
+static inline bool dfield_is_multi_value_func(const dfield_t *field);
+#define dfield_is_multi_value(field) \
+  UNIV_UNLIKELY(dfield_is_multi_value_func(field))
 
 /** Tests if two data fields are equal.
 If len==0, tests the data length and content for equality.

@@ -2,6 +2,7 @@
 
 Copyright (c) 1997, 2026, Oracle and/or its affiliates.
 Copyright (c) 2008, Google Inc.
+Copyright (c) 2026, buildup-db.
 
 Portions of this file contain modifications contributed and copyrighted by
 Google, Inc. Those modifications are gratefully acknowledged and are described
@@ -229,7 +230,7 @@ static dberr_t row_sel_sec_rec_is_for_clust_rec(
 
     /* For virtual column, its value will need to be
     reconstructed from base column in cluster index */
-    if (col->is_virtual()) {
+    if (UNIV_UNLIKELY(col->is_virtual())) {
       const dict_v_col_t *v_col = reinterpret_cast<const dict_v_col_t *>(col);
 
       const dtuple_t *const row =
@@ -264,7 +265,7 @@ static dberr_t row_sel_sec_rec_is_for_clust_rec(
     len = clust_len;
 
     if (ifield->prefix_len > 0 && len != UNIV_SQL_NULL &&
-        sec_len != UNIV_SQL_NULL && !col->is_virtual()) {
+        sec_len != UNIV_SQL_NULL && UNIV_LIKELY(!col->is_virtual())) {
       if (rec_offs_nth_extern(clust_index, clust_offs, clust_pos)) {
         len -= BTR_EXTERN_FIELD_REF_SIZE;
       }
@@ -322,7 +323,7 @@ static dberr_t row_sel_sec_rec_is_for_clust_rec(
         is_equal = false;
         goto func_exit;
       }
-    } else if (col->is_multi_value()) {
+    } else if (UNIV_UNLIKELY(col->is_multi_value())) {
       if (!is_multi_value_clust_and_sec_equal(clust_field, clust_len, sec_field,
                                               sec_len, col)) {
         is_equal = false;
@@ -2506,12 +2507,12 @@ void row_sel_field_store_in_mysql_format_func(
   byte *ptr;
 #ifdef UNIV_DEBUG
   const dict_field_t *field =
-      templ->is_virtual ? nullptr : index->get_field(field_no);
+      UNIV_UNLIKELY(templ->is_virtual) ? nullptr : index->get_field(field_no);
 
   bool clust_templ_for_sec = (sec_field != ULINT_UNDEFINED);
 #endif /* UNIV_DEBUG */
 
-  if (templ->is_multi_val) {
+  if (UNIV_UNLIKELY(templ->is_multi_val)) {
     ib::fatal(UT_LOCATION_HERE, ER_CONVERT_MULTI_VALUE)
         << "Table name: " << index->table->name
         << " Index name: " << index->name;
@@ -2653,7 +2654,7 @@ void row_sel_field_store_in_mysql_format_func(
       done in row0mysql.cc, function
       row_mysql_store_col_in_innobase_format(). */
       if ((templ->mbminlen == 1 && templ->mbmaxlen != 1) ||
-          (templ->is_virtual && mysql_col_len > len)) {
+          (UNIV_UNLIKELY(templ->is_virtual) && mysql_col_len > len)) {
         /* NOTE: This comment is for the second condition:
         This probably comes from a prefix virtual index, where no complete
         value can be got because the full virtual column can only be
@@ -2939,13 +2940,13 @@ bool row_sel_store_mysql_rec(byte *mysql_rec, row_prebuilt_t *prebuilt,
     2. Cross-partition index scan, for the purpose of index merge:
     not needed since multi-values do not introduce ordering and
     so are not needed for index merge. */
-    if (templ->is_multi_val) {
+    if (UNIV_UNLIKELY(templ->is_multi_val)) {
       /* Multi-value columns are always virtual */
       ut_ad(templ->is_virtual);
       continue;
     }
 
-    if (templ->is_virtual && rec_index->is_clustered()) {
+    if (UNIV_UNLIKELY(templ->is_virtual) && rec_index->is_clustered()) {
       /* Skip virtual columns if it is not a covered
       search or virtual key read is not requested. */
       if ((prebuilt_index != nullptr &&
@@ -3526,7 +3527,7 @@ void row_sel_copy_cached_fields_for_mysql(byte *buf, const byte *cached_rec,
     templ = prebuilt->mysql_template + i;
 
     /* Skip virtual columns */
-    if (templ->is_virtual) {
+    if (UNIV_UNLIKELY(templ->is_virtual)) {
       continue;
     }
 
@@ -3590,13 +3591,13 @@ static inline void row_sel_dequeue_cached_row_for_mysql(
       templ = prebuilt->mysql_template + i;
 
       /* Skip virtual columns */
-      if (templ->is_virtual) {
+      if (UNIV_UNLIKELY(templ->is_virtual)) {
         if (!(dict_index_has_virtual(prebuilt->index) &&
               prebuilt->read_just_key)) {
           continue;
         }
 
-        if (templ->is_multi_val) {
+        if (UNIV_UNLIKELY(templ->is_multi_val)) {
           continue;
         }
       }
@@ -3798,7 +3799,7 @@ static ICP_RESULT row_search_idx_cond_check(
     const mysql_row_templ_t *templ = &prebuilt->mysql_template[i];
 
     /* Skip virtual columns */
-    if (templ->is_virtual) {
+    if (UNIV_UNLIKELY(templ->is_virtual)) {
       continue;
     }
 
@@ -3882,7 +3883,8 @@ static bool row_search_end_range_check(byte *mysql_rec, const rec_t *rec,
     for (ulint i = 0; i < prebuilt->n_template; ++i) {
       const auto &templ = prebuilt->mysql_template[i];
 
-      if (templ.is_virtual && templ.icp_rec_field_no != ULINT_UNDEFINED) {
+      if (UNIV_UNLIKELY(templ.is_virtual) &&
+          templ.icp_rec_field_no != ULINT_UNDEFINED) {
         ut_a(!templ.is_multi_val);
         bool stored = row_sel_store_mysql_field(
             mysql_rec, prebuilt, rec, prebuilt->index, prebuilt->index, offsets,
@@ -4359,7 +4361,7 @@ dberr_t row_search_mvcc(byte *buf, page_cur_mode_t mode,
   we implemented FTS as reversed inverted index with auxiliary tables.
   So anything related to traditional index query would not apply to
   it. */
-  if (prebuilt->index->type & DICT_FTS) {
+  if (UNIV_UNLIKELY(prebuilt->index->type & DICT_FTS)) {
     return DB_END_OF_INDEX;
   }
 
@@ -4370,16 +4372,16 @@ dberr_t row_search_mvcc(byte *buf, page_cur_mode_t mode,
   }
 #endif /* UNIV_DEBUG */
 
-  if (dict_table_is_discarded(prebuilt->table)) {
+  if (UNIV_UNLIKELY(dict_table_is_discarded(prebuilt->table))) {
     return DB_TABLESPACE_DELETED;
 
-  } else if (prebuilt->table->ibd_file_missing) {
+  } else if (UNIV_UNLIKELY(prebuilt->table->ibd_file_missing)) {
     return DB_TABLESPACE_NOT_FOUND;
 
-  } else if (!prebuilt->index_usable) {
+  } else if (UNIV_UNLIKELY(!prebuilt->index_usable)) {
     return DB_MISSING_HISTORY;
 
-  } else if (prebuilt->index->is_corrupted()) {
+  } else if (UNIV_UNLIKELY(prebuilt->index->is_corrupted())) {
     return DB_CORRUPTION;
   }
 
@@ -4524,9 +4526,9 @@ dberr_t row_search_mvcc(byte *buf, page_cur_mode_t mode,
   cannot use the adaptive hash index in a search in the case the row
   may be long and there may be externally stored fields */
 
-  if (UNIV_UNLIKELY(direction == 0) && unique_search && btr_search_enabled &&
-      index->is_clustered() && !prebuilt->templ_contains_blob &&
-      !prebuilt->used_in_HANDLER &&
+  if (UNIV_UNLIKELY(direction == 0) && unique_search &&
+      UNIV_LIKELY(btr_search_enabled) && index->is_clustered() &&
+      !prebuilt->templ_contains_blob && !prebuilt->used_in_HANDLER &&
       (prebuilt->mysql_row_len < UNIV_PAGE_SIZE / 8) && !prebuilt->innodb_api) {
     mode = PAGE_CUR_GE;
 
@@ -4724,7 +4726,7 @@ dberr_t row_search_mvcc(byte *buf, page_cur_mode_t mode,
   /* Open or restore index cursor position */
 
   if (UNIV_LIKELY(direction != 0)) {
-    if (spatial_search) {
+    if (UNIV_UNLIKELY(spatial_search)) {
       /* R-Tree access does not need to do
       cursor position and resposition */
       goto next_rec;
@@ -4819,7 +4821,7 @@ rec_loop:
   prebuilt->lob_undo_reset();
 
   if (trx_is_interrupted(trx)) {
-    if (!spatial_search) {
+    if (UNIV_LIKELY(!spatial_search)) {
       pcur->store_position(&mtr);
     }
     err = DB_INTERRUPTED;
@@ -4857,7 +4859,7 @@ rec_loop:
     if (prev_rec != nullptr && !prebuilt->innodb_api &&
         prebuilt->m_mysql_handler->end_range != nullptr &&
         prebuilt->idx_cond == false && end_loop >= 100 &&
-        !(clust_templ_for_sec && index->is_multi_value())) {
+        !(clust_templ_for_sec && UNIV_UNLIKELY(index->is_multi_value()))) {
       dict_index_t *key_index = prebuilt->index;
 
       if (end_range_cache == nullptr) {
@@ -4932,7 +4934,7 @@ rec_loop:
   /* Do sanity checks in case our cursor has bumped into page
   corruption */
 
-  if (comp) {
+  if (UNIV_LIKELY(comp)) {
     next_offs = rec_get_next_offs(rec, true);
     if (UNIV_UNLIKELY(next_offs < PAGE_NEW_SUPREMUM)) {
       goto wrong_offs;
@@ -5156,7 +5158,7 @@ rec_loop:
         /* The following call returns 'offsets' associated with 'old_vers' */
         row_sel_build_committed_vers_for_mysql(
             clust_index, prebuilt, rec, &offsets, &heap, &old_vers,
-            need_vrow ? &vrow : nullptr, &mtr);
+            UNIV_UNLIKELY(need_vrow) ? &vrow : nullptr, &mtr);
 
         ut_ad(!dict_index_is_spatial(index));
         err = DB_SUCCESS;
@@ -5213,7 +5215,7 @@ rec_loop:
         /* The following call returns 'offsets' associated with 'old_vers' */
         err = row_sel_build_prev_vers_for_mysql(
             trx->read_view, clust_index, prebuilt, rec, &offsets, &heap,
-            &old_vers, need_vrow ? &vrow : nullptr, &mtr,
+            &old_vers, UNIV_UNLIKELY(need_vrow) ? &vrow : nullptr, &mtr,
             prebuilt->get_lob_undo());
 
         if (err != DB_SUCCESS) {
@@ -5346,7 +5348,8 @@ rec_loop:
     built for a consistent read. */
     err = row_sel_get_clust_rec_for_mysql(
         prebuilt, index, rec, thr, &clust_rec, &offsets, &heap,
-        need_vrow ? &vrow : nullptr, &mtr, prebuilt->get_lob_undo());
+        UNIV_UNLIKELY(need_vrow) ? &vrow : nullptr, &mtr,
+        prebuilt->get_lob_undo());
     switch (err) {
       case DB_SUCCESS:
         if (clust_rec == nullptr) {
@@ -5385,7 +5388,7 @@ rec_loop:
       goto next_rec;
     }
 
-    if (need_vrow && !vrow) {
+    if (UNIV_UNLIKELY(need_vrow) && !vrow) {
       if (!heap) {
         heap = mem_heap_create(100, UT_LOCATION_HERE);
       }
@@ -5540,7 +5543,7 @@ rec_loop:
       column type (array of values). */
       if (record_buffer != nullptr &&
           prebuilt->m_mysql_handler->end_range != nullptr &&
-          !(clust_templ_for_sec && index->is_multi_value())) {
+          !(clust_templ_for_sec && UNIV_UNLIKELY(index->is_multi_value()))) {
         /* If the end-range condition refers to a
         virtual column and we are reading from the
         clustered index, next_buf does not have the
@@ -5644,7 +5647,7 @@ idx_cond_failed:
       prebuilt->innodb_api) {
     /* Inside an update always store the cursor position */
 
-    if (!spatial_search) {
+    if (UNIV_LIKELY(!spatial_search)) {
       pcur->store_position(&mtr);
     }
 
@@ -5665,7 +5668,8 @@ idx_cond_failed:
 
 next_rec:
 
-  if (end_loop >= 99 && need_vrow && vrow == nullptr && prev_rec != nullptr) {
+  if (end_loop >= 99 && UNIV_UNLIKELY(need_vrow) && vrow == nullptr &&
+      prev_rec != nullptr) {
     if (!heap) {
       heap = mem_heap_create(100, UT_LOCATION_HERE);
     }
@@ -5704,7 +5708,7 @@ next_rec:
   For R-tree spatial search, we also commit the mini-transaction
   each time  */
 
-  if (mtr_has_extra_clust_latch || spatial_search) {
+  if (mtr_has_extra_clust_latch || UNIV_UNLIKELY(spatial_search)) {
     /* If we have extra cluster latch, we must commit
     mtr if we are moving to the next non-clustered
     index record, because we could break the latching
@@ -5714,7 +5718,7 @@ next_rec:
     bool is_pcur_rec = (pcur->get_rec() == prev_rec);
 
     /* No need to do store restore for R-tree */
-    if (!spatial_search) {
+    if (UNIV_LIKELY(!spatial_search)) {
       pcur->store_position(&mtr);
     }
 
@@ -5725,7 +5729,7 @@ next_rec:
 
     mtr_start(&mtr);
 
-    if (!spatial_search) {
+    if (UNIV_LIKELY(!spatial_search)) {
       const auto result = sel_restore_position_for_mysql(
           &same_user_rec, BTR_SEARCH_LEAF, pcur, moves_up, &mtr);
 
@@ -5768,7 +5772,7 @@ next_rec:
   if (moves_up) {
     bool move;
 
-    if (spatial_search) {
+    if (UNIV_UNLIKELY(spatial_search)) {
       move = rtr_pcur_move_to_next(search_tuple, mode, prebuilt->select_mode,
                                    pcur, 0, &mtr);
     } else {
@@ -5777,7 +5781,7 @@ next_rec:
 
     if (!move) {
     not_moved:
-      if (!spatial_search) {
+      if (UNIV_LIKELY(!spatial_search)) {
         pcur->store_position(&mtr);
       }
 

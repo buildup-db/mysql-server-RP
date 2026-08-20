@@ -1,6 +1,7 @@
 /*****************************************************************************
 
 Copyright (c) 1994, 2026, Oracle and/or its affiliates.
+Copyright (c) 2026, buildup-db.
 
 This program is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License, version 2.0, as published by the
@@ -105,8 +106,8 @@ void dtuple_set_n_fields(dtuple_t *tuple, ulint n_fields) {
 @param[in] field                  Data field.
 @return true if ok */
 static bool dfield_check_typed_no_assert(const dfield_t *field) {
-  if (dfield_get_type(field)->mtype > DATA_MTYPE_CURRENT_MAX ||
-      dfield_get_type(field)->mtype < DATA_MTYPE_CURRENT_MIN) {
+  if (UNIV_UNLIKELY(dfield_get_type(field)->mtype > DATA_MTYPE_CURRENT_MAX) ||
+      UNIV_UNLIKELY(dfield_get_type(field)->mtype < DATA_MTYPE_CURRENT_MIN)) {
     ib::error(ER_IB_MSG_156)
         << "Data field type " << dfield_get_type(field)->mtype << ", len "
         << dfield_get_len(field);
@@ -121,7 +122,7 @@ static bool dfield_check_typed_no_assert(const dfield_t *field) {
 @param[in] tuple                Tuple to check.
 @return true if ok */
 static bool dtuple_check_typed_no_assert(const dtuple_t *tuple) {
-  if (dtuple_get_n_fields(tuple) > REC_MAX_N_FIELDS) {
+  if (UNIV_UNLIKELY(dtuple_get_n_fields(tuple) > REC_MAX_N_FIELDS)) {
     ib::error(ER_IB_MSG_157)
         << "Index entry has " << dtuple_get_n_fields(tuple) << " fields";
   dump:
@@ -135,7 +136,7 @@ static bool dtuple_check_typed_no_assert(const dtuple_t *tuple) {
   for (ulint i = 0; i < dtuple_get_n_fields(tuple); i++) {
     auto field = dtuple_get_nth_field(tuple, i);
 
-    if (!dfield_check_typed_no_assert(field)) {
+    if (UNIV_UNLIKELY(!dfield_check_typed_no_assert(field))) {
       goto dump;
     }
   }

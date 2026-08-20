@@ -1,6 +1,7 @@
 /*****************************************************************************
 
 Copyright (c) 2014, 2026, Oracle and/or its affiliates.
+Copyright (c) 2026, buildup-db.
 
 This program is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License, version 2.0, as published by the
@@ -1287,7 +1288,7 @@ static void rtr_leaf_push_match_rec(
 
   copy = rec_copy(buf, rec, offsets);
 
-  if (is_comp) {
+  if (UNIV_LIKELY(is_comp)) {
     rec_set_next_offs_new(copy, PAGE_NEW_SUPREMUM);
   } else {
     rec_set_next_offs_old(copy, PAGE_OLD_SUPREMUM);

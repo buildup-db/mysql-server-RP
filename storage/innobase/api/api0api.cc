@@ -1,6 +1,7 @@
 /*****************************************************************************
 
 Copyright (c) 2008, 2026, Oracle and/or its affiliates.
+Copyright (c) 2026, buildup-db.
 
 This program is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License, version 2.0, as published by the
@@ -347,7 +348,7 @@ static ib_err_t ib_read_tuple(
 
   /* If table has INSTANT DROP columns, then offsets would have count for these
   columns as well, where as logical record won't have them. */
-  if (index->has_row_versions()) {
+  if (UNIV_UNLIKELY(index->has_row_versions())) {
     n_index_fields = std::min(n_index_fields, (size_t)index->n_fields);
   }
 

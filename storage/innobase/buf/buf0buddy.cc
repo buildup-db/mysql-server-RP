@@ -1,6 +1,7 @@
 /*****************************************************************************
 
 Copyright (c) 2006, 2026, Oracle and/or its affiliates.
+Copyright (c) 2026, buildup-db.
 
 This program is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License, version 2.0, as published by the
@@ -284,7 +285,7 @@ static buf_buddy_free_t *buf_buddy_alloc_zip(buf_pool_t *buf_pool, ulint i) {
 
   buf = UT_LIST_GET_FIRST(buf_pool->zip_free[i]);
 
-  if (buf_get_withdraw_depth(buf_pool)) {
+  if (UNIV_UNLIKELY(buf_get_withdraw_depth(buf_pool))) {
     while (buf != nullptr &&
            buf_frame_will_withdrawn(buf_pool, reinterpret_cast<byte *>(buf))) {
       /* This should be withdrawn, not to be allocated */
