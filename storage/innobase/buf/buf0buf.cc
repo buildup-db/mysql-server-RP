@@ -3520,7 +3520,7 @@ buf_block_t *buf_block_from_ahi(const byte *ptr) {
 
   ut_a(it != chunk_map->begin());
 
-  if (it == chunk_map->end()) {
+  if (UNIV_UNLIKELY(it == chunk_map->end())) {
     chunk = chunk_map->rbegin()->second;
   } else {
     chunk = (--it)->second;
@@ -4550,7 +4550,7 @@ bool buf_page_optimistic_get(ulint rw_latch, buf_block_t *block,
     success = true;
   }
 
-  if (!success) {
+  if (UNIV_UNLIKELY(!success)) {
     buf_block_buf_fix_dec(block);
     return (false);
   }
@@ -4607,7 +4607,7 @@ bool buf_page_get_known_nowait(ulint rw_latch, buf_block_t *block,
 
   buf_page_mutex_enter(block);
 
-  if (buf_block_get_state(block) == BUF_BLOCK_REMOVE_HASH) {
+  if (UNIV_UNLIKELY(buf_block_get_state(block) == BUF_BLOCK_REMOVE_HASH)) {
     /* Another thread is just freeing the block from the LRU list
     of the buffer pool: do not try to access this page; this
     attempt to access the page can only come through the hash
@@ -4630,7 +4630,7 @@ bool buf_page_get_known_nowait(ulint rw_latch, buf_block_t *block,
 
   auto buf_pool = buf_pool_from_block(block);
 
-  if (hint == Cache_hint::MAKE_YOUNG) {
+  if (UNIV_LIKELY(hint == Cache_hint::MAKE_YOUNG)) {
     buf_page_make_young_if_needed(&block->page);
   }
 
@@ -4654,7 +4654,7 @@ bool buf_page_get_known_nowait(ulint rw_latch, buf_block_t *block,
       ut_error; /* RW_SX_LATCH is not implemented yet */
   }
 
-  if (!success) {
+  if (UNIV_UNLIKELY(!success)) {
     buf_block_buf_fix_dec(block);
 
     return (false);

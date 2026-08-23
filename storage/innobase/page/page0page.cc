@@ -1477,7 +1477,7 @@ ulint page_rec_get_n_recs_before(
 
       n += rec_get_n_owned_new(slot_rec);
 
-      if (rec == slot_rec) {
+      if (UNIV_UNLIKELY(rec == slot_rec)) {
         break;
       }
     }

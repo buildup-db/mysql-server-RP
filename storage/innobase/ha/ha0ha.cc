@@ -147,7 +147,7 @@ bool ha_insert_for_hash_func(hash_table_t *table, uint64_t hash_value,
   node = static_cast<ha_node_t *>(
       mem_heap_alloc(hash_get_heap(table), sizeof(ha_node_t)));
 
-  if (node == nullptr) {
+  if (UNIV_UNLIKELY(node == nullptr)) {
     /* It was a btr search type memory heap and at the moment
     no more memory could be allocated: return */
 

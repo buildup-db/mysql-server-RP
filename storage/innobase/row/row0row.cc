@@ -790,7 +790,7 @@ void row_build_row_ref_in_tuple(dtuple_t *ref, const rec_t *rec,
   clust_index = index->table->first_index();
   ut_ad(clust_index);
 
-  if (!offsets) {
+  if (UNIV_UNLIKELY(!offsets)) {
     offsets = rec_get_offsets(rec, index, offsets_, ULINT_UNDEFINED,
                               UT_LOCATION_HERE, &heap);
   } else {
@@ -824,7 +824,7 @@ void row_build_row_ref_in_tuple(dtuple_t *ref, const rec_t *rec,
     clust_col_prefix_len = clust_index->get_field(i)->prefix_len;
 
     if (clust_col_prefix_len > 0) {
-      if (len != UNIV_SQL_NULL) {
+      if (UNIV_UNLIKELY(len != UNIV_SQL_NULL)) {
         const dtype_t *dtype = dfield_get_type(dfield);
 
         dfield_set_len(dfield, dtype_get_at_most_n_mbchars(

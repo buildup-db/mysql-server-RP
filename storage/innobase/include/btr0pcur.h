@@ -608,7 +608,7 @@ inline void btr_pcur_t::open_no_init(dict_index_t *index, const dtuple_t *tuple,
 
   auto cur = get_btr_cur();
 
-  if (index->table->is_intrinsic()) {
+  if (UNIV_UNLIKELY(index->table->is_intrinsic())) {
     ut_ad((latch_mode & BTR_MODIFY_LEAF) || (latch_mode & BTR_SEARCH_LEAF));
 
     btr_cur_search_to_nth_level_with_no_latch(

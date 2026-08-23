@@ -1386,7 +1386,7 @@ rec_t *rec_copy_prefix_to_buf(const rec_t *rec, const dict_index_t *index,
 
   prefix_len += rec - (lens + 1);
 
-  if ((*buf == nullptr) || (*buf_size < prefix_len)) {
+  if (UNIV_UNLIKELY(*buf == nullptr) || UNIV_UNLIKELY(*buf_size < prefix_len)) {
     ut::free(*buf);
     *buf_size = prefix_len;
     *buf = static_cast<byte *>(

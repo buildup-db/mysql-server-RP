@@ -663,7 +663,7 @@ struct PolicyMutex {
 
     int ret = m_impl.try_lock() ? 0 : 1;
 
-    if (ret == 0) {
+    if (UNIV_LIKELY(ret == 0)) {
       policy().enter(m_impl, name, line);
 
       policy().locked(m_impl, name, line);
@@ -747,7 +747,7 @@ struct PolicyMutex {
   PSI_mutex_locker *pfs_begin_trylock(PSI_mutex_locker_state *state,
                                       const char *name,
                                       uint32_t line) UNIV_NOTHROW {
-    if (m_ptr != nullptr) {
+    if (UNIV_UNLIKELY(m_ptr != nullptr)) {
       if (m_ptr->m_enabled) {
         return (PSI_MUTEX_CALL(start_mutex_wait)(
             state, m_ptr, PSI_MUTEX_TRYLOCK, name, (uint)line));

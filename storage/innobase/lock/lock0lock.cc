@@ -401,7 +401,7 @@ bool Locks_hashtable::prepend(hash_cell_t *cell, lock_t *lock) {
 }
 bool Locks_hashtable::erase(hash_cell_t *cell, lock_t *lock) {
   lock_t *last = (lock_t *)cell->node;
-  if (last == lock) {
+  if (UNIV_LIKELY(last == lock)) {
     cell->node = lock->hash;
     HASH_INVALIDATE(lock, hash);
     return cell->node == nullptr;
@@ -425,7 +425,7 @@ void Locks_hashtable::prepend(lock_t *lock, uint64_t hash_value) {
   ut_ad(hash_value == lock_rec_lock_hash_value(lock));
   const auto cell_id = get_cell_id(hash_value);
   auto *cell = hash_get_nth_cell(ht.get(), cell_id);
-  if (prepend(cell, lock)) {
+  if (UNIV_LIKELY(prepend(cell, lock))) {
     cells_in_use.set(cell_id);
   }
 }
@@ -433,7 +433,7 @@ void Locks_hashtable::erase(lock_t *lock, uint64_t hash_value) {
   ut_ad(hash_value == lock_rec_lock_hash_value(lock));
   const auto cell_id = get_cell_id(hash_value);
   auto *cell = hash_get_nth_cell(ht.get(), cell_id);
-  if (erase(cell, lock)) {
+  if (UNIV_LIKELY(erase(cell, lock))) {
     cells_in_use.reset(cell_id);
   }
 }
@@ -960,7 +960,7 @@ The difficulties to keep in mind here:
                  the seen trx_id is still active or not
 */
 static bool can_older_trx_be_still_active(trx_id_t max_old_active_id) {
-  if (mutex_enter_nowait(&trx_sys->mutex) != 0) {
+  if (UNIV_UNLIKELY(mutex_enter_nowait(&trx_sys->mutex) != 0)) {
     ut_ad(!trx_sys_mutex_own());
     /* The mutex is currently locked by somebody else. Instead of wasting time
     on spinning and waiting to acquire it, we loop over the shards and check if
@@ -980,7 +980,7 @@ static bool can_older_trx_be_still_active(trx_id_t max_old_active_id) {
   }
   ut_ad(trx_sys_mutex_own());
   const trx_t *trx = UT_LIST_GET_LAST(trx_sys->rw_trx_list);
-  if (trx == nullptr) {
+  if (UNIV_LIKELY(trx == nullptr)) {
     trx_sys_mutex_exit();
     return false;
   }
@@ -1019,7 +1019,8 @@ static trx_t *lock_sec_rec_some_has_impl(const rec_t *rec, dict_index_t *index,
   max trx id to the log, and therefore during recovery, this value
   for a page may be incorrect. */
 
-  if (!recv_recovery_is_on() && !can_older_trx_be_still_active(max_trx_id)) {
+  if (!recv_recovery_is_on() &&
+      UNIV_LIKELY(!can_older_trx_be_still_active(max_trx_id))) {
     trx = nullptr;
 
   } else if (!lock_check_trx_id_sanity(max_trx_id, rec, index, offsets)) {
@@ -1162,7 +1163,7 @@ lock_t *RecLock::lock_alloc(trx_t *trx, dict_index_t *index, ulint mode,
 
   lock_t *lock;
 
-  if (trx->lock.rec_cached >= trx->lock.rec_pool.size() ||
+  if (UNIV_LIKELY(trx->lock.rec_cached >= trx->lock.rec_pool.size()) ||
       sizeof(*lock) + size > REC_LOCK_SIZE) {
     lock = lock_alloc_from_heap(trx->lock.lock_heap, size);
   } else {
@@ -1186,7 +1187,7 @@ lock_t *RecLock::lock_alloc(trx_t *trx, dict_index_t *index, ulint mode,
   /* Predicate lock always on INFIMUM (0) */
 
   ut_ad(size < UINT32_MAX / 8);
-  rec_lock.n_bits = is_predicate_lock(mode) ? 8 : 8 * size;
+  rec_lock.n_bits = UNIV_UNLIKELY(is_predicate_lock(mode)) ? 8 : 8 * size;
   lock_rec_bitmap_reset(lock);
 
   rec_lock.page_id = rec_id.get_page_id();
@@ -1237,7 +1238,7 @@ Bumps the trx_lock_version.
 static void add_to_trx_locks(lock_t *lock) {
   ut_ad(lock->trx != nullptr);
   ut_ad(trx_mutex_own(lock->trx));
-  if (lock_get_type_low(lock) == LOCK_REC) {
+  if (UNIV_LIKELY(lock_get_type_low(lock) == LOCK_REC)) {
     UT_LIST_ADD_LAST(lock->trx->lock.trx_locks, lock);
   } else {
     UT_LIST_ADD_FIRST(lock->trx->lock.trx_locks, lock);
@@ -1272,7 +1273,7 @@ void RecLock::lock_add(lock_t *lock) {
 
   lock->index->table->n_rec_locks.fetch_add(1, std::memory_order_relaxed);
 
-  if (!wait) {
+  if (UNIV_LIKELY(!wait)) {
     lock_rec_insert_to_granted(lock_hash, lock, m_rec_id);
   } else {
     lock_rec_insert_to_waiting(lock_hash, lock, m_rec_id);
@@ -1289,7 +1290,7 @@ void RecLock::lock_add(lock_t *lock) {
 
   locksys::add_to_trx_locks(lock);
 
-  if (wait) {
+  if (UNIV_UNLIKELY(wait)) {
     lock_set_lock_and_trx_wait(lock);
   }
 }
@@ -1332,7 +1333,7 @@ lock_t *RecLock::create(trx_t *trx, const lock_prdt_t *prdt) {
   }
 #endif /* UNIV_DEBUG */
 
-  if (prdt != nullptr && (m_mode & LOCK_PREDICATE)) {
+  if (UNIV_UNLIKELY(prdt != nullptr) && (m_mode & LOCK_PREDICATE)) {
     lock_prdt_set_prdt(lock, prdt);
   }
 
@@ -1662,7 +1663,7 @@ static inline lock_rec_req_status lock_rec_lock_fast(
   lock_t *lock = nullptr;
   lock_t *other_lock =
       lock_sys->rec_hash.find_on_block(block, [&](lock_t *seen) {
-        if (lock != nullptr) {
+        if (UNIV_UNLIKELY(lock != nullptr)) {
           return true;
         }
         lock = seen;
@@ -1674,8 +1675,8 @@ static inline lock_rec_req_status lock_rec_lock_fast(
 
   lock_rec_req_status status = LOCK_REC_SUCCESS;
 
-  if (UNIV_UNLIKELY(lock == nullptr)) {
-    if (!impl) {
+  if (lock == nullptr) {
+    if (UNIV_LIKELY(!impl)) {
       RecLock rec_lock(index, block, heap_no, mode);
 
       trx_mutex_enter(trx);
@@ -1897,7 +1898,9 @@ static dberr_t lock_rec_lock(bool impl, select_mode sel_mode, ulint mode,
   ut_ad(!impl || ((mode & LOCK_REC_NOT_GAP) == LOCK_REC_NOT_GAP));
   /* We try a simplified and faster subroutine for the most
   common cases */
-  switch (lock_rec_lock_fast(impl, mode, block, heap_no, index, thr)) {
+  switch (
+      UNIV_EXPECT(lock_rec_lock_fast(impl, mode, block, heap_no, index, thr),
+                  LOCK_REC_SUCCESS_CREATED)) {
     case LOCK_REC_SUCCESS:
       return (DB_SUCCESS);
     case LOCK_REC_SUCCESS_CREATED:
@@ -2303,8 +2306,8 @@ static void lock_rec_grant(lock_t *in_lock) {
   there are at least two waiters to arbitrate among, but in practice the current
   simple heuristic is good enough. */
 
-  if (in_lock->hash_table().find_on_page(
-          page_id, [](lock_t *lock) { return lock->is_waiting(); })) {
+  if (UNIV_UNLIKELY(in_lock->hash_table().find_on_page(
+          page_id, [](lock_t *lock) { return lock->is_waiting(); }))) {
     mon_type_t grant_attempts = 0;
     for (ulint heap_no = 0; heap_no < lock_rec_get_n_bits(in_lock); ++heap_no) {
       if (lock_rec_get_nth_bit(in_lock, heap_no)) {
@@ -3993,7 +3996,7 @@ static bool try_relatch_trx_and_shard_and_do(const lock_t *lock, F &&f) {
   return latch_peeked_shard_and_do(lock, [&]() {
     ut_ad(trx_mutex_own(trx));
     /* Check that list was not modified while we were reacquiring latches */
-    if (expected_version != trx->lock.trx_locks_version) {
+    if (UNIV_UNLIKELY(expected_version != trx->lock.trx_locks_version)) {
       /* Someone has modified the list while we were re-acquiring the latches
       so, it is unsafe to operate on the lock. It might have been released, or
       maybe even assigned to another transaction (in case of AUTOINC lock). More
@@ -4164,16 +4167,17 @@ namespace locksys {
   trx_mutex_enter(trx);
 
   ut_ad(trx->lock.wait_lock == nullptr);
-  while ((lock = UT_LIST_GET_LAST(trx->lock.trx_locks)) != nullptr) {
+  while (
+      UNIV_LIKELY((lock = UT_LIST_GET_LAST(trx->lock.trx_locks)) != nullptr)) {
     /* Following call temporarily releases trx->mutex */
     try_relatch_trx_and_shard_and_do(lock, [=]() {
-      if (lock_get_type_low(lock) == LOCK_REC) {
+      if (UNIV_LIKELY(lock_get_type_low(lock) == LOCK_REC)) {
         lock_rec_dequeue_from_page(lock);
       } else {
         lock_table_dequeue(lock);
       }
     });
-    if (shared_latch_guard.is_x_blocked_by_us()) {
+    if (UNIV_UNLIKELY(shared_latch_guard.is_x_blocked_by_us())) {
       trx_mutex_exit(trx);
       return false;
     }
@@ -5329,7 +5333,7 @@ void lock_rec_convert_impl_to_expl(const buf_block_t *block, const rec_t *rec,
     }
   }
 
-  if (trx != nullptr) {
+  if (UNIV_UNLIKELY(trx != nullptr)) {
     ulint heap_no = page_rec_get_heap_no(rec);
 
     ut_ad(trx_is_referenced(trx));
@@ -5474,19 +5478,20 @@ dberr_t lock_sec_rec_read_check_and_lock(
   ut_ad(rec_offs_validate(rec, index, offsets));
   ut_ad(mode == LOCK_X || mode == LOCK_S);
 
-  if (srv_read_only_mode || index->table->is_temporary()) {
+  if (UNIV_UNLIKELY(srv_read_only_mode) ||
+      UNIV_UNLIKELY(index->table->is_temporary())) {
     return (DB_SUCCESS);
   }
 
   heap_no = page_rec_get_heap_no(rec);
 
-  if (!page_rec_is_supremum(rec)) {
+  if (UNIV_LIKELY(!page_rec_is_supremum(rec))) {
     lock_rec_convert_impl_to_expl(block, rec, index, offsets);
   }
   {
     locksys::Shard_latch_guard guard{UT_LOCATION_HERE, block->get_page_id()};
 
-    if (duration == lock_duration_t::AT_LEAST_STATEMENT) {
+    if (UNIV_UNLIKELY(duration == lock_duration_t::AT_LEAST_STATEMENT)) {
       lock_protect_locks_till_statement_end(thr);
     }
 
@@ -5538,7 +5543,7 @@ dberr_t lock_clust_rec_read_check_and_lock(
   {
     locksys::Shard_latch_guard guard{UT_LOCATION_HERE, block->get_page_id()};
 
-    if (duration == lock_duration_t::AT_LEAST_STATEMENT) {
+    if (UNIV_UNLIKELY(duration == lock_duration_t::AT_LEAST_STATEMENT)) {
       lock_protect_locks_till_statement_end(thr);
     }
 

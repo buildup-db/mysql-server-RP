@@ -913,7 +913,7 @@ ulint dict_index_get_nth_field_pos(
   a spatial index */
   bool is_mbr_fld = (n == 0 && dict_index_is_spatial(index2));
 
-  for (pos = 0; pos < n_fields; pos++) {
+  for (pos = 0; UNIV_LIKELY(pos < n_fields); pos++) {
     field = index->get_field(pos);
 
     /* The first field of a spatial index is a transformed
@@ -926,8 +926,9 @@ ulint dict_index_get_nth_field_pos(
     }
 
     if (field->col == field2->col &&
-        (field->prefix_len == 0 || (field->prefix_len >= field2->prefix_len &&
-                                    field2->prefix_len != 0))) {
+        (UNIV_LIKELY(field->prefix_len == 0) ||
+         (field->prefix_len >= field2->prefix_len &&
+          field2->prefix_len != 0))) {
       return (pos);
     }
   }
@@ -3069,7 +3070,7 @@ void dict_index_copy_types(dtuple_t *tuple, const dict_index_t *index,
                            ulint n_fields) {
   ulint i;
 
-  if (dict_index_is_ibuf(index)) {
+  if (UNIV_UNLIKELY(dict_index_is_ibuf(index))) {
     /* For IBUF index set field types explicitly. */
     for (ulint i = 0; i < n_fields; i++) {
       dtype_t *dfield_type = dfield_get_type(dtuple_get_nth_field(tuple, i));

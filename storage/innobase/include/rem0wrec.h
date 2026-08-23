@@ -76,7 +76,7 @@ inline ulint rec_get_nth_field_offs(const dict_index_t *index,
   ut_ad(n < rec_offs_n_fields(offsets));
   ut_ad(len);
 
-  if (n == 0) {
+  if (UNIV_LIKELY(n == 0)) {
     offs = 0;
   } else {
     offs = rec_offs_base(offsets)[n] & REC_OFFS_MASK;

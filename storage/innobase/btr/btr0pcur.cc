@@ -1,6 +1,7 @@
 /*****************************************************************************
 
 Copyright (c) 1996, 2026, Oracle and/or its affiliates.
+Copyright (c) 2026, buildup-db.
 
 This program is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License, version 2.0, as published by the
@@ -156,8 +157,8 @@ bool btr_pcur_t::restore_position(ulint latch_mode, mtr_t *mtr,
 
   auto index = get_btr_cur()->index;
 
-  if (UNIV_UNLIKELY(m_rel_pos == BTR_PCUR_AFTER_LAST_IN_TREE ||
-                    m_rel_pos == BTR_PCUR_BEFORE_FIRST_IN_TREE)) {
+  if (UNIV_UNLIKELY(m_rel_pos == BTR_PCUR_AFTER_LAST_IN_TREE) ||
+      UNIV_UNLIKELY(m_rel_pos == BTR_PCUR_BEFORE_FIRST_IN_TREE)) {
     /* In these cases we do not try an optimistic restoration,
     but always do a search */
 
@@ -179,17 +180,17 @@ bool btr_pcur_t::restore_position(ulint latch_mode, mtr_t *mtr,
 
   /* Optimistic latching involves S/X latch not required for
   intrinsic table instead we would prefer to search fresh. */
-  if (UNIV_LIKELY(
-          latch_mode == BTR_SEARCH_LEAF || latch_mode == BTR_MODIFY_LEAF ||
-          latch_mode == BTR_SEARCH_PREV || latch_mode == BTR_MODIFY_PREV) &&
+  if ((UNIV_LIKELY(latch_mode == BTR_SEARCH_LEAF) ||
+       latch_mode == BTR_MODIFY_LEAF || latch_mode == BTR_SEARCH_PREV ||
+       latch_mode == BTR_MODIFY_PREV) &&
       UNIV_LIKELY(!m_btr_cur.index->table->is_intrinsic())) {
     /* Try optimistic restoration. */
-    if (m_block_when_stored.run_with_hint([&](buf_block_t *hint) {
-          return hint != nullptr &&
+    if (UNIV_LIKELY(m_block_when_stored.run_with_hint([&](buf_block_t *hint) {
+          return UNIV_LIKELY(hint != nullptr) &&
                  btr_cur_optimistic_latch_leaves(
                      hint, m_modify_clock, &latch_mode, &m_btr_cur,
                      location.filename, location.line, mtr);
-        })) {
+        }))) {
       m_pos_state = BTR_PCUR_IS_POSITIONED;
 
       m_latch_mode = latch_mode;

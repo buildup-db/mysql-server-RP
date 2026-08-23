@@ -365,7 +365,7 @@ struct mtr_t {
 #endif /* UNIV_DEBUG */
 #ifndef UNIV_HOTBACKUP
     /* Safety check in case mtr is not committed. */
-    if (m_impl.m_state != MTR_STATE_INIT) {
+    if (UNIV_LIKELY(m_impl.m_state != MTR_STATE_INIT)) {
       check_nolog_and_unmark();
     }
 #endif /* !UNIV_HOTBACKUP */

@@ -687,7 +687,7 @@ Use MONITOR_DEC if appropriate mutex protection exists.
 #define MONITOR_ATOMIC_DEC(monitor) monitor_atomic_dec(monitor)
 
 inline void monitor_set_max_value(monitor_id_t monitor, mon_type_t value) {
-  if (value > MONITOR_MAX_VALUE(monitor)) {
+  if (UNIV_LIKELY(value > MONITOR_MAX_VALUE(monitor))) {
     MONITOR_MAX_VALUE(monitor) = value;
   }
 }
@@ -724,7 +724,7 @@ inline void monitor_inc_value_nocheck(monitor_id_t monitor, mon_type_t value,
   const auto new_value =
       MONITOR_VALUE(monitor).load(std::memory_order_relaxed) + value;
   MONITOR_VALUE(monitor).store(new_value, std::memory_order_relaxed);
-  if (set_max) {
+  if (UNIV_LIKELY(set_max)) {
     monitor_set_max_value(monitor, new_value);
   }
 }
