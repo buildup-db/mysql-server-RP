@@ -644,6 +644,9 @@ struct alignas(ut::INNODB_CACHE_LINE_SIZE) log_t {
   This is never set from true to false after log_start(). */
   std::atomic_bool m_allow_checkpoints;
 
+  /* If log_free_check() call should better be executed. */
+  std::atomic_bool free_check_is_required;
+
   /** Maximum lsn up to which there is free space in the redo log.
   Threads check this limit and compare to current lsn, when they
   are outside mini-transactions and hold no latches. The formula used

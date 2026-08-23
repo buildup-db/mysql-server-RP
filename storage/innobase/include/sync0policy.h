@@ -272,7 +272,7 @@ struct GenericPolicy
   void add(uint32_t n_spins, uint32_t n_waits) UNIV_NOTHROW {
     /* Currently global on/off. Keeps things simple and fast */
 
-    if (!m_count.m_enabled) {
+    if (UNIV_LIKELY(!m_count.m_enabled)) {
       return;
     }
 
@@ -396,7 +396,7 @@ class BlockMutexPolicy
   @param[in]    n_waits         Number of times the thread waited
                                   in some type of OS queue */
   void add(uint32_t n_spins, uint32_t n_waits) UNIV_NOTHROW {
-    if (!m_count->m_enabled) {
+    if (UNIV_LIKELY(!m_count->m_enabled)) {
       return;
     }
 

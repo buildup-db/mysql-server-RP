@@ -535,8 +535,8 @@ static inline sn_t log_buffer_s_lock_enter_reserve(log_t &log, size_t len) {
 #ifdef UNIV_PFS_RWLOCK
   PSI_rwlock_locker *locker = nullptr;
   PSI_rwlock_locker_state state;
-  if (UNIV_UNLIKELY(log.pfs_psi != nullptr)) {
-    if (log.pfs_psi->m_enabled) {
+  if (UNIV_LIKELY(log.pfs_psi != nullptr)) {
+    if (UNIV_UNLIKELY(log.pfs_psi->m_enabled)) {
       /* Instrumented to inform we are acquiring a shared rwlock */
       locker = PSI_RWLOCK_CALL(start_rwlock_rdwait)(
           &state, log.pfs_psi, PSI_RWLOCK_SHAREDLOCK, __FILE__,
@@ -551,6 +551,12 @@ static inline sn_t log_buffer_s_lock_enter_reserve(log_t &log, size_t len) {
     start_sn &= ~SN_LOCKED;
     /* log.sn is locked. Should wait for unlocked. */
     log_buffer_s_lock_wait(log, start_sn);
+  }
+
+  if (!log.free_check_is_required.load(std::memory_order_acquire) &&
+      log_translate_sn_to_lsn(start_sn + len) >
+          log.free_check_limit_lsn.load(std::memory_order_acquire)) {
+    log.free_check_is_required.store(true, std::memory_order_release);
   }
 
   ut_d(
@@ -571,8 +577,8 @@ static inline sn_t log_buffer_s_lock_enter_reserve(log_t &log, size_t len) {
 static inline void log_buffer_s_lock_exit_close(log_t &log, lsn_t start_lsn,
                                                 lsn_t end_lsn) {
 #ifdef UNIV_PFS_RWLOCK
-  if (UNIV_UNLIKELY(log.pfs_psi != nullptr)) {
-    if (log.pfs_psi->m_enabled) {
+  if (UNIV_LIKELY(log.pfs_psi != nullptr)) {
+    if (UNIV_UNLIKELY(log.pfs_psi->m_enabled)) {
       /* Inform performance schema we are unlocking the lock */
       PSI_RWLOCK_CALL(unlock_rwlock)
       (log.pfs_psi, PSI_RWLOCK_SHAREDUNLOCK);
@@ -590,8 +596,8 @@ void log_buffer_x_lock_enter(log_t &log) {
 #ifdef UNIV_PFS_RWLOCK
   PSI_rwlock_locker *locker = nullptr;
   PSI_rwlock_locker_state state;
-  if (UNIV_UNLIKELY(log.pfs_psi != nullptr)) {
-    if (log.pfs_psi->m_enabled) {
+  if (UNIV_LIKELY(log.pfs_psi != nullptr)) {
+    if (UNIV_UNLIKELY(log.pfs_psi->m_enabled)) {
       /* Record the acquisition of a read-write lock in exclusive
       mode in performance schema */
       locker = PSI_RWLOCK_CALL(start_rwlock_wrwait)(
@@ -650,7 +656,7 @@ void log_buffer_x_lock_enter(log_t &log) {
   ut_d(
       rw_lock_add_debug_info(log.sn_lock_inst, 0, RW_LOCK_X, UT_LOCATION_HERE));
 #ifdef UNIV_PFS_RWLOCK
-  if (locker != nullptr) {
+  if (UNIV_UNLIKELY(locker != nullptr)) {
     PSI_RWLOCK_CALL(end_rwlock_wrwait)(locker, 0);
   }
 #endif /* UNIV_PFS_RWLOCK */
@@ -662,8 +668,8 @@ void log_buffer_x_lock_exit(log_t &log) {
   log_sync_point("log_buffer_x_lock_exit_before_unlock");
 
 #ifdef UNIV_PFS_RWLOCK
-  if (UNIV_UNLIKELY(log.pfs_psi != nullptr)) {
-    if (log.pfs_psi->m_enabled) {
+  if (UNIV_LIKELY(log.pfs_psi != nullptr)) {
+    if (UNIV_UNLIKELY(log.pfs_psi->m_enabled)) {
       /* Inform performance schema we are unlocking the lock */
       PSI_RWLOCK_CALL(unlock_rwlock)
       (log.pfs_psi, PSI_RWLOCK_EXCLUSIVEUNLOCK);
@@ -868,7 +874,9 @@ Log_handle log_buffer_reserve(log_t &log, size_t len) {
 
   Dimitri and I have decided to change meaning of the counter
   to reflect mtr commit rate. */
-  srv_stats.log_write_requests.inc();
+  /* FIXME: This counting is disabled for now, because of expensive scaling
+   * cost. */
+  // srv_stats.log_write_requests.inc();
 
   ut_ad(srv_shutdown_state_matches([](auto state) {
     return state <= SRV_SHUTDOWN_FLUSH_PHASE ||
@@ -1306,7 +1314,7 @@ void log_advance_ready_for_write_lsn(log_t &log) {
 
   ut_a(previous_lsn >= write_lsn);
 
-  if (log.recent_written.advance_tail_until(stop_condition)) {
+  if (UNIV_UNLIKELY(log.recent_written.advance_tail_until(stop_condition))) {
     log_sync_point("log_advance_ready_for_write_before_update");
 
     /* Validation of recent_written is optional because

@@ -345,7 +345,7 @@ struct Add_dirty_blocks_to_flush_list {
       } else if (slot->type == MTR_MEMO_BUF_FIX) {
         buf_block_t *block;
         block = reinterpret_cast<buf_block_t *>(slot->object);
-        if (block->made_dirty_with_no_latch) {
+        if (UNIV_UNLIKELY(block->made_dirty_with_no_latch)) {
           add_dirty_page_to_flush_list(slot);
           block->made_dirty_with_no_latch = false;
         }

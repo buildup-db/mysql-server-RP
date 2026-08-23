@@ -254,11 +254,7 @@ lsn_t log_free_check_capacity(const log_t &log);
 @param[in]  log   redo log
 @return true iff log_free_check should be executed */
 inline bool log_free_check_is_required(const log_t &log) {
-  if (UNIV_UNLIKELY(srv_read_only_mode)) {
-    return false;
-  }
-  const lsn_t lsn = log_get_lsn(log);
-  return lsn > log.free_check_limit_lsn.load();
+  return log.free_check_is_required.load(std::memory_order_acquire);
 }
 
 /** Checks if log_free_check() call should better be executed.
