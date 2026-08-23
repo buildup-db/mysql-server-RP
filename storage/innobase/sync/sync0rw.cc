@@ -450,7 +450,8 @@ static inline bool rw_lock_x_lock_low(
     const char *file_name, /*!< in: file name where lock requested */
     ulint line)            /*!< in: line where requested */
 {
-  if (rw_lock_lock_word_decr(lock, X_LOCK_DECR, X_LOCK_HALF_DECR)) {
+  if (UNIV_LIKELY(
+          rw_lock_lock_word_decr(lock, X_LOCK_DECR, X_LOCK_HALF_DECR))) {
     /* lock->recursive == true implies that the lock->writer_thread is the
     current writer. As we are going to write our own thread id in that field it
     must be the case that the current writer_thread value is not the current

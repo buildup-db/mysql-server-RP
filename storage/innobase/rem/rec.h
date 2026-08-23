@@ -1007,7 +1007,8 @@ static inline enum REC_INSERT_STATE rec_init_null_and_len_comp(
   const enum REC_INSERT_STATE rec_insert_state =
       get_rec_insert_state(index, rec, false);
 
-  switch (rec_insert_state) {
+  switch (UNIV_EXPECT(rec_insert_state,
+                      INSERTED_INTO_TABLE_WITH_NO_INSTANT_NO_VERSION)) {
     case INSERTED_INTO_TABLE_WITH_NO_INSTANT_NO_VERSION: {
       ut_ad(!rec_get_instant_flag_new(rec));
       ut_ad(!rec_new_is_versioned(rec));
@@ -1099,7 +1100,7 @@ inline void rec_init_offsets_comp_ordinary(const rec_t *rec, bool temp,
   uint8_t row_version = UINT8_UNDEFINED;
   uint16_t non_default_fields = 0;
 
-  if (temp) {
+  if (UNIV_UNLIKELY(temp)) {
     rec_insert_state = rec_init_null_and_len_temp(
         rec, index, &nulls, &lens, &n_null, non_default_fields, row_version);
   } else {
@@ -1224,7 +1225,7 @@ inline void rec_init_offsets_comp_ordinary(const rec_t *rec, bool temp,
     }
 
     if (UNIV_UNLIKELY(!field->fixed_len) ||
-        (temp && !col->get_fixed_size(temp))) {
+        (UNIV_UNLIKELY(temp) && !col->get_fixed_size(temp))) {
       ut_ad(col->mtype != DATA_POINT);
       /* Variable-length field: read the length */
       len = *lens--;

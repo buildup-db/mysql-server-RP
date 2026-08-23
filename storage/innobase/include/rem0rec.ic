@@ -1025,7 +1025,7 @@ static inline const byte *rec_get_nth_field_instant(const rec_t *rec,
   /* nullptr for index as n is physical here */
   ulint off = rec_get_nth_field_offs(nullptr, offsets, n, len);
 
-  if (*len != UNIV_SQL_ADD_COL_DEFAULT && *len != UNIV_SQL_INSTANT_DROP_COL) {
+  if (UNIV_LIKELY(*len != UNIV_SQL_ADD_COL_DEFAULT) && UNIV_LIKELY(*len != UNIV_SQL_INSTANT_DROP_COL)) {
     return (rec + off);
   }
 

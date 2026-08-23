@@ -859,7 +859,7 @@ static inline Rec_instant_state rec_convert_dtuple_to_rec_comp(
       const dtype_t *type = dfield_get_type(field);
       uint32_t len = dfield_get_len(field);
 
-      if (!(dtype_get_prtype(type) & DATA_NOT_NULL)) {
+      if (UNIV_UNLIKELY(!(dtype_get_prtype(type) & DATA_NOT_NULL))) {
         /* It's a nullable field */
         ut_ad(n_null--);
 
@@ -899,7 +899,7 @@ static inline Rec_instant_state rec_convert_dtuple_to_rec_comp(
       bytes, the actual length is stored in one byte for
       0..127.  The length will be encoded in two bytes when
       it is 128 or more, or when the field is stored externally. */
-      if (UNIV_LIKELY(fixed_len)) {
+      if (fixed_len) {
 #ifdef UNIV_DEBUG
         ulint mbminlen = DATA_MBMINLEN(col->mbminmaxlen);
         ulint mbmaxlen = DATA_MBMAXLEN(col->mbminmaxlen);
@@ -908,7 +908,7 @@ static inline Rec_instant_state rec_convert_dtuple_to_rec_comp(
         ut_ad(!mbmaxlen || len >= mbminlen * (fixed_len / mbmaxlen));
         ut_ad(!dfield_is_ext(field));
 #endif /* UNIV_DEBUG */
-      } else if (dfield_is_ext(field)) {
+      } else if (UNIV_UNLIKELY(dfield_is_ext(field))) {
         ut_ad(index->is_clustered());
         ut_ad(DATA_BIG_COL(col));
         ut_ad(len <=
@@ -925,7 +925,7 @@ static inline Rec_instant_state rec_convert_dtuple_to_rec_comp(
               DATA_LARGE_MTYPE(dtype_get_mtype(type)) ||
               !strcmp(index->name, FTS_INDEX_TABLE_IND_NAME));
 #endif /* !UNIV_HOTBACKUP */
-        if (len < 128 ||
+        if (UNIV_LIKELY(len < 128) ||
             !DATA_BIG_LEN_MTYPE(dtype_get_len(type), dtype_get_mtype(type))) {
           *lens = (byte)len;
           lens--;
