@@ -136,14 +136,14 @@ class Bitset {
     d) unaligned m_bitset -> handle partial word recursively (b), and the
     aligned rest recursively (a, b or c).
     Note that in most important usages of this class m_bitset is aligned. */
-    if (m_size_bytes * 8 <= start_pos) {
+    if (UNIV_UNLIKELY(m_size_bytes * 8 <= start_pos)) {
       return NOT_FOUND;
     }
     if (m_size_bytes <= 8) {
       const uint64_t all = to_uint64();
       const uint64_t earlier = (uint64_t{1} << start_pos) - 1;
       const uint64_t unseen = all & ~earlier;
-      if (unseen) {
+      if (UNIV_UNLIKELY(unseen)) {
         return std::countr_zero(unseen);
       }
       return NOT_FOUND;
@@ -155,12 +155,12 @@ class Bitset {
       auto found = bytes_subspan(offset / 8).find_set(start_pos - offset);
       return found == NOT_FOUND ? found : found + offset;
     };
-    if (start_word_byte_idx == 0) {
+    if (UNIV_LIKELY(start_word_byte_idx == 0)) {
       // the middle of the m_bitset consists of uint64_t elements
       auto *words = reinterpret_cast<const uint64_t *>(m_data);
       size_t word_idx = start_pos / 64;
       const auto full_words_count = m_size_bytes / 8;
-      if (word_idx < full_words_count) {
+      if (UNIV_LIKELY(word_idx < full_words_count)) {
         const uint64_t earlier = (uint64_t{1} << start_pos % 64) - 1;
         const uint64_t unseen = to_uint64(m_data + word_idx * 8) & ~earlier;
         if (unseen) {

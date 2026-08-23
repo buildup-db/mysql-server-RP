@@ -540,7 +540,7 @@ struct TTASEventMutex {
       above. Otherwise we could have simply done the extra
       spin above. */
 
-      if (wait(filename, line, 4)) {
+      if (UNIV_UNLIKELY(wait(filename, line, 4))) {
         n_spins += 4;
 
         break;

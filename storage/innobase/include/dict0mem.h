@@ -913,7 +913,7 @@ struct dict_field_t {
   unsigned is_ascending : 1; /*!< 0=DESC, 1=ASC */
 
   uint16_t get_phy_pos() const {
-    if (prefix_len != 0) {
+    if (UNIV_UNLIKELY(prefix_len != 0)) {
       return col->get_prefix_phy_pos();
     }
 

@@ -503,7 +503,7 @@ struct OSMutex {
 
     ret = pthread_mutex_destroy(&m_mutex);
 
-    if (ret != 0) {
+    if (UNIV_UNLIKELY(ret != 0)) {
 #ifdef UNIV_NO_ERR_MSGS
       ib::error()
 #else

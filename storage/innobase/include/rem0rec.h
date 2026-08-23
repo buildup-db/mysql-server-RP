@@ -314,7 +314,7 @@ class Rec_offsets : private ut::Non_copyable {
   }
   /** Deallocated dynamically allocated memory, if any. */
   ~Rec_offsets() {
-    if (m_heap) {
+    if (UNIV_UNLIKELY(m_heap != nullptr)) {
       mem_heap_free(m_heap);
       m_heap = nullptr;
     }

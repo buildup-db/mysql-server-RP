@@ -164,16 +164,16 @@ class ReadView {
                                      const table_name_t &name) const {
     ut_ad(id > 0);
 
-    if (id < m_up_limit_id || id == m_creator_trx_id) {
+    if (UNIV_LIKELY(id < m_up_limit_id) || id == m_creator_trx_id) {
       return (true);
     }
 
     check_trx_id_sanity(id, name);
 
-    if (id >= m_low_limit_id) {
+    if (UNIV_LIKELY(id >= m_low_limit_id)) {
       return (false);
 
-    } else if (m_ids.empty()) {
+    } else if (UNIV_UNLIKELY(m_ids.empty())) {
       return (true);
     }
 

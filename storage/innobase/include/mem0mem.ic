@@ -158,7 +158,7 @@ static inline void *mem_heap_alloc(mem_heap_t *heap, ulint n) {
                     mem_block_get_free(block) + MEM_SPACE_NEEDED(n))) {
     block = mem_heap_add_block(heap, n);
 
-    if (block == nullptr) {
+    if (UNIV_UNLIKELY(block == nullptr)) {
       return (nullptr);
     }
   }
@@ -228,7 +228,7 @@ static inline void mem_heap_free_heap_top(mem_heap_t *heap, byte *old_top) {
 
   block = UT_LIST_GET_LAST(heap->base);
 
-  while (block != nullptr) {
+  while (UNIV_LIKELY(block != nullptr)) {
     if (((byte *)block + mem_block_get_free(block) >= old_top) &&
         ((byte *)block <= old_top)) {
       /* Found the right block */
@@ -248,7 +248,7 @@ static inline void mem_heap_free_heap_top(mem_heap_t *heap, byte *old_top) {
 
   ut_ad(block);
 
-  if (old_top == (byte *)block + mem_block_get_free(block)) {
+  if (UNIV_LIKELY(old_top == (byte *)block + mem_block_get_free(block))) {
     return;
   }
 
@@ -280,7 +280,7 @@ static inline void mem_heap_empty(mem_heap_t *heap) {
   mem_heap_free_heap_top(heap, (byte *)heap + mem_block_get_start(heap));
 #ifndef UNIV_HOTBACKUP
 #ifndef UNIV_LIBRARY
-  if (heap->free_block) {
+  if (UNIV_UNLIKELY(heap->free_block != nullptr)) {
     mem_heap_free_block_free(heap);
   }
 #endif /* !UNIV_LIBRARY */

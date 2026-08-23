@@ -1127,7 +1127,7 @@ void run_if_waiting(const TrxVersion trx_version, F &&f) {
 template <typename F>
 lock_t *Locks_hashtable::find_in_cell(size_t cell_id, F &&f) {
   lock_t *lock = (lock_t *)hash_get_first(ht.get(), cell_id);
-  while (UNIV_UNLIKELY(lock != nullptr)) {
+  while (UNIV_LIKELY(lock != nullptr)) {
     ut_ad(locksys::owns_lock_shard(lock));
     // f(lock) might remove the lock from list, so we must save the next pointer
     lock_t *next = lock->hash;
@@ -1158,7 +1158,7 @@ template <typename F>
 lock_t *Locks_hashtable::find_on_record(const struct RecID &rec_id, F &&f) {
   return find_in_cell(
       hash_calc_cell_id(rec_id.hash_value(), ht.get()), [&](lock_t *lock) {
-        return UNIV_LIKELY(rec_id.matches(lock)) && std::forward<F>(f)(lock);
+        return UNIV_UNLIKELY(rec_id.matches(lock)) && std::forward<F>(f)(lock);
       });
 }
 #ifdef UNIV_DEBUG
