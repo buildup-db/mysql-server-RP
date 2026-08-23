@@ -88,7 +88,7 @@ struct buf_chunk_t {
     middle (non-zero offset) of the buf_block_t struct.
     The only 100% sure and compliant way to implement this function would be a
     loop over all blocks inside the chunk, which is too slow. */
-    return std::less_equal<const buf_block_t *>{}(blocks, ptr) &&
+    return UNIV_LIKELY(std::less_equal<const buf_block_t *>{}(blocks, ptr)) &&
            std::less<const buf_block_t *>{}(ptr, blocks + size);
   }
 };
@@ -181,7 +181,7 @@ NOTE: does not reserve the LRU list mutex.
 static inline bool buf_page_peek_if_too_old(const buf_page_t *bpage) {
   buf_pool_t *buf_pool = buf_pool_from_bpage(bpage);
 
-  if (buf_pool->freed_page_clock == 0) {
+  if (UNIV_LIKELY(buf_pool->freed_page_clock == 0)) {
     /* If eviction has not started yet, do not update the
     statistics or move blocks in the LRU list.  This is
     either the warm-up phase or an in-memory workload. */
@@ -571,7 +571,8 @@ static inline void buf_page_set_accessed(
 
   ut_a(buf_page_in_file(bpage));
 
-  if (bpage->access_time == std::chrono::steady_clock::time_point{}) {
+  if (UNIV_UNLIKELY(bpage->access_time ==
+                    std::chrono::steady_clock::time_point{})) {
     /* Make this the time of the first access. */
     bpage->access_time = std::chrono::steady_clock::now();
   }

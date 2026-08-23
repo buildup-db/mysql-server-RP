@@ -148,7 +148,7 @@ inline void row_upd_rec_sys_fields(rec_t *rec, page_zip_des_t *page_zip,
   } else {
     ulint offset = index->trx_id_offset;
 
-    if (!offset) {
+    if (UNIV_UNLIKELY(!offset)) {
       offset = row_get_trx_id_offset(index, offsets);
     }
 

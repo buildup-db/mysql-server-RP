@@ -556,7 +556,7 @@ static inline sn_t log_buffer_s_lock_enter_reserve(log_t &log, size_t len) {
   ut_d(
       rw_lock_add_debug_info(log.sn_lock_inst, 0, RW_LOCK_S, UT_LOCATION_HERE));
 #ifdef UNIV_PFS_RWLOCK
-  if (locker != nullptr) {
+  if (UNIV_UNLIKELY(locker != nullptr)) {
     PSI_RWLOCK_CALL(end_rwlock_rdwait)(locker, 0);
   }
 #endif /* UNIV_PFS_RWLOCK */

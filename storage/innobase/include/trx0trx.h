@@ -1427,7 +1427,7 @@ class TrxInInnoDB {
 
     const auto trx_state = trx->state.load(std::memory_order_relaxed);
 
-    if (trx_state == TRX_STATE_NOT_STARTED) {
+    if (UNIV_UNLIKELY(trx_state == TRX_STATE_NOT_STARTED)) {
       return (false);
     }
 

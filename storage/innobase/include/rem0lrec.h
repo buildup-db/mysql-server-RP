@@ -204,7 +204,7 @@ static inline ulint rec_offs_nth_default_low(const ulint *offsets, ulint n) {
 @param[in]  n       index of the field
 @return length of field */
 static inline ulint rec_offs_nth_size_low(const ulint *offsets, ulint n) {
-  if (!n) {
+  if (UNIV_UNLIKELY(!n)) {
     return (rec_offs_base(offsets)[1 + n] & REC_OFFS_MASK);
   }
   return ((rec_offs_base(offsets)[1 + n] - rec_offs_base(offsets)[n]) &
@@ -240,7 +240,7 @@ static inline void rec_set_nth_field_low(rec_t *rec, const ulint *offsets,
     return n_drop;
   };
 
-  if (len == UNIV_SQL_NULL) {
+  if (UNIV_UNLIKELY(len == UNIV_SQL_NULL)) {
     if (!rec_offs_nth_sql_null_low(offsets, n)) {
       ut_a(!rec_offs_comp(offsets));
       ulint n_drop = rec_old_is_versioned(rec) ? fn(offsets, n) : 0;

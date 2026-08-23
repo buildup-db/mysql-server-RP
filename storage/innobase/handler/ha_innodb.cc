@@ -1843,7 +1843,7 @@ static inline dberr_t innobase_srv_conc_enter_innodb(row_prebuilt_t *prebuilt) {
   dberr_t err = DB_SUCCESS;
   trx_t *trx = prebuilt->trx;
 
-  if (srv_thread_concurrency) {
+  if (UNIV_UNLIKELY(srv_thread_concurrency)) {
     if (trx->n_tickets_to_enter_innodb > 0) {
       /* If trx has 'free tickets' to enter the engine left,
       then use one such ticket */
@@ -1885,7 +1885,7 @@ static inline void innobase_srv_conc_exit_innodb(row_prebuilt_t *prebuilt) {
 #endif /* UNIV_DEBUG */
 
   /* This is to avoid making an unnecessary function call. */
-  if (trx->declared_to_be_inside_innodb &&
+  if (UNIV_UNLIKELY(trx->declared_to_be_inside_innodb) &&
       trx->n_tickets_to_enter_innodb == 0) {
     srv_conc_force_exit_innodb(trx);
   }
@@ -2066,7 +2066,7 @@ static inline void add_table_to_thread_cache(dict_table_t *table,
 inline void innobase_active_small(void) {
   innobase_active_counter++;
 
-  if ((innobase_active_counter % INNOBASE_WAKE_INTERVAL) == 0) {
+  if (UNIV_UNLIKELY((innobase_active_counter % INNOBASE_WAKE_INTERVAL) == 0)) {
     srv_active_wake_master_thread();
   }
 }
@@ -2079,7 +2079,7 @@ by a lock wait timeout or a deadlock.
 @param[in]  thd     MySQL thread or NULL.
 @return MySQL error code */
 int convert_error_code_to_mysql(dberr_t error, uint32_t flags, THD *thd) {
-  switch (error) {
+  switch (UNIV_EXPECT(error, DB_SUCCESS)) {
     case DB_SUCCESS:
       return (0);
 
@@ -9602,7 +9602,7 @@ static dberr_t calc_row_difference(
   /* We use upd_buff to convert changed fields */
   buf = (byte *)upd_buff;
 
-  for (i = 0; i < n_fields; i++) {
+  for (i = 0; UNIV_LIKELY(i < n_fields); i++) {
     dfield.reset();
 
     field = table->field[i];
@@ -9681,7 +9681,7 @@ static dberr_t calc_row_difference(
       }
     }
 
-    if (field->is_nullable()) {
+    if (UNIV_UNLIKELY(field->is_nullable())) {
       if (field->is_null_in_record(old_row)) {
         o_len = UNIV_SQL_NULL;
       }
@@ -9761,21 +9761,22 @@ static dberr_t calc_row_difference(
     Same procedure with cmp_data() in rem/rem0cmp.cc */
     bool changed;
 
-    if (o_len != n_len) {
+    if (UNIV_UNLIKELY(o_len != n_len)) {
       changed = true;
-    } else if (o_len == UNIV_SQL_NULL || o_len == 0) {
+    } else if (UNIV_UNLIKELY(o_len == UNIV_SQL_NULL) ||
+               UNIV_UNLIKELY(o_len == 0)) {
       changed = false;
     } else {
       ulint len = o_len;
       const byte *data1 = o_ptr;
       const byte *data2 = n_ptr;
       changed = false;
-      for (ulint i = 4 + (len & 3); i > 0; i--) {
+      for (ulint i = 4 + (len & 3); UNIV_LIKELY(i > 0); i--) {
         if ((*data1++) != (*data2++)) {
           changed = true;
           break;
         }
-        if (!--len) {
+        if (UNIV_UNLIKELY(!--len)) {
           break;
         }
       }
@@ -9810,7 +9811,8 @@ static dberr_t calc_row_difference(
       /* If the length of new geometry object is 0, means
       this object is invalid geometry object, we need
       to block it. */
-      if (DATA_GEOMETRY_MTYPE(col_type) && o_len != 0 && n_len == 0) {
+      if (UNIV_UNLIKELY(DATA_GEOMETRY_MTYPE(col_type)) && o_len != 0 &&
+          n_len == 0) {
         return (DB_CANT_CREATE_GEOMETRY_OBJECT);
       }
 
@@ -9842,7 +9844,7 @@ static dberr_t calc_row_difference(
                                                        col_pack_len, comp);
         }
 
-        if (multi_value_calc_by_diff) {
+        if (UNIV_UNLIKELY(multi_value_calc_by_diff)) {
           dfield_copy(&ufield->new_val, &new_field);
         } else {
           dfield_copy(&ufield->new_val, &dfield);
@@ -10054,14 +10056,15 @@ int ha_innobase::update_row(const uchar *old_row, uchar *new_row) {
 
   ut_a(m_prebuilt->trx == trx);
 
-  if (high_level_read_only && !m_prebuilt->table->is_intrinsic()) {
+  if (UNIV_UNLIKELY(high_level_read_only) &&
+      !m_prebuilt->table->is_intrinsic()) {
     ib_senderrf(ha_thd(), IB_LOG_LEVEL_WARN, ER_READ_ONLY_MODE);
     return HA_ERR_TABLE_READONLY;
-  } else if (!trx_is_started(trx)) {
+  } else if (UNIV_UNLIKELY(!trx_is_started(trx))) {
     ++trx->will_lock;
   }
 
-  if (m_upd_buf == nullptr) {
+  if (UNIV_UNLIKELY(m_upd_buf == nullptr)) {
     ut_ad(m_upd_buf_size == 0);
 
     /* Create a buffer for packing the fields of a record. Why
@@ -10085,7 +10088,7 @@ int ha_innobase::update_row(const uchar *old_row, uchar *new_row) {
 
   upd_t *uvect;
 
-  if (m_prebuilt->upd_node) {
+  if (UNIV_LIKELY(m_prebuilt->upd_node)) {
     uvect = m_prebuilt->upd_node->update;
   } else {
     uvect = row_get_prebuilt_update_vector(m_prebuilt);
@@ -10104,7 +10107,8 @@ int ha_innobase::update_row(const uchar *old_row, uchar *new_row) {
     goto func_exit;
   }
 
-  if (!m_prebuilt->table->is_intrinsic() && TrxInInnoDB::is_aborted(trx)) {
+  if (!m_prebuilt->table->is_intrinsic() &&
+      UNIV_UNLIKELY(TrxInInnoDB::is_aborted(trx))) {
     innobase_rollback(ht, m_user_thd, false);
 
     return convert_error_code_to_mysql(DB_FORCED_ABORT, 0, m_user_thd);
@@ -10121,7 +10125,7 @@ int ha_innobase::update_row(const uchar *old_row, uchar *new_row) {
 
   error = row_update_for_mysql((byte *)old_row, m_prebuilt);
 
-  if (dict_table_has_autoinc_col(m_prebuilt->table)) {
+  if (UNIV_LIKELY(dict_table_has_autoinc_col(m_prebuilt->table))) {
     new_counter = row_upd_get_new_autoinc_counter(
         uvect, m_prebuilt->table->autoinc_field_no);
   } else {
@@ -10139,9 +10143,10 @@ int ha_innobase::update_row(const uchar *old_row, uchar *new_row) {
   MySQL in the UPDATE statement, which can be different from the
   value used in the INSERT statement. */
 
-  if (error == DB_SUCCESS &&
-      (new_counter != 0 ||
-       (table->next_number_field && new_row == table->record[0] &&
+  if (UNIV_LIKELY(error == DB_SUCCESS) &&
+      (UNIV_UNLIKELY(new_counter != 0) ||
+       (UNIV_UNLIKELY(table->next_number_field) &&
+        new_row == table->record[0] &&
         thd_sql_command(m_user_thd) == SQLCOM_INSERT &&
         m_prebuilt->allow_duplicates()))) {
     ulonglong auto_inc;
@@ -10180,7 +10185,7 @@ func_exit:
       convert_error_code_to_mysql(error, m_prebuilt->table->flags, m_user_thd);
 
   /* If success and no columns were updated. */
-  if (err == 0 && uvect->n_fields == 0) {
+  if (UNIV_LIKELY(err == 0) && UNIV_UNLIKELY(uvect->n_fields == 0)) {
     /* This is the same as success, but instructs
     MySQL that the row is not really updated and it
     should not increase the count of updated rows.
@@ -10821,7 +10826,7 @@ int ha_innobase::general_fetch(
 
   bool intrinsic = m_prebuilt->table->is_intrinsic();
 
-  if (!intrinsic && TrxInInnoDB::is_aborted(trx)) {
+  if (!intrinsic && UNIV_UNLIKELY(TrxInInnoDB::is_aborted(trx))) {
     innobase_rollback(ht, m_user_thd, false);
 
     return convert_error_code_to_mysql(DB_FORCED_ABORT, 0, m_user_thd);
@@ -10846,10 +10851,10 @@ int ha_innobase::general_fetch(
 
   int error;
 
-  switch (ret) {
+  switch (UNIV_EXPECT(ret, DB_SUCCESS)) {
     case DB_SUCCESS:
       error = 0;
-      if (m_prebuilt->table->is_system_table) {
+      if (UNIV_UNLIKELY(m_prebuilt->table->is_system_table)) {
         srv_stats.n_system_rows_read.add(
             thd_get_thread_id(m_prebuilt->trx->mysql_thd), 1);
       } else {

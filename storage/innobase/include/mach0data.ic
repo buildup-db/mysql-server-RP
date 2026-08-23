@@ -429,7 +429,7 @@ static inline ulint mach_u64_write_much_compressed(
 
   ut_ad(b);
 
-  if (!(n >> 32)) {
+  if (UNIV_LIKELY(!(n >> 32))) {
     return (mach_write_compressed(b, (ulint)n));
   }
 

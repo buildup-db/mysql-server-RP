@@ -1428,7 +1428,7 @@ static void trx_start_low(
   } else {
     trx->id = 0;
 
-    if (!trx_is_autocommit_non_locking(trx)) {
+    if (UNIV_UNLIKELY(!trx_is_autocommit_non_locking(trx))) {
       /* If this is a read-only transaction that is writing
       to a temporary table then it needs a transaction id
       to write to the temporary table. */
@@ -3333,14 +3333,15 @@ trx_t *trx_get_trx_by_xid(const XID *xid) {
 @param[in] read_write True if read write transaction */
 void trx_start_if_not_started_xa_low(trx_t *trx, bool read_write) {
   ut_ad(trx_can_be_handled_by_current_thread_or_is_hp_victim(trx));
-  switch (trx->state.load(std::memory_order_relaxed)) {
+  switch (UNIV_EXPECT(trx->state.load(std::memory_order_relaxed),
+                      TRX_STATE_ACTIVE)) {
     case TRX_STATE_NOT_STARTED:
     case TRX_STATE_FORCED_ROLLBACK:
       trx_start_low(trx, read_write);
       return;
 
     case TRX_STATE_ACTIVE:
-      if (trx->id == 0 && read_write) {
+      if (UNIV_UNLIKELY(trx->id == 0) && read_write) {
         /* If the transaction is tagged as read-only then
         it can only write to temp tables and for such
         transactions we don't want to move them to the
@@ -3365,7 +3366,8 @@ void trx_start_if_not_started_xa_low(trx_t *trx, bool read_write) {
 @param[in] read_write True if read write transaction */
 void trx_start_if_not_started_low(trx_t *trx, bool read_write) {
   ut_ad(trx_can_be_handled_by_current_thread_or_is_hp_victim(trx));
-  switch (trx->state.load(std::memory_order_relaxed)) {
+  switch (UNIV_EXPECT(trx->state.load(std::memory_order_relaxed),
+                      TRX_STATE_ACTIVE)) {
     case TRX_STATE_NOT_STARTED:
     case TRX_STATE_FORCED_ROLLBACK:
 
@@ -3374,7 +3376,7 @@ void trx_start_if_not_started_low(trx_t *trx, bool read_write) {
 
     case TRX_STATE_ACTIVE:
 
-      if (read_write && trx->id == 0 && !trx->read_only) {
+      if (read_write && UNIV_UNLIKELY(trx->id == 0) && !trx->read_only) {
         trx_set_rw_mode(trx);
       }
       return;
@@ -3463,7 +3465,7 @@ void trx_set_rw_mode(trx_t *trx) /*!< in/out: transaction that is RW */
 }
 
 void trx_kill_blocking(trx_t *trx) {
-  if (!trx_is_high_priority(trx)) {
+  if (UNIV_LIKELY(!trx_is_high_priority(trx))) {
     return;
   }
   hit_list_t hit_list;

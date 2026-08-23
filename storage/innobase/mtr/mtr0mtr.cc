@@ -238,41 +238,38 @@ bool mtr_t::conflicts_with(const mtr_t *mtr2) const {
 /** Release latches and decrement the buffer fix count.
 @param[in]      slot    memo slot */
 static void memo_slot_release(mtr_memo_slot_t *slot) {
-  switch (slot->type) {
+  if (UNIV_LIKELY(slot->type <= MTR_MEMO_BUF_FIX)) {
 #ifndef UNIV_HOTBACKUP
     buf_block_t *block;
 #endif /* !UNIV_HOTBACKUP */
 
-    case MTR_MEMO_BUF_FIX:
-    case MTR_MEMO_PAGE_S_FIX:
-    case MTR_MEMO_PAGE_SX_FIX:
-    case MTR_MEMO_PAGE_X_FIX:
 #ifndef UNIV_HOTBACKUP
-      block = reinterpret_cast<buf_block_t *>(slot->object);
+    block = reinterpret_cast<buf_block_t *>(slot->object);
 
-      buf_page_release_latch(block, slot->type);
-      /* The buf_page_release_latch(block,..) call was last action dereferencing
-      the `block`, so we can unfix the `block` now, but not sooner.*/
-      buf_block_unfix(block);
+    buf_page_release_latch(block, slot->type);
+    /* The buf_page_release_latch(block,..) call was last action dereferencing
+    the `block`, so we can unfix the `block` now, but not sooner.*/
+    buf_block_unfix(block);
 #endif /* !UNIV_HOTBACKUP */
-      break;
+  } else {
+    switch (UNIV_EXPECT(slot->type, MTR_MEMO_X_LOCK)) {
+      case MTR_MEMO_S_LOCK:
+        rw_lock_s_unlock(reinterpret_cast<rw_lock_t *>(slot->object));
+        break;
 
-    case MTR_MEMO_S_LOCK:
-      rw_lock_s_unlock(reinterpret_cast<rw_lock_t *>(slot->object));
-      break;
+      case MTR_MEMO_SX_LOCK:
+        rw_lock_sx_unlock(reinterpret_cast<rw_lock_t *>(slot->object));
+        break;
 
-    case MTR_MEMO_SX_LOCK:
-      rw_lock_sx_unlock(reinterpret_cast<rw_lock_t *>(slot->object));
-      break;
-
-    case MTR_MEMO_X_LOCK:
-      rw_lock_x_unlock(reinterpret_cast<rw_lock_t *>(slot->object));
-      break;
+      case MTR_MEMO_X_LOCK:
+        rw_lock_x_unlock(reinterpret_cast<rw_lock_t *>(slot->object));
+        break;
 
 #ifdef UNIV_DEBUG
-    default:
-      ut_ad(slot->type == MTR_MEMO_MODIFY);
+      default:
+        ut_ad(slot->type == MTR_MEMO_MODIFY);
 #endif /* UNIV_DEBUG */
+    }
   }
 
   slot->object = nullptr;
@@ -282,7 +279,7 @@ static void memo_slot_release(mtr_memo_slot_t *slot) {
 struct Release_all {
   /** @return true always. */
   bool operator()(mtr_memo_slot_t *slot) const {
-    if (slot->object != nullptr) {
+    if (UNIV_LIKELY(slot->object != nullptr)) {
       memo_slot_release(slot);
     }
 
@@ -340,7 +337,7 @@ struct Add_dirty_blocks_to_flush_list {
 
   /** @return true always. */
   bool operator()(mtr_memo_slot_t *slot) const {
-    if (slot->object != nullptr) {
+    if (UNIV_LIKELY(slot->object != nullptr)) {
       if (UNIV_LIKELY(slot->type == MTR_MEMO_PAGE_X_FIX) ||
           UNIV_LIKELY(slot->type == MTR_MEMO_PAGE_SX_FIX)) {
         add_dirty_page_to_flush_list(slot);
@@ -666,7 +663,8 @@ void mtr_t::commit() {
   Command cmd(this);
 
   if (has_any_log_record() ||
-      (has_modifications() && m_impl.m_log_mode == MTR_LOG_NO_REDO)) {
+      (has_modifications() &&
+       UNIV_UNLIKELY(m_impl.m_log_mode == MTR_LOG_NO_REDO))) {
     ut_ad(!srv_read_only_mode || m_impl.m_log_mode == MTR_LOG_NO_REDO);
 
     cmd.execute();
@@ -787,7 +785,7 @@ ulint mtr_t::Command::prepare_write() {
   /* This was not the first time of dirtying a
   tablespace since the latest checkpoint. */
 
-  if (n_recs <= 1) {
+  if (UNIV_LIKELY(n_recs <= 1)) {
     ut_ad(n_recs == 1);
 
     /* Flag the single log record as the
@@ -842,7 +840,7 @@ void mtr_t::Command::execute() {
 #ifndef UNIV_HOTBACKUP
   ulint len = prepare_write();
 
-  if (len > 0) {
+  if (UNIV_LIKELY(len > 0)) {
     mtr_write_log_t write_log;
 
     write_log.m_left_to_write = len;

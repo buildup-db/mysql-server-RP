@@ -90,7 +90,7 @@ static inline void trx_undof_page_add_undo_rec_log(
   mach_write_to_2(log_ptr, len);
   log_ptr += 2;
 
-  if (log_ptr + len <= log_end) {
+  if (UNIV_LIKELY(log_ptr + len <= log_end)) {
     memcpy(log_ptr, undo_page + old_free + 2, len);
     mlog_close(mtr, log_ptr + len);
   } else {
@@ -259,7 +259,7 @@ static byte *trx_undo_log_v_idx(page_t *undo_page, const dict_table_t *table,
   1 byte for undo log record format version marker */
   ulint size = n_idx * (11 + 5) + 5 + 2 + (first_v_col ? 1 : 0);
 
-  if (trx_undo_left(undo_page, ptr) < size) {
+  if (UNIV_UNLIKELY(trx_undo_left(undo_page, ptr) < size)) {
     return (nullptr);
   }
 
@@ -387,7 +387,7 @@ static bool trx_undo_store_multi_value(page_t *undo_page,
       dfield_get_len(vfield));
   uint32_t log_len = mv_logger.get_log_len(false);
 
-  if (trx_undo_left(undo_page, *ptr) < log_len) {
+  if (UNIV_UNLIKELY(trx_undo_left(undo_page, *ptr) < log_len)) {
     return (false);
   }
 
@@ -408,7 +408,7 @@ static bool trx_undo_report_insert_virtual(page_t *undo_page,
   byte *start = *ptr;
   bool first_v_col = true;
 
-  if (trx_undo_left(undo_page, *ptr) < 2) {
+  if (UNIV_UNLIKELY(trx_undo_left(undo_page, *ptr) < 2)) {
     return (false);
   }
 
@@ -424,7 +424,7 @@ static bool trx_undo_report_insert_virtual(page_t *undo_page,
 
     if (col->m_col.ord_part) {
       /* make sure enough space to write the length */
-      if (trx_undo_left(undo_page, *ptr) < 5) {
+      if (UNIV_UNLIKELY(trx_undo_left(undo_page, *ptr) < 5)) {
         return (false);
       }
 
@@ -456,7 +456,7 @@ static bool trx_undo_report_insert_virtual(page_t *undo_page,
           flen = max_len;
         }
 
-        if (trx_undo_left(undo_page, *ptr) < flen + 5) {
+        if (UNIV_UNLIKELY(trx_undo_left(undo_page, *ptr) < flen + 5)) {
           return (false);
         }
         *ptr += mach_write_compressed(*ptr, flen);
@@ -464,7 +464,7 @@ static bool trx_undo_report_insert_virtual(page_t *undo_page,
         ut_memcpy(*ptr, vfield->data, flen);
         *ptr += flen;
       } else {
-        if (trx_undo_left(undo_page, *ptr) < 5) {
+        if (UNIV_UNLIKELY(trx_undo_left(undo_page, *ptr) < 5)) {
           return (false);
         }
 
@@ -503,7 +503,7 @@ static ulint trx_undo_page_report_insert(
 
   ut_ad(first_free <= UNIV_PAGE_SIZE);
 
-  if (trx_undo_left(undo_page, ptr) < 2 + 1 + 11 + 11) {
+  if (UNIV_UNLIKELY(trx_undo_left(undo_page, ptr) < 2 + 1 + 11 + 11)) {
     /* Not enough space for writing the general parameters */
 
     return (0);
@@ -524,14 +524,14 @@ static ulint trx_undo_page_report_insert(
     const dfield_t *field = dtuple_get_nth_field(clust_entry, i);
     ulint flen = dfield_get_len(field);
 
-    if (trx_undo_left(undo_page, ptr) < 5) {
+    if (UNIV_UNLIKELY(trx_undo_left(undo_page, ptr) < 5)) {
       return (0);
     }
 
     ptr += mach_write_compressed(ptr, flen);
 
     if (flen != UNIV_SQL_NULL && flen != 0) {
-      if (trx_undo_left(undo_page, ptr) < flen) {
+      if (UNIV_UNLIKELY(trx_undo_left(undo_page, ptr) < flen)) {
         return (0);
       }
 
@@ -1005,7 +1005,7 @@ static byte *trx_undo_report_blob_update(page_t *undo_page, dict_index_t *index,
   lob::ref_t ref(field_ref);
 
   /* Check if enough space for flag and vector length. */
-  if (trx_undo_left(undo_page, undo_ptr) < 6) {
+  if (UNIV_UNLIKELY(trx_undo_left(undo_page, undo_ptr) < 6)) {
     return nullptr;
   }
 
@@ -1076,7 +1076,7 @@ static byte *trx_undo_report_blob_update(page_t *undo_page, dict_index_t *index,
 
   /* Check if there is enough space for lob_version, last_trx_id
   and last_undo_no. */
-  if (trx_undo_left(undo_page, undo_ptr) < 20) {
+  if (UNIV_UNLIKELY(trx_undo_left(undo_page, undo_ptr) < 20)) {
     return nullptr;
   }
 
@@ -1095,7 +1095,7 @@ static byte *trx_undo_report_blob_update(page_t *undo_page, dict_index_t *index,
   for (size_t i = 0; i < N; ++i) {
     const Binary_diff &bdiff = bdiff_v->at(i);
 
-    if (trx_undo_left(undo_page, undo_ptr) < 10) {
+    if (UNIV_UNLIKELY(trx_undo_left(undo_page, undo_ptr) < 10)) {
       return nullptr;
     }
 
@@ -1105,7 +1105,7 @@ static byte *trx_undo_report_blob_update(page_t *undo_page, dict_index_t *index,
     /* Write the length. */
     undo_ptr += mach_write_compressed(undo_ptr, bdiff.length());
 
-    if (trx_undo_left(undo_page, undo_ptr) < bdiff.length()) {
+    if (UNIV_UNLIKELY(trx_undo_left(undo_page, undo_ptr) < bdiff.length())) {
       return nullptr;
     }
 
@@ -1123,7 +1123,7 @@ static byte *trx_undo_report_blob_update(page_t *undo_page, dict_index_t *index,
     ut_ad(n_entry == 1 || n_entry == 2);
 
     /* Check if there is enough space for n_entry */
-    if (trx_undo_left(undo_page, undo_ptr) < 5) {
+    if (UNIV_UNLIKELY(trx_undo_left(undo_page, undo_ptr) < 5)) {
       return nullptr;
     }
 
@@ -1132,7 +1132,7 @@ static byte *trx_undo_report_blob_update(page_t *undo_page, dict_index_t *index,
 
     for (lob::List_iem_t::iterator iter = entries.begin();
          iter != entries.end(); ++iter) {
-      if (trx_undo_left(undo_page, undo_ptr) < 10) {
+      if (UNIV_UNLIKELY(trx_undo_left(undo_page, undo_ptr) < 10)) {
         return nullptr;
       }
 
@@ -1196,8 +1196,8 @@ static ulint trx_undo_page_report_modify(
   /* If table instance is temporary then select noredo rseg as changes
   to undo logs don't need REDO logging given that they are not
   restored on restart as corresponding object doesn't exist on restart.*/
-  undo_ptr =
-      index->table->is_temporary() ? &trx->rsegs.m_noredo : &trx->rsegs.m_redo;
+  undo_ptr = UNIV_UNLIKELY(index->table->is_temporary()) ? &trx->rsegs.m_noredo
+                                                         : &trx->rsegs.m_redo;
 
   first_free =
       mach_read_from_2(undo_page + TRX_UNDO_PAGE_HDR + TRX_UNDO_PAGE_FREE);
@@ -1205,7 +1205,7 @@ static ulint trx_undo_page_report_modify(
 
   ut_ad(first_free <= UNIV_PAGE_SIZE);
 
-  if (trx_undo_left(undo_page, ptr) < 50) {
+  if (UNIV_UNLIKELY(trx_undo_left(undo_page, ptr) < 50)) {
     /* NOTE: the value 50 must be big enough so that the general
     fields written below fit on the undo log page */
 
@@ -1217,10 +1217,11 @@ static ulint trx_undo_page_report_modify(
 
   /* Store first some general parameters to the undo log */
 
-  if (!update) {
+  if (UNIV_UNLIKELY(!update)) {
     ut_ad(!rec_get_deleted_flag(rec, dict_table_is_comp(table)));
     type_cmpl = TRX_UNDO_DEL_MARK_REC;
-  } else if (rec_get_deleted_flag(rec, dict_table_is_comp(table))) {
+  } else if (UNIV_UNLIKELY(
+                 rec_get_deleted_flag(rec, dict_table_is_comp(table)))) {
     type_cmpl = TRX_UNDO_UPD_DEL_REC;
     /* We are about to update a delete marked record.
     We don't typically need the prefix in this case unless
@@ -1262,7 +1263,7 @@ static ulint trx_undo_page_report_modify(
   allowed to ignore blob prefixes if the delete marking was done
   by some other trx as it must have committed by now for us to
   allow an over-write. */
-  if (ignore_prefix) {
+  if (UNIV_UNLIKELY(ignore_prefix)) {
     ignore_prefix = (trx_id != trx->id);
   }
   ptr += mach_u64_write_compressed(ptr, trx_id);
@@ -1285,14 +1286,14 @@ static ulint trx_undo_page_report_modify(
     ut_ad(!rec_offs_nth_default(index, offsets, i));
     ut_ad(index->get_col(i)->ord_part);
 
-    if (trx_undo_left(undo_page, ptr) < 5) {
+    if (UNIV_UNLIKELY(trx_undo_left(undo_page, ptr) < 5)) {
       return 0;
     }
 
     ptr += mach_write_compressed(ptr, flen);
 
-    if (flen != UNIV_SQL_NULL) {
-      if (trx_undo_left(undo_page, ptr) < flen) {
+    if (UNIV_LIKELY(flen != UNIV_SQL_NULL)) {
+      if (UNIV_UNLIKELY(trx_undo_left(undo_page, ptr) < flen)) {
         return 0;
       }
 
@@ -1304,8 +1305,8 @@ static ulint trx_undo_page_report_modify(
   /*----------------------------------------*/
   /* Save to the undo log the old values of the columns to be updated. */
 
-  if (update) {
-    if (trx_undo_left(undo_page, ptr) < 5) {
+  if (UNIV_LIKELY(update)) {
+    if (UNIV_UNLIKELY(trx_undo_left(undo_page, ptr) < 5)) {
       return 0;
     }
 
@@ -1343,7 +1344,7 @@ static ulint trx_undo_page_report_modify(
       ulint pos = fld->field_no;
 
       /* Write field number to undo log */
-      if (trx_undo_left(undo_page, ptr) < 5) {
+      if (UNIV_UNLIKELY(trx_undo_left(undo_page, ptr) < 5)) {
         return 0;
       }
 
@@ -1395,12 +1396,12 @@ static ulint trx_undo_page_report_modify(
         field = rec_get_nth_field_instant(rec, offsets, pos, index, &flen);
       }
 
-      if (trx_undo_left(undo_page, ptr) < 15) {
+      if (UNIV_UNLIKELY(trx_undo_left(undo_page, ptr) < 15)) {
         return 0;
       }
 
-      if (UNIV_LIKELY(!is_virtual) &&
-          rec_offs_nth_extern(index, offsets, pos)) {
+      if (!is_virtual &&
+          UNIV_UNLIKELY(rec_offs_nth_extern(index, offsets, pos))) {
         ut_ad(!is_multi_val);
         const dict_col_t *col = index->get_col(pos);
         ulint prefix_len = dict_max_field_len_store_undo(table, col);
@@ -1431,16 +1432,16 @@ static ulint trx_undo_page_report_modify(
         if (!suc) {
           return 0;
         }
-      } else if (flen != UNIV_SQL_NULL) {
-        if (trx_undo_left(undo_page, ptr) < flen) {
+      } else if (UNIV_LIKELY(flen != UNIV_SQL_NULL)) {
+        if (UNIV_UNLIKELY(trx_undo_left(undo_page, ptr) < flen)) {
           return 0;
         }
 
         ut_memcpy(ptr, field, flen);
         ptr += flen;
 
-        if (UNIV_LIKELY(!is_virtual) &&
-            rec_offs_nth_extern(index, offsets, pos)) {
+        if (!is_virtual &&
+            UNIV_UNLIKELY(rec_offs_nth_extern(index, offsets, pos))) {
           ptr = trx_undo_report_blob_update(undo_page, index, ptr, field, flen,
                                             update, fld, mtr);
 
@@ -1501,7 +1502,8 @@ static ulint trx_undo_page_report_modify(
   clustered index. This works also in crash recovery, because all pages
   (including BLOBs) are recovered before anything is rolled back. */
 
-  if (!update || !(cmpl_info & UPD_NODE_NO_ORD_CHANGE)) {
+  if (UNIV_UNLIKELY(!update) ||
+      UNIV_UNLIKELY(!(cmpl_info & UPD_NODE_NO_ORD_CHANGE))) {
     byte *old_ptr = ptr;
     double mbr[SPDIMS * 2];
     mem_heap_t *row_heap = nullptr;
@@ -1688,7 +1690,7 @@ static ulint trx_undo_page_report_modify(
 
   /*----------------------------------------*/
   /* Write pointers to the previous and the next undo log records */
-  if (trx_undo_left(undo_page, ptr) < 2) {
+  if (UNIV_UNLIKELY(trx_undo_left(undo_page, ptr) < 2)) {
     return 0;
   }
 
@@ -2158,7 +2160,7 @@ dberr_t trx_undo_report_row_operation(
   ut_a(index->is_clustered());
   ut_ad(!rec || rec_offs_validate(rec, index, offsets));
 
-  if (flags & BTR_NO_UNDO_LOG_FLAG) {
+  if (UNIV_UNLIKELY(flags & BTR_NO_UNDO_LOG_FLAG)) {
     *roll_ptr = 0;
 
     return (DB_SUCCESS);
@@ -2176,7 +2178,7 @@ dberr_t trx_undo_report_row_operation(
   so do not bother adding it to the list of modified tables by
   the transaction - this list is only used for maintaining
   INFORMATION_SCHEMA.TABLES.UPDATE_TIME. */
-  if (!is_temp_table) {
+  if (UNIV_LIKELY(!is_temp_table)) {
     trx->mod_tables.insert(index->table);
   }
 
@@ -2184,13 +2186,13 @@ dberr_t trx_undo_report_row_operation(
   ut_ad(!trx->read_only || is_temp_table);
 
   /* If this is a temp-table then we assign temporary rseg. */
-  if (is_temp_table && trx->rsegs.m_noredo.rseg == nullptr) {
+  if (UNIV_UNLIKELY(is_temp_table) && trx->rsegs.m_noredo.rseg == nullptr) {
     trx_assign_rseg_temp(trx);
   }
 
   mtr_start(&mtr);
 
-  if (is_temp_table) {
+  if (UNIV_UNLIKELY(is_temp_table)) {
     /* If object is temporary, disable REDO logging that
     is done to track changes done to UNDO logs. This is
     feasible given that temporary tables and temporary
@@ -2210,7 +2212,7 @@ dberr_t trx_undo_report_row_operation(
   }
 #endif /* UNIV_DEBUG */
 
-  switch (op_type) {
+  switch (UNIV_EXPECT(op_type, TRX_UNDO_MODIFY_OP)) {
     case TRX_UNDO_INSERT_OP:
       undo = undo_ptr->insert_undo;
 
@@ -2232,7 +2234,7 @@ dberr_t trx_undo_report_row_operation(
 
       undo = undo_ptr->update_undo;
 
-      if (undo == nullptr) {
+      if (UNIV_UNLIKELY(undo == nullptr)) {
         err = trx_undo_assign_undo(trx, undo_ptr, TRX_UNDO_UPDATE);
         undo = undo_ptr->update_undo;
 
@@ -2261,7 +2263,7 @@ dberr_t trx_undo_report_row_operation(
     undo_page = buf_block_get_frame(undo_block);
     ut_ad(page_no == undo_block->page.id.page_no());
 
-    switch (op_type) {
+    switch (UNIV_EXPECT(op_type, TRX_UNDO_MODIFY_OP)) {
       case TRX_UNDO_INSERT_OP:
         offset = trx_undo_page_report_insert(undo_page, trx, index, clust_entry,
                                              &mtr);

@@ -1142,7 +1142,7 @@ lock_t *Locks_hashtable::find_on_page(page_id_t page_id, F &&f) {
   ut_ad(locksys::owns_page_shard(page_id));
   return find_in_cell(hash_calc_cell_id(lock_rec_hash_value(page_id), ht.get()),
                       [&](lock_t *lock) {
-                        return (lock->rec_lock.page_id == page_id) &&
+                        return UNIV_LIKELY(lock->rec_lock.page_id == page_id) &&
                                std::forward<F>(f)(lock);
                       });
 }
@@ -1154,10 +1154,10 @@ lock_t *Locks_hashtable::find_on_block(const buf_block_t *block, F &&f) {
 
 template <typename F>
 lock_t *Locks_hashtable::find_on_record(const struct RecID &rec_id, F &&f) {
-  return find_in_cell(hash_calc_cell_id(rec_id.hash_value(), ht.get()),
-                      [&](lock_t *lock) {
-                        return rec_id.matches(lock) && std::forward<F>(f)(lock);
-                      });
+  return find_in_cell(
+      hash_calc_cell_id(rec_id.hash_value(), ht.get()), [&](lock_t *lock) {
+        return UNIV_LIKELY(rec_id.matches(lock)) && std::forward<F>(f)(lock);
+      });
 }
 #ifdef UNIV_DEBUG
 template <typename F>

@@ -864,7 +864,7 @@ inline bool btr_pcur_t::move_to_next(mtr_t *mtr) {
 
   m_old_stored = false;
 
-  if (is_after_last_on_page()) {
+  if (UNIV_UNLIKELY(is_after_last_on_page())) {
     if (is_after_last_in_tree(mtr)) {
       return (false);
     }

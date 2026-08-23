@@ -139,7 +139,7 @@ void row_wait_for_background_drop_list_empty() {
 
 /** Delays an INSERT, DELETE or UPDATE operation if the purge is lagging. */
 static void row_mysql_delay_if_needed(void) {
-  if (srv_dml_needed_delay) {
+  if (UNIV_UNLIKELY(srv_dml_needed_delay)) {
     std::this_thread::sleep_for(
         std::chrono::microseconds(srv_dml_needed_delay));
   }
@@ -2276,7 +2276,7 @@ static dberr_t row_update_for_mysql_using_upd_graph(const byte *mysql_rec,
   ut_a(prebuilt->magic_n2 == ROW_PREBUILT_ALLOCATED);
   UT_NOT_USED(mysql_rec);
 
-  if (prebuilt->table->ibd_file_missing) {
+  if (UNIV_UNLIKELY(prebuilt->table->ibd_file_missing)) {
     ib::error(ER_IB_MSG_984)
         << "MySQL is trying to use a table handle but the"
            " .ibd file for table "
@@ -2291,7 +2291,7 @@ static dberr_t row_update_for_mysql_using_upd_graph(const byte *mysql_rec,
 
   /* Allow to modify hardcoded DD tables in some scenario to
   make DDL work */
-  if (srv_force_recovery > 0 &&
+  if (UNIV_UNLIKELY(srv_force_recovery > 0) &&
       !(srv_force_recovery < SRV_FORCE_NO_UNDO_LOG_SCAN &&
         dict_sys_t::is_dd_table_id(prebuilt->table->id))) {
     ib::error(ER_IB_MSG_985) << MODIFICATIONS_NOT_ALLOWED_MSG_FORCE_RECOVERY;
@@ -2304,11 +2304,9 @@ static dberr_t row_update_for_mysql_using_upd_graph(const byte *mysql_rec,
 
   row_mysql_delay_if_needed();
 
-  init_fts_doc_id_for_ref(table, &fk_depth);
-
   trx_start_if_not_started_xa(trx, true, UT_LOCATION_HERE);
 
-  if (dict_table_is_referenced_by_foreign_key(table)) {
+  if (UNIV_UNLIKELY(dict_table_is_referenced_by_foreign_key(table))) {
     /*TODO: use foreign key MDL to protect foreign
     key tables(wl#6049) */
     init_fts_doc_id_for_ref(table, &fk_depth);
@@ -2320,7 +2318,7 @@ static dberr_t row_update_for_mysql_using_upd_graph(const byte *mysql_rec,
 
   clust_index = table->first_index();
 
-  if (prebuilt->pcur->m_btr_cur.index == clust_index) {
+  if (UNIV_LIKELY(prebuilt->pcur->m_btr_cur.index == clust_index)) {
     btr_pcur_t::copy_stored_position(node->pcur, prebuilt->pcur);
   } else {
     btr_pcur_t::copy_stored_position(node->pcur, prebuilt->clust_pcur);
@@ -2354,7 +2352,7 @@ run_again:
 
   err = trx->error_state;
 
-  if (err != DB_SUCCESS) {
+  if (UNIV_UNLIKELY(err != DB_SUCCESS)) {
     que_thr_stop_for_mysql(thr);
 
     if (err == DB_RECORD_NOT_FOUND) {
@@ -2398,7 +2396,7 @@ run_again:
     row_mysql_unfreeze_data_dictionary(trx);
   }
 
-  if (node->is_delete) {
+  if (UNIV_UNLIKELY(node->is_delete)) {
     /* Not protected by dict_table_stats_lock() for performance
     reasons, we would rather get garbage in stat_n_rows (which is
     just an estimate anyway) than protecting the following code
@@ -2411,7 +2409,7 @@ run_again:
       srv_stats.n_rows_deleted.inc();
     }
   } else {
-    if (table->is_system_table) {
+    if (UNIV_UNLIKELY(table->is_system_table)) {
       srv_stats.n_system_rows_updated.inc();
     } else {
       srv_stats.n_rows_updated.inc();
@@ -2435,7 +2433,7 @@ error:
 @param[in,out]  prebuilt        prebuilt struct in MySQL handle
 @return error code or DB_SUCCESS */
 dberr_t row_update_for_mysql(const byte *mysql_rec, row_prebuilt_t *prebuilt) {
-  if (prebuilt->table->is_intrinsic()) {
+  if (UNIV_UNLIKELY(prebuilt->table->is_intrinsic())) {
     return (row_del_upd_for_mysql_using_cursor(prebuilt));
   } else {
     ut_a(prebuilt->template_type == ROW_MYSQL_WHOLE_ROW ||
@@ -4765,7 +4763,7 @@ bool row_prebuilt_t::can_prefetch_records() const {
   be fetched. In HANDLER (note: the HANDLER statement, not the
   handler class) we do not cache rows because there the cursor
   is a scrollable cursor. */
-  return select_lock_type == LOCK_NONE && !m_no_prefetch &&
+  return UNIV_UNLIKELY(select_lock_type == LOCK_NONE) && !m_no_prefetch &&
          !templ_contains_blob && !templ_contains_fixed_point &&
          !clust_index_was_generated && !used_in_HANDLER && !innodb_api &&
          template_type != ROW_MYSQL_DUMMY_TEMPLATE && !in_fts_query;
@@ -4778,7 +4776,8 @@ bool row_prebuilt_t::skip_concurrency_ticket() const {
   /* When InnoDB uses DD APIs, it leaves InnoDB and re-inters InnoDB again.
   The reads, updates as part of DDLs should be exempt for concurrency
   tickets. */
-  if (table->is_intrinsic() || table->is_dd_table) {
+  if (UNIV_UNLIKELY(table->is_intrinsic()) ||
+      UNIV_UNLIKELY(table->is_dd_table)) {
     return true;
   }
 
@@ -4788,7 +4787,7 @@ bool row_prebuilt_t::skip_concurrency_ticket() const {
            -> wait for GTID flush GTID
   Background: Write to GTID table -> wait for innodb ticket. */
   auto thd = trx->mysql_thd;
-  if (thd == nullptr) {
+  if (UNIV_UNLIKELY(thd == nullptr)) {
     thd = current_thd;
   }
 
@@ -4797,8 +4796,8 @@ bool row_prebuilt_t::skip_concurrency_ticket() const {
     operating within innodb implicitly. Since it is an independent transaction
     apart from the regular transaction owned by this THD in same thread, we
     could end up in deadlock. */
-    if (thd->is_attachable_transaction_active() ||
-        thd->is_operating_gtid_table_implicitly) {
+    if (UNIV_UNLIKELY(thd->is_attachable_transaction_active()) ||
+        UNIV_UNLIKELY(thd->is_operating_gtid_table_implicitly)) {
       return true;
     }
   }

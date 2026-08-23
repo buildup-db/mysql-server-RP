@@ -3548,8 +3548,8 @@ buf_block_t *buf_block_from_ahi(const byte *ptr) {
 bool buf_is_block_in_instance(const buf_pool_t *buf_pool,
                               const buf_block_t *ptr) {
   const size_t n_chunks = std::min(buf_pool->n_chunks, buf_pool->n_chunks_new);
-  for (size_t i = 0; i < n_chunks; ++i) {
-    if (buf_pool->chunks[i].contains(ptr)) {
+  for (size_t i = 0; UNIV_LIKELY(i < n_chunks); ++i) {
+    if (UNIV_LIKELY(buf_pool->chunks[i].contains(ptr))) {
       return true;
     }
   }
@@ -3628,7 +3628,7 @@ struct Buf_fetch {
 
   /** Check block state.
   @return DB_SUCCESS or error code. */
-  dberr_t check_state(buf_block_t *&block);
+  ALWAYS_INLINE dberr_t check_state(buf_block_t *&block);
 
   /** Temporary table pages have different latching rules because they are
   not redo logged.
@@ -3707,7 +3707,7 @@ dberr_t Buf_fetch_normal::get(buf_block_t *&block) noexcept {
     block = lookup();
 
     if (block != nullptr) {
-      if (block->page.was_stale()) {
+      if (UNIV_UNLIKELY(block->page.was_stale())) {
         if (!buf_page_free_stale(m_buf_pool, &block->page, m_hash_lock)) {
           /* The page is during IO and can't be released. We wait some to not go
            into loop that would consume CPU. This is not something that will be
@@ -3819,16 +3819,16 @@ buf_block_t *Buf_fetch<T>::lookup() {
   m_hash_lock =
       buf_page_hash_lock_s_confirm(m_hash_lock, m_buf_pool, m_page_id);
 
-  if (block != nullptr) {
+  if (UNIV_LIKELY(block != nullptr)) {
     /* If the m_guess is a compressed page descriptor that has been allocated
     by buf_page_alloc_descriptor(), it may have been freed by buf_relocate().
     Also, the buffer pool could get resized and m_guess's chunk could get freed,
     so we need to check the `block` pointer is still within one of the chunks
     before dereferencing it to verify it still contains the same m_page_id */
 
-    if (!buf_is_block_in_instance(m_buf_pool, block) ||
-        m_page_id != block->page.id ||
-        buf_block_get_state(block) != BUF_BLOCK_FILE_PAGE) {
+    if (UNIV_UNLIKELY(!buf_is_block_in_instance(m_buf_pool, block)) ||
+        UNIV_UNLIKELY(m_page_id != block->page.id) ||
+        UNIV_UNLIKELY(buf_block_get_state(block) != BUF_BLOCK_FILE_PAGE)) {
       /* Our m_guess was bogus or things have changed since. */
       block = m_guess = nullptr;
 
@@ -4509,7 +4509,7 @@ bool buf_page_optimistic_get(ulint rw_latch, buf_block_t *block,
 
   buf_page_mutex_enter(block);
 
-  if (buf_block_get_state(block) != BUF_BLOCK_FILE_PAGE) {
+  if (UNIV_UNLIKELY(buf_block_get_state(block) != BUF_BLOCK_FILE_PAGE)) {
     buf_page_mutex_exit(block);
 
     return (false);
@@ -4523,7 +4523,7 @@ bool buf_page_optimistic_get(ulint rw_latch, buf_block_t *block,
 
   buf_page_mutex_exit(block);
 
-  if (fetch_mode != Page_fetch::SCAN) {
+  if (UNIV_LIKELY(fetch_mode != Page_fetch::SCAN)) {
     buf_page_make_young_if_needed(&block->page);
   }
 
@@ -4534,21 +4534,20 @@ bool buf_page_optimistic_get(ulint rw_latch, buf_block_t *block,
   mtr_memo_type_t fix_type;
 
   auto loc = ut::Location{file, line};
-  switch (rw_latch) {
-    case RW_S_LATCH:
-      success = rw_lock_s_lock_nowait(&block->lock, loc);
+  if (UNIV_LIKELY(rw_latch == RW_S_LATCH)) {
+    success = rw_lock_s_lock_nowait(&block->lock, loc);
 
-      fix_type = MTR_MEMO_PAGE_S_FIX;
-      break;
-    case RW_X_LATCH:
-      success = rw_lock_x_lock_nowait(&block->lock, loc);
+    fix_type = MTR_MEMO_PAGE_S_FIX;
 
-      fix_type = MTR_MEMO_PAGE_X_FIX;
-      break;
-    default:
-      ut_ad(rw_latch == RW_NO_LATCH);
-      fix_type = MTR_MEMO_BUF_FIX;
-      success = true;
+  } else if (UNIV_LIKELY(rw_latch == RW_X_LATCH)) {
+    success = rw_lock_x_lock_nowait(&block->lock, loc);
+
+    fix_type = MTR_MEMO_PAGE_X_FIX;
+
+  } else {
+    ut_ad(rw_latch == RW_NO_LATCH);
+    fix_type = MTR_MEMO_BUF_FIX;
+    success = true;
   }
 
   if (!success) {
@@ -4556,7 +4555,7 @@ bool buf_page_optimistic_get(ulint rw_latch, buf_block_t *block,
     return (false);
   }
 
-  if (modify_clock != block->modify_clock) {
+  if (UNIV_UNLIKELY(modify_clock != block->modify_clock)) {
     buf_block_dbg_add_level(block, SYNC_NO_ORDER_CHECK);
 
     if (rw_latch == RW_S_LATCH) {
@@ -4583,7 +4582,7 @@ bool buf_page_optimistic_get(ulint rw_latch, buf_block_t *block,
   ut_ad(!block->page.file_page_was_freed);
   ut_d(buf_page_mutex_exit(block));
 
-  if (access_time == std::chrono::steady_clock::time_point{}) {
+  if (UNIV_UNLIKELY(access_time == std::chrono::steady_clock::time_point{})) {
     /* In the case of a first access, try to apply linear read-ahead */
     buf_read_ahead_linear(block->page.id, block->page.size, ibuf_inside(mtr));
   }

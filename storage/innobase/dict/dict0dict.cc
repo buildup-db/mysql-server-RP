@@ -3915,11 +3915,11 @@ rec_t *dict_index_copy_rec_order_prefix(const dict_index_t *index,
 
   UNIV_PREFETCH_R(rec);
 
-  if (dict_index_is_ibuf(index)) {
+  if (UNIV_UNLIKELY(dict_index_is_ibuf(index))) {
     ut_a(!dict_table_is_comp(index->table));
     n = rec_get_n_fields_old_raw(rec);
   } else {
-    if (page_is_leaf(page_align(rec))) {
+    if (UNIV_LIKELY(page_is_leaf(page_align(rec)))) {
       n = dict_index_get_n_unique_in_tree(index);
     } else {
       n = dict_index_get_n_unique_in_tree_nonleaf(index);

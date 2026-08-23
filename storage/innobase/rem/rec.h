@@ -1202,7 +1202,7 @@ inline void rec_init_offsets_comp_ordinary(const rec_t *rec, bool temp,
         MY_ASSERT_UNREACHABLE();
     }
 
-    if (!(col->prtype & DATA_NOT_NULL)) {
+    if (UNIV_UNLIKELY(!(col->prtype & DATA_NOT_NULL))) {
       /* nullable field => read the null flag */
       ut_ad(n_null--);
 
