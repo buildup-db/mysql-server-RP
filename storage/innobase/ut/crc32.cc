@@ -420,6 +420,20 @@ struct crc32_impl {
 };
 
 #ifdef CRC32_x86_64
+#ifdef CRC32_NOT_NEED_TARGET_ATTR
+uint32_t crc32_impl::update(uint32_t crc, unsigned char data) {
+  return __builtin_ia32_crc32qi(crc, data);
+}
+uint32_t crc32_impl::update(uint32_t crc, uint16_t data) {
+  return __builtin_ia32_crc32hi(crc, data);
+}
+uint32_t crc32_impl::update(uint32_t crc, uint32_t data) {
+  return __builtin_ia32_crc32si(crc, data);
+}
+uint64_t crc32_impl::update(uint64_t crc, uint64_t data) {
+  return __builtin_ia32_crc32di(crc, data);
+}
+#else
 MY_ATTRIBUTE((target("sse4.2")))
 uint32_t crc32_impl::update(uint32_t crc, unsigned char data) {
   return _mm_crc32_u8(crc, data);
@@ -436,30 +450,31 @@ MY_ATTRIBUTE((target("sse4.2")))
 uint64_t crc32_impl::update(uint64_t crc, uint64_t data) {
   return _mm_crc32_u64(crc, data);
 }
+#endif /* CRC32_NOT_NEED_TARGET_ATTR */
 #endif /* CRC32_x86_64 */
 
 #ifdef CRC32_ARM64
-#ifdef CRC32_ARM64_DEFAULT
+#if !defined(CRC32_NOT_NEED_TARGET_ATTR) && defined(CRC32_ARM64_DEFAULT)
 MY_ATTRIBUTE((target("+crc")))
-#endif /* CRC32_ARM64_DEFAULT */
+#endif /* !CRC32_NOT_NEED_TARGET_ATTR && CRC32_ARM64_DEFAULT */
 uint32_t crc32_impl::update(uint32_t crc, unsigned char data) {
   return __crc32cb(crc, data);
 }
-#ifdef CRC32_ARM64_DEFAULT
+#if !defined(CRC32_NOT_NEED_TARGET_ATTR) && defined(CRC32_ARM64_DEFAULT)
 MY_ATTRIBUTE((target("+crc")))
-#endif /* CRC32_ARM64_DEFAULT */
+#endif /* !CRC32_NOT_NEED_TARGET_ATTR && CRC32_ARM64_DEFAULT */
 uint32_t crc32_impl::update(uint32_t crc, uint16_t data) {
   return __crc32ch(crc, data);
 }
-#ifdef CRC32_ARM64_DEFAULT
+#if !defined(CRC32_NOT_NEED_TARGET_ATTR) && defined(CRC32_ARM64_DEFAULT)
 MY_ATTRIBUTE((target("+crc")))
-#endif /* CRC32_ARM64_DEFAULT */
+#endif /* !CRC32_NOT_NEED_TARGET_ATTR && CRC32_ARM64_DEFAULT */
 uint32_t crc32_impl::update(uint32_t crc, uint32_t data) {
   return __crc32cw(crc, data);
 }
-#ifdef CRC32_ARM64_DEFAULT
+#if !defined(CRC32_NOT_NEED_TARGET_ATTR) && defined(CRC32_ARM64_DEFAULT)
 MY_ATTRIBUTE((target("+crc")))
-#endif /* CRC32_ARM64_DEFAULT */
+#endif /* !CRC32_NOT_NEED_TARGET_ATTR && CRC32_ARM64_DEFAULT */
 uint64_t crc32_impl::update(uint64_t crc, uint64_t data) {
   return (uint64_t)__crc32cd((uint32_t)crc, data);
 }
@@ -475,7 +490,9 @@ struct use_pclmul : crc32_impl {
 };
 #ifdef CRC32_x86_64
 template <uint32_t w>
+#ifndef CRC32_NOT_NEED_TARGET_ATTR
 MY_ATTRIBUTE((target("sse4.2,pclmul")))
+#endif /* !CRC32_NOT_NEED_TARGET_ATTR */
 uint64_t use_pclmul::polynomial_mul_rev(uint32_t rev_u) {
   constexpr uint64_t flipped_w = flip_at_32(w);
   return _mm_cvtsi128_si64(_mm_clmulepi64_si128(
@@ -597,7 +614,7 @@ and the results are combined together at the end to compute correct result.
 @return The value of _crc updated by processing the range
         data[0]...data[slices_count*slice_len-1]. */
 template <size_t slice_len, size_t slices_count, typename algo_to_use>
-static inline uint32_t consume_chunk(uint32_t crc0, const unsigned char *data) {
+static ALWAYS_INLINE uint32_t consume_chunk(uint32_t crc0, const unsigned char *data) {
   static_assert(slices_count > 0, "there must be at least one slice");
   const uint64_t *data64 = (const uint64_t *)data;
   /* crc[i] is the hash for i-th slice, data[i*slice_len...(i+1)*slice_len)
@@ -656,7 +673,7 @@ and the results are combined together at the end to compute correct result.
 @param[in,out]  len     data length to be processed. Updated by this function
                         to be len % (slice_len * slices_count). */
 template <size_t slice_len, size_t slices_count, typename algo_to_use>
-static inline void consume_chunks(uint32_t &crc, const byte *&data,
+static ALWAYS_INLINE void consume_chunks(uint32_t &crc, const byte *&data,
                                   size_t &len) {
   while (UNIV_UNLIKELY(len >= slice_len * slices_count)) {
     crc = consume_chunk<slice_len, slices_count, algo_to_use>(crc, data);
@@ -742,13 +759,21 @@ It's non-static so it can be unit-tested.
 @param[in]      len     data length
 @return CRC-32C (polynomial 0x11EDC6F41) */
 #ifdef CRC32_x86_64_DEFAULT
+#ifdef CRC32_NOT_NEED_TARGET_ATTR
+MY_ATTRIBUTE((flatten))
+#else
 MY_ATTRIBUTE((target("sse4.2,pclmul"), flatten))
+#endif /* CRC32_NOT_NEED_TARGET_ATTR */
 #endif /* CRC32_x86_64_DEFAULT */
 #ifdef CRC32_ARM64_APPLE
 MY_ATTRIBUTE((flatten))
 #endif /* CRC32_ARM64_APPLE */
 #ifdef CRC32_ARM64_DEFAULT
+#ifdef CRC32_NOT_NEED_TARGET_ATTR
+MY_ATTRIBUTE((target("+crypto"), flatten))
+#else
 MY_ATTRIBUTE((target("+crc+crypto"), flatten))
+#endif /* CRC32_NOT_NEED_TARGET_ATTR */
 #endif /* CRC32_ARM64_DEFAULT */
 uint32_t crc32_using_pclmul(const byte *data, size_t len) {
   return crc32<use_pclmul>(0, data, len);
@@ -761,6 +786,9 @@ It's non-static so it can be unit-tested.
 @param[in]      data    data over which to calculate CRC32-C
 @param[in]      len     data length
 @return CRC-32C (polynomial 0x11EDC6F41) */
+#ifdef CRC32_NOT_NEED_TARGET_ATTR
+MY_ATTRIBUTE((flatten))
+#else
 #ifdef CRC32_x86_64_DEFAULT
 MY_ATTRIBUTE((target("sse4.2"), flatten))
 #endif /* CRC32_x86_64_DEFAULT */
@@ -770,6 +798,7 @@ MY_ATTRIBUTE((flatten))
 #ifdef CRC32_ARM64_DEFAULT
 MY_ATTRIBUTE((target("+crc"), flatten))
 #endif /* CRC32_ARM64_DEFAULT */
+#endif /* CRC32_NOT_NEED_TARGET_ATTR */
 uint32_t crc32_using_unrolled_loop_poly_mul(const byte *data, size_t len) {
   return crc32<use_unrolled_loop_poly_mul>(0, data, len);
 }
