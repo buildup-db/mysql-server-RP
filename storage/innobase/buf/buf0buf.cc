@@ -1512,6 +1512,18 @@ dberr_t buf_pool_init(ulint total_size, ulint n_instances) {
   ut_ad(n_instances <= MAX_BUFFER_POOLS);
   ut_ad(n_instances == srv_buf_pool_instances);
 
+#ifndef UNIV_DEBUG
+  /* FIXME: Change to true to check struct size of rw_lock_t and buf_block_t. */
+#if false
+  static_assert(
+      sizeof(rw_lock_t) % ut::INNODB_CACHE_LINE_SIZE == 0,
+      "Please adjust padding of rw_lock_t for aligning cache line size.");
+  static_assert(
+      sizeof(buf_block_t) % ut::INNODB_CACHE_LINE_SIZE == 0,
+      "Please adjust padding of buf_block_t for aligning cache line size.");
+#endif
+#endif /* !UNIV_DEBUG */
+
   NUMA_MEMPOLICY_INTERLEAVE_IN_SCOPE;
 
   /* Usually buf_pool_should_madvise is protected by buf_pool_t::chunk_mutex-es,
