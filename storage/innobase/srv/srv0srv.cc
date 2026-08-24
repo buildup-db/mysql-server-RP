@@ -1449,9 +1449,9 @@ bool srv_printf_innodb_monitor(FILE *file, bool nowait, ulint *trx_start_pos,
   ibuf_print(file);
 
   for (ulint i = 0; i < btr_ahi_parts; ++i) {
-    rw_lock_s_lock(btr_search_latches[i], UT_LOCATION_HERE);
+    rw_lock_s_lock(&btr_search_latches[i], UT_LOCATION_HERE);
     ha_print_info(file, btr_search_sys->hash_tables[i]);
-    rw_lock_s_unlock(btr_search_latches[i]);
+    rw_lock_s_unlock(&btr_search_latches[i]);
   }
 
   uint64_t btr_cur_n_sea_sum = Counter::total(btr_cur_n_sea);

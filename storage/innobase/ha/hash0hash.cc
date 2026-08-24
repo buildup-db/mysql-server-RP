@@ -1,6 +1,7 @@
 /*****************************************************************************
 
 Copyright (c) 1997, 2026, Oracle and/or its affiliates.
+Copyright (c) 2026, buildup-db.
 
 This program is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License, version 2.0, as published by the
@@ -110,8 +111,14 @@ void hash_create_sync_obj(hash_table_t *table, latch_id_t id,
 
   ut_a(sync_latch_get_level(id) != SYNC_UNKNOWN);
 
-  table->rw_locks = static_cast<rw_lock_t *>(ut::malloc_withkey(
-      UT_NEW_THIS_FILE_PSI_KEY, n_sync_obj * sizeof(rw_lock_t)));
+  const size_t alignment = ut::INNODB_KERNEL_PAGE_SIZE_DEFAULT;
+  table->rw_locks_mem = ut::malloc_withkey(
+      UT_NEW_THIS_FILE_PSI_KEY,
+      ut_uint64_align_up(n_sync_obj * sizeof(hash_table_t::hash_rw_lock),
+                         alignment) +
+          alignment);
+  table->rw_locks = static_cast<hash_table_t::hash_rw_lock *>(
+      ut_align(table->rw_locks_mem, alignment));
 
   for (size_t i = 0; i < n_sync_obj; i++) {
     rw_lock_create(hash_table_locks_key, table->rw_locks + i, id);

@@ -88,7 +88,7 @@ void ha_clear(hash_table_t *table) /*!< in, own: hash table */
     rw_lock_free(&table->rw_locks[i]);
   }
 
-  ut::free(table->rw_locks);
+  ut::free(table->rw_locks_mem);
   table->rw_locks = nullptr;
 
   table->n_sync_obj = 0;
@@ -197,7 +197,7 @@ static void ha_btr_search_latch_x_locked(const hash_table_t *table) {
   }
 
   ut_ad(i < btr_ahi_parts);
-  ut_ad(rw_lock_own(btr_search_latches[i], RW_LOCK_X));
+  ut_ad(rw_lock_own(&btr_search_latches[i], RW_LOCK_X));
 }
 #endif /* UNIV_DEBUG */
 

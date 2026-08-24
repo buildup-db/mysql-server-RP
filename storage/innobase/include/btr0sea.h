@@ -1,6 +1,7 @@
 /*****************************************************************************
 
 Copyright (c) 1996, 2026, Oracle and/or its affiliates.
+Copyright (c) 2026, buildup-db.
 
 This program is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License, version 2.0, as published by the
@@ -300,7 +301,8 @@ struct btr_search_sys_t {
 };
 
 /** Latches protecting access to adaptive hash index. */
-extern rw_lock_t **btr_search_latches;
+using btr_sea_rw_lock_t = ut::Cacheline_padded<rw_lock_t>;
+extern btr_sea_rw_lock_t *btr_search_latches;
 
 /** The adaptive hash index */
 extern btr_search_sys_t *btr_search_sys;
