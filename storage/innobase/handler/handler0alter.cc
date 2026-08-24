@@ -8025,11 +8025,11 @@ class ha_innopart_inplace_ctx : public inplace_alter_handler_ctx {
       for (uint i = 0; i < m_tot_parts; i++) {
         if (ctx_array[i] != nullptr) ::destroy_at(ctx_array[i]);
       }
-      ut::free(ctx_array);
+      ut::delete_arr(ctx_array);
     }
 
     if (m_old_info != nullptr) {
-      ut::free(m_old_info);
+      ut::delete_arr(m_old_info);
     }
 
     if (prebuilt_array) {
@@ -8039,7 +8039,7 @@ class ha_innopart_inplace_ctx : public inplace_alter_handler_ctx {
         prebuilt_array[i]->table = nullptr;
         row_prebuilt_free(prebuilt_array[i], false);
       }
-      ut::free(prebuilt_array);
+      ut::delete_arr(prebuilt_array);
     }
   }
 };
