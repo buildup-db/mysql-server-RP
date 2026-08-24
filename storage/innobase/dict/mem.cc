@@ -221,8 +221,10 @@ dict_table_t *dict_mem_table_create(const char *name, space_id_t space,
   table->n_cols = table->n_t_cols - table->n_v_cols;
   table->n_instant_cols = table->n_cols;
 
-  table->cols = static_cast<dict_col_t *>(
-      mem_heap_alloc(heap, (table->n_cols + n_drop_cols) * sizeof(dict_col_t)));
+  table->cols = static_cast<dict_col_t *>(ut_align(
+      mem_heap_alloc(heap, (table->n_cols + n_drop_cols) * sizeof(dict_col_t) +
+                               ut::INNODB_CACHE_LINE_SIZE),
+      ut::INNODB_CACHE_LINE_SIZE));
   table->v_cols = static_cast<dict_v_col_t *>(
       mem_heap_alloc(heap, n_v_cols * sizeof(*table->v_cols)));
 
