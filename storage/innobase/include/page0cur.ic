@@ -163,14 +163,13 @@ static inline ulint page_cur_search(const buf_block_t *block,
                                     const dict_index_t *index,
                                     const dtuple_t *tuple, page_cur_mode_t mode,
                                     page_cur_t *cursor) {
-  alignas(ut::INNODB_CACHE_LINE_SIZE) ulint low_match = 0;
-  ulint up_match = 0;
+  alignas(ut::INNODB_CACHE_LINE_SIZE) page_cur_match_fld_t match = {0, 0};
 
   ut_ad(dtuple_check_typed(tuple));
 
-  page_cur_search_with_match(block, index, tuple, mode, &up_match, &low_match,
-                             cursor, nullptr);
-  return (low_match);
+  page_cur_search_with_match(block, index, tuple, mode, &match, cursor,
+                             nullptr);
+  return (match.low_fields);
 }
 
 /** Search the right position for a page cursor.

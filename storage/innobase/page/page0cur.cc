@@ -90,15 +90,14 @@ static uint64_t page_cur_lcg_prng(void) {
 @param[in]      block                   index page
 @param[in]      index                   index tree
 @param[in]      tuple                   search key
-@param[in,out]  iup_matched_fields      already matched fields in the
-upper limit record
-@param[in,out]  ilow_matched_fields     already matched fields in the
-lower limit record
+@param[in,out]  matched                 already matched fields
 @param[out]     cursor                  page cursor
 @return true on success */
-static inline bool page_cur_try_search_shortcut(
-    const buf_block_t *block, const dict_index_t *index, const dtuple_t *tuple,
-    ulint *iup_matched_fields, ulint *ilow_matched_fields, page_cur_t *cursor) {
+static inline bool page_cur_try_search_shortcut(const buf_block_t *block,
+                                                const dict_index_t *index,
+                                                const dtuple_t *tuple,
+                                                page_cur_match_fld_t *matched,
+                                                page_cur_t *cursor) {
   const rec_t *rec;
   const rec_t *next_rec;
   ulint low_match;
@@ -119,7 +118,7 @@ static inline bool page_cur_try_search_shortcut(
   ut_ad(rec);
   ut_ad(page_rec_is_user_rec(rec));
 
-  low_match = up_match = std::min(*ilow_matched_fields, *iup_matched_fields);
+  low_match = up_match = std::min(matched->low_fields, matched->up_fields);
 
   if (tuple->compare(rec, index, offsets, &low_match) < 0) {
     goto exit_func;
@@ -135,12 +134,12 @@ static inline bool page_cur_try_search_shortcut(
       goto exit_func;
     }
 
-    *iup_matched_fields = up_match;
+    matched->up_fields = up_match;
   }
 
   page_cur_position(rec, block, cursor);
 
-  *ilow_matched_fields = low_match;
+  matched->low_fields = low_match;
 
 #ifdef UNIV_SEARCH_PERF_STAT
   page_cur_short_succ++;
@@ -157,20 +156,14 @@ exit_func:
 @param[in]      block                   index page
 @param[in]      index                   index tree
 @param[in]      tuple                   search key
-@param[in,out]  iup_matched_fields      already matched fields in the
-upper limit record
-@param[in,out]  iup_matched_bytes       already matched bytes in the
-first partially matched field in the upper limit record
-@param[in,out]  ilow_matched_fields     already matched fields in the
-lower limit record
-@param[in,out]  ilow_matched_bytes      already matched bytes in the
-first partially matched field in the lower limit record
+@param[in,out]  matched                 already matched fields and bytes
 @param[out]     cursor                  page cursor
 @return true on success */
-static inline bool page_cur_try_search_shortcut_bytes(
-    const buf_block_t *block, const dict_index_t *index, const dtuple_t *tuple,
-    ulint *iup_matched_fields, ulint *iup_matched_bytes,
-    ulint *ilow_matched_fields, ulint *ilow_matched_bytes, page_cur_t *cursor) {
+static inline bool page_cur_try_search_shortcut_bytes(const buf_block_t *block,
+                                                      const dict_index_t *index,
+                                                      const dtuple_t *tuple,
+                                                      page_cur_match_t *matched,
+                                                      page_cur_t *cursor) {
   const rec_t *rec;
   const rec_t *next_rec;
   ulint low_match;
@@ -192,13 +185,13 @@ static inline bool page_cur_try_search_shortcut_bytes(
 
   ut_ad(rec);
   ut_ad(page_rec_is_user_rec(rec));
-  if (ut_pair_cmp(*ilow_matched_fields, *ilow_matched_bytes,
-                  *iup_matched_fields, *iup_matched_bytes) < 0) {
-    up_match = low_match = *ilow_matched_fields;
-    up_bytes = low_bytes = *ilow_matched_bytes;
+  if (ut_pair_cmp(matched->low_fields, matched->low_bytes, matched->up_fields,
+                  matched->up_bytes) < 0) {
+    up_match = low_match = matched->low_fields;
+    up_bytes = low_bytes = matched->low_bytes;
   } else {
-    up_match = low_match = *iup_matched_fields;
-    up_bytes = low_bytes = *iup_matched_bytes;
+    up_match = low_match = matched->up_fields;
+    up_bytes = low_bytes = matched->up_bytes;
   }
 
   if (cmp_dtuple_rec_with_match_bytes(tuple, rec, index, offsets, &low_match,
@@ -217,14 +210,14 @@ static inline bool page_cur_try_search_shortcut_bytes(
       goto exit_func;
     }
 
-    *iup_matched_fields = up_match;
-    *iup_matched_bytes = up_bytes;
+    matched->up_fields = up_match;
+    matched->up_bytes = up_bytes;
   }
 
   page_cur_position(rec, block, cursor);
 
-  *ilow_matched_fields = low_match;
-  *ilow_matched_bytes = low_bytes;
+  matched->low_fields = low_match;
+  matched->low_bytes = low_bytes;
 
 #ifdef UNIV_SEARCH_PERF_STAT
   page_cur_short_succ++;
@@ -322,17 +315,13 @@ static bool page_cur_has_null(const rec_t *rec, const dict_index_t *index) {
 @param[in] index Record descriptor
 @param[in] tuple Data tuple
 @param[in] mode PAGE_CUR_L, PAGE_CUR_LE, PAGE_CUR_G, or PAGE_CUR_GE
-@param[in,out] iup_matched_fields Already matched fields in upper limit record
-@param[in,out] ilow_matched_fields Already matched fields in lower limit record
+@param[in,out] matched Already matched fields
 @param[out] cursor Page cursor
 @param[in,out] rtr_info Rtree search stack */
 void page_cur_search_with_match(const buf_block_t *block,
                                 const dict_index_t *index,
                                 const dtuple_t *tuple, page_cur_mode_t mode,
-                                ulint *iup_matched_fields,
-
-                                ulint *ilow_matched_fields,
-
+                                page_cur_match_fld_t *matched,
                                 page_cur_t *cursor, rtr_info_t *rtr_info) {
   ulint up;
   ulint low;
@@ -378,8 +367,7 @@ void page_cur_search_with_match(const buf_block_t *block,
       (page_header_get_field(page, PAGE_N_DIRECTION) > 3) &&
       (page_header_get_ptr(page, PAGE_LAST_INSERT)) &&
       (page_header_get_field(page, PAGE_DIRECTION) == PAGE_RIGHT)) {
-    if (page_cur_try_search_shortcut(block, index, tuple, iup_matched_fields,
-                                     ilow_matched_fields, cursor)) {
+    if (page_cur_try_search_shortcut(block, index, tuple, matched, cursor)) {
       return;
     }
   }
@@ -416,8 +404,8 @@ void page_cur_search_with_match(const buf_block_t *block,
   the page. We want to position the cursor on the first X which
   satisfies the condition. */
 
-  up_matched_fields = *iup_matched_fields;
-  low_matched_fields = *ilow_matched_fields;
+  up_matched_fields = matched->up_fields;
+  low_matched_fields = matched->low_fields;
 
   /* Perform binary search. First the search is done through the page
   directory, after that as a linear search in the list of records
@@ -593,8 +581,8 @@ void page_cur_search_with_match(const buf_block_t *block,
     page_cur_position(low_rec, block, cursor);
   }
 
-  *iup_matched_fields = up_matched_fields;
-  *ilow_matched_fields = low_matched_fields;
+  matched->up_fields = up_matched_fields;
+  matched->low_fields = low_matched_fields;
   if (UNIV_LIKELY_NULL(heap)) {
     mem_heap_free(heap);
   }
@@ -605,19 +593,11 @@ void page_cur_search_with_match(const buf_block_t *block,
 @param[in]      index                   index tree
 @param[in]      tuple                   key to be searched for
 @param[in]      mode                    search mode
-@param[in,out]  iup_matched_fields      already matched fields in the
-upper limit record
-@param[in,out]  iup_matched_bytes       already matched bytes in the
-first partially matched field in the upper limit record
-@param[in,out]  ilow_matched_fields     already matched fields in the
-lower limit record
-@param[in,out]  ilow_matched_bytes      already matched bytes in the
-first partially matched field in the lower limit record
+@param[in,out]  matched                 already matched fields and bytes
 @param[out]     cursor                  page cursor */
 void page_cur_search_with_match_bytes(
     const buf_block_t *block, const dict_index_t *index, const dtuple_t *tuple,
-    page_cur_mode_t mode, ulint *iup_matched_fields, ulint *iup_matched_bytes,
-    ulint *ilow_matched_fields, ulint *ilow_matched_bytes, page_cur_t *cursor) {
+    page_cur_mode_t mode, page_cur_match_t *matched, page_cur_t *cursor) {
   ulint up;
   ulint low;
   ulint mid;
@@ -664,9 +644,8 @@ void page_cur_search_with_match_bytes(
       (page_header_get_field(page, PAGE_N_DIRECTION) > 3) &&
       (page_header_get_ptr(page, PAGE_LAST_INSERT)) &&
       (page_header_get_field(page, PAGE_DIRECTION) == PAGE_RIGHT)) {
-    if (page_cur_try_search_shortcut_bytes(
-            block, index, tuple, iup_matched_fields, iup_matched_bytes,
-            ilow_matched_fields, ilow_matched_bytes, cursor)) {
+    if (page_cur_try_search_shortcut_bytes(block, index, tuple, matched,
+                                           cursor)) {
       return;
     }
   }
@@ -689,10 +668,10 @@ void page_cur_search_with_match_bytes(
   the page. We want to position the cursor on the first X which
   satisfies the condition. */
 
-  up_matched_fields = *iup_matched_fields;
-  up_matched_bytes = *iup_matched_bytes;
-  low_matched_fields = *ilow_matched_fields;
-  low_matched_bytes = *ilow_matched_bytes;
+  up_matched_fields = matched->up_fields;
+  up_matched_bytes = matched->up_bytes;
+  low_matched_fields = matched->low_fields;
+  low_matched_bytes = matched->low_bytes;
 
   /* Perform binary search. First the search is done through the page
   directory, after that as a linear search in the list of records
@@ -823,10 +802,10 @@ void page_cur_search_with_match_bytes(
     page_cur_position(low_rec, block, cursor);
   }
 
-  *iup_matched_fields = up_matched_fields;
-  *iup_matched_bytes = up_matched_bytes;
-  *ilow_matched_fields = low_matched_fields;
-  *ilow_matched_bytes = low_matched_bytes;
+  matched->up_fields = up_matched_fields;
+  matched->up_bytes = up_matched_bytes;
+  matched->low_fields = low_matched_fields;
+  matched->low_bytes = low_matched_bytes;
   if (UNIV_LIKELY_NULL(heap)) {
     mem_heap_free(heap);
   }
