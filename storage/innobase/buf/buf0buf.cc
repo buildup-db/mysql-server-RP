@@ -1079,7 +1079,8 @@ static buf_chunk_t *buf_chunk_init(
   /* Allocate the block descriptors from
   the start of the memory block. */
   chunk->blocks =
-      (buf_block_t *)ut_align(chunk->mem, ut::INNODB_CACHE_LINE_SIZE);
+      (buf_block_t *)((ulint)ut_align(chunk->mem, ut::INNODB_CACHE_LINE_SIZE) +
+                      ut::INNODB_CACHE_LINE_SIZE - sizeof(uint64_t));
 
   /* Align a pointer to the first frame.  Note that when
   os_large_page_size is smaller than UNIV_PAGE_SIZE,
