@@ -157,14 +157,38 @@ static inline void *mem_heap_alloc(mem_heap_t *heap, ulint n, ulint align) {
 
   ut_ad(!(block->type & MEM_HEAP_BUFFER) || (n <= MEM_MAX_ALLOC_IN_BUF));
 
+  if (align > UNIV_MEM_ALIGNMENT) {
+    /* align a target size up */
+    n = (n + align - 1) & ~(align - 1);
+  }
+
   /* Check if there is enough space in block. If not, create a new
   block to the heap */
+
+  if (UNIV_UNLIKELY(block->gap_end > MEM_BLOCK_HEADER_SIZE)) {
+    /* There might be enough space in the aligned gap. */
+    buf = (byte *)block + block->gap_end;
+    if (align > UNIV_MEM_ALIGNMENT) {
+      buf = (byte *)ut_align_down((void *)buf, align);
+    }
+    if ((lint)(mem_block_get_start(block) + MEM_SPACE_NEEDED(n)) <=
+        (buf - (byte *)block)) {
+      buf -= MEM_SPACE_NEEDED(n);
+      block->gap_end = (buf - (byte *)block);
+
+      buf += MEM_NO_MANS_LAND;
+
+      ut_ad(block->gap_end >= mem_block_get_start(block));
+
+      UNIV_MEM_ALLOC(buf, n);
+
+      return (buf);
+    }
+  }
 
   free = mem_block_get_free(block);
   buf = (byte *)block + free;
   if (align > UNIV_MEM_ALIGNMENT) {
-    /* align a target size up */
-    n = (n + align - 1) & ~(align - 1);
     buf = (byte *)ut_align((void *)buf, align);
   }
 
@@ -185,6 +209,12 @@ static inline void *mem_heap_alloc(mem_heap_t *heap, ulint n, ulint align) {
   }
 
   mem_block_set_free(block, (buf - (byte *)block) + MEM_SPACE_NEEDED(n));
+
+  if (mem_block_get_start(block) == free &&
+      (buf - (byte *)block) > (lint)free) {
+    /* There is an aligned gap. */
+    block->gap_end = (buf - (byte *)block);
+  }
 
   buf += MEM_NO_MANS_LAND;
 
@@ -286,9 +316,14 @@ static inline void mem_heap_free_heap_top(mem_heap_t *heap, byte *old_top) {
   /* If free == start, we may free the block if it is not the first
   one */
 
-  if ((heap != block) &&
-      (mem_block_get_free(block) == mem_block_get_start(block))) {
-    mem_heap_block_free(heap, block);
+  if (mem_block_get_free(block) == mem_block_get_start(block)) {
+    block->gap_end = 0;
+    if (heap != block) {
+      mem_heap_block_free(heap, block);
+    }
+  } else {
+    /* Not support aligned allocation for now */
+    ut_ad(block->gap_end == 0);
   }
 }
 
@@ -416,6 +451,9 @@ static inline void mem_heap_free_top(
   ut_d(mem_block_validate(heap));
 
   block = UT_LIST_GET_LAST(heap->base);
+
+  /* Not support aligned allocation for now */
+  ut_ad(block->gap_end == 0);
 
   /* Subtract the free field of block */
   mem_block_set_free(block, mem_block_get_free(block) - MEM_SPACE_NEEDED(n));

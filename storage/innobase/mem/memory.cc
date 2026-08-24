@@ -326,6 +326,7 @@ mem_block_t *mem_heap_create_block(mem_heap_t *heap, ulint n,
   mem_block_set_type(block, type);
   mem_block_set_start(block, MEM_BLOCK_HEADER_SIZE);
   mem_block_set_free(block, MEM_BLOCK_HEADER_SIZE);
+  block->gap_end = 0;
 
   if (UNIV_LIKELY(heap == nullptr)) {
     /* This is the first block of the heap. The field
