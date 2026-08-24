@@ -875,9 +875,9 @@ dberr_t Parallel_reader::Ctx::traverse_recs(PCursor *pcursor, mtr_t *mtr) {
     }
 
     ulint offsets_[REC_OFFS_NORMAL_SIZE];
-    ulint *offsets = offsets_;
+    ulint *offsets;
 
-    rec_offs_init(offsets_);
+    rec_offs_init_aligned(offsets_, offsets);
 
     const rec_t *rec = page_cur_get_rec(cur);
     offsets = rec_get_offsets(rec, index, offsets, ULINT_UNDEFINED,
@@ -1117,9 +1117,9 @@ page_no_t Parallel_reader::Scan_ctx::search(const buf_block_t *block,
   mem_heap_t *heap = nullptr;
 
   ulint offsets_[REC_OFFS_NORMAL_SIZE];
-  auto offsets = offsets_;
+  ulint *offsets;
 
-  rec_offs_init(offsets_);
+  rec_offs_init_aligned(offsets_, offsets);
 
   offsets = rec_get_offsets(rec, index, offsets, ULINT_UNDEFINED,
                             UT_LOCATION_HERE, &heap);
@@ -1219,9 +1219,9 @@ dberr_t Parallel_reader::Scan_ctx::create_ranges(const Scan_range &scan_range,
   savepoint.second = block;
 
   ulint offsets_[REC_OFFS_NORMAL_SIZE];
-  auto offsets = offsets_;
+  ulint *offsets;
 
-  rec_offs_init(offsets_);
+  rec_offs_init_aligned(offsets_, offsets);
 
   page_cur_t page_cursor;
 

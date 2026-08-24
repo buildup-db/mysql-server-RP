@@ -327,8 +327,8 @@ dberr_t Histogram_sampler::process_non_leaf_rec(
     }
 
     ulint offsets_[REC_OFFS_NORMAL_SIZE];
-    ulint *offsets = offsets_;
-    rec_offs_init(offsets_);
+    ulint *offsets;
+    rec_offs_init_aligned(offsets_, offsets);
 
     const rec_t *rec = page_cur_get_rec(&cur);
     offsets = rec_get_offsets(rec, index, offsets, ULINT_UNDEFINED,

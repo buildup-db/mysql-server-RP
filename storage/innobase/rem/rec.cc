@@ -416,9 +416,13 @@ ulint *rec_get_offsets(const rec_t *rec, const dict_index_t *index,
   if (UNIV_UNLIKELY(!offsets) ||
       UNIV_UNLIKELY(rec_offs_get_n_alloc(offsets) < size)) {
     if (UNIV_UNLIKELY(!*heap)) {
-      *heap = mem_heap_create(size * sizeof(ulint), location);
+      *heap = mem_heap_create(
+          ut_uint64_align_up(size * sizeof(ulint), ut::INNODB_CACHE_LINE_SIZE) +
+              ut::INNODB_CACHE_LINE_SIZE,
+          location);
     }
-    offsets = static_cast<ulint *>(mem_heap_alloc(*heap, size * sizeof(ulint)));
+    offsets = static_cast<ulint *>(mem_heap_alloc(*heap, size * sizeof(ulint),
+                                                  ut::INNODB_CACHE_LINE_SIZE));
 
     rec_offs_set_n_alloc(offsets, size);
   }

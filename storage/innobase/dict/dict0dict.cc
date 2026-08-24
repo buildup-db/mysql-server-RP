@@ -2556,8 +2556,8 @@ static void dict_index_try_cache_rec_offsets(dict_index_t *index) {
   referencing rec follows: */
 
   const auto offsets_len = n_unique_in_tree + (1 + REC_OFFS_HEADER_SIZE);
-  auto *const offsets = static_cast<ulint *>(
-      mem_heap_alloc(index->heap, sizeof(ulint) * offsets_len));
+  auto *const offsets = static_cast<ulint *>(mem_heap_alloc(
+      index->heap, sizeof(ulint) * offsets_len, ut::INNODB_CACHE_LINE_SIZE));
 
   index->rec_cache.offsets = offsets;
   rec_offs_set_n_alloc(offsets, offsets_len);

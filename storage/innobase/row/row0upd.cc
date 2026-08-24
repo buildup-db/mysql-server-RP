@@ -858,7 +858,6 @@ upd_t *row_upd_build_difference_binary(dict_index_t *index,
   ulint offsets_[REC_OFFS_NORMAL_SIZE];
   const ulint n_fld = dtuple_get_n_fields(entry);
   const ulint n_v_fld = dtuple_get_n_v_fields(entry);
-  rec_offs_init(offsets_);
   const dict_table_t *const table = index->table;
 
   /* This function is used only for a clustered index */
@@ -875,7 +874,9 @@ upd_t *row_upd_build_difference_binary(dict_index_t *index,
         (index->get_sys_col_pos(DATA_ROLL_PTR) == trx_id_pos + 1));
 
   if (!offsets) {
-    offsets = rec_get_offsets(rec, index, offsets_, ULINT_UNDEFINED,
+    ulint *offsets_tmp;
+    rec_offs_init_aligned(offsets_, offsets_tmp);
+    offsets = rec_get_offsets(rec, index, offsets_tmp, ULINT_UNDEFINED,
                               UT_LOCATION_HERE, &heap);
   } else {
     ut_ad(rec_offs_validate(rec, index, offsets));
@@ -1916,8 +1917,8 @@ void row_upd_store_row(upd_node_t *node, THD *thd, TABLE *mysql_table) {
   mem_heap_t *heap = nullptr;
   row_ext_t **ext;
   ulint offsets_[REC_OFFS_NORMAL_SIZE];
-  const ulint *offsets;
-  rec_offs_init(offsets_);
+  ulint *offsets;
+  rec_offs_init_aligned(offsets_, offsets);
 
   ut_ad(node->pcur->m_latch_mode != BTR_NO_LATCHES);
 
@@ -1929,7 +1930,7 @@ void row_upd_store_row(upd_node_t *node, THD *thd, TABLE *mysql_table) {
 
   rec = node->pcur->get_rec();
 
-  offsets = rec_get_offsets(rec, clust_index, offsets_, ULINT_UNDEFINED,
+  offsets = rec_get_offsets(rec, clust_index, offsets, ULINT_UNDEFINED,
                             UT_LOCATION_HERE, &heap);
 
   if (dict_table_has_atomic_blobs(node->table)) {
@@ -3029,7 +3030,7 @@ func_exit:
   ulint *offsets;
   ulint flags = 0;
   trx_t *const trx = thr_get_trx(thr);
-  rec_offs_init(offsets_);
+  rec_offs_init_aligned(offsets_, offsets);
 
   index = node->table->first_index();
 
@@ -3088,7 +3089,7 @@ func_exit:
   }
 
   rec = pcur->get_rec();
-  offsets = rec_get_offsets(rec, index, offsets_, ULINT_UNDEFINED,
+  offsets = rec_get_offsets(rec, index, offsets, ULINT_UNDEFINED,
                             UT_LOCATION_HERE, &heap);
 
   if (UNIV_UNLIKELY(!node->has_clust_rec_x_lock)) {

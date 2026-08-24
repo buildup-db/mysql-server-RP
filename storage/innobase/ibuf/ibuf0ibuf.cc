@@ -3733,11 +3733,11 @@ static void ibuf_delete(const dtuple_t *entry, /*!< in: entry */
     it's a bastardized version of btr_cur_optimistic_delete. */
 
     ulint offsets_[REC_OFFS_NORMAL_SIZE];
-    ulint *offsets = offsets_;
+    ulint *offsets;
     mem_heap_t *heap = nullptr;
     ulint max_ins_size = 0;
 
-    rec_offs_init(offsets_);
+    rec_offs_init_aligned(offsets_, offsets);
 
     offsets = rec_get_offsets(rec, index, offsets, ULINT_UNDEFINED,
                               UT_LOCATION_HERE, &heap);

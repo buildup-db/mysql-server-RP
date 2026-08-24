@@ -752,7 +752,7 @@ static bool rtr_split_page_move_rec_list(
   page_t *page;
   page_t *new_page;
   ulint offsets_[REC_OFFS_NORMAL_SIZE];
-  ulint *offsets = offsets_;
+  ulint *offsets;
   page_zip_des_t *new_page_zip = buf_block_get_page_zip(new_block);
   rec_t *rec;
   rec_t *ret;
@@ -760,7 +760,7 @@ static bool rtr_split_page_move_rec_list(
   ulint max_to_move = 0;
   rtr_rec_move_t *rec_move = nullptr;
 
-  rec_offs_init(offsets_);
+  rec_offs_init_aligned(offsets_, offsets);
 
   page_cur_set_before_first(block, &page_cursor);
   page_cur_set_before_first(new_block, &new_page_cursor);
@@ -1297,14 +1297,14 @@ void rtr_page_copy_rec_list_end_no_locks(buf_block_t *new_block,
   page_cur_t cur1;
   rec_t *cur_rec;
   ulint offsets_1[REC_OFFS_NORMAL_SIZE];
-  ulint *offsets1 = offsets_1;
+  ulint *offsets1;
   ulint offsets_2[REC_OFFS_NORMAL_SIZE];
-  ulint *offsets2 = offsets_2;
+  ulint *offsets2;
   ulint moved = 0;
   bool is_leaf = page_is_leaf(new_page);
 
-  rec_offs_init(offsets_1);
-  rec_offs_init(offsets_2);
+  rec_offs_init_aligned(offsets_1, offsets1);
+  rec_offs_init_aligned(offsets_2, offsets2);
 
   page_cur_position(rec, block, &cur1);
 
@@ -1417,15 +1417,15 @@ void rtr_page_copy_rec_list_start_no_locks(
   page_cur_t cur1;
   rec_t *cur_rec;
   ulint offsets_1[REC_OFFS_NORMAL_SIZE];
-  ulint *offsets1 = offsets_1;
+  ulint *offsets1;
   ulint offsets_2[REC_OFFS_NORMAL_SIZE];
-  ulint *offsets2 = offsets_2;
+  ulint *offsets2;
   page_cur_t page_cur;
   ulint moved = 0;
   bool is_leaf = page_is_leaf(buf_block_get_frame(block));
 
-  rec_offs_init(offsets_1);
-  rec_offs_init(offsets_2);
+  rec_offs_init_aligned(offsets_1, offsets1);
+  rec_offs_init_aligned(offsets_2, offsets2);
 
   page_cur_set_before_first(block, &cur1);
   page_cur_move_to_next(&cur1);

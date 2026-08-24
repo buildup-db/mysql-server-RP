@@ -686,11 +686,11 @@ void btr_cur_search_to_nth_level(
   btr_search_t *info;
   mem_heap_t *heap = nullptr;
   ulint offsets_[REC_OFFS_NORMAL_SIZE];
-  ulint *offsets = offsets_;
+  ulint *offsets;
   ulint offsets2_[REC_OFFS_NORMAL_SIZE];
-  ulint *offsets2 = offsets2_;
-  rec_offs_init(offsets_);
-  rec_offs_init(offsets2_);
+  ulint *offsets2;
+  rec_offs_init_aligned(offsets_, offsets);
+  rec_offs_init_aligned(offsets2_, offsets2);
   /* Currently, PAGE_CUR_LE is the only search mode used for searches
   ending to upper levels */
 
@@ -1737,8 +1737,8 @@ void btr_cur_search_to_nth_level_with_no_latch(dict_index_t *index, ulint level,
 
   mem_heap_t *heap = nullptr;
   ulint offsets_[REC_OFFS_NORMAL_SIZE];
-  ulint *offsets = offsets_;
-  rec_offs_init(offsets_);
+  ulint *offsets;
+  rec_offs_init_aligned(offsets_, offsets);
 
   DBUG_TRACE;
 
@@ -1871,8 +1871,8 @@ void btr_cur_open_at_index_side(bool from_left, dict_index_t *index,
   ulint n_releases = 0;
   mem_heap_t *heap = nullptr;
   ulint offsets_[REC_OFFS_NORMAL_SIZE];
-  ulint *offsets = offsets_;
-  rec_offs_init(offsets_);
+  ulint *offsets;
+  rec_offs_init_aligned(offsets_, offsets);
 
   estimate = latch_mode & BTR_ESTIMATE;
   latch_mode &= ~BTR_ESTIMATE;
@@ -2180,8 +2180,8 @@ void btr_cur_open_at_index_side_with_no_latch(bool from_left,
   ulint n_blocks [[maybe_unused]] = 0;
   mem_heap_t *heap = nullptr;
   ulint offsets_[REC_OFFS_NORMAL_SIZE];
-  ulint *offsets = offsets_;
-  rec_offs_init(offsets_);
+  ulint *offsets;
+  rec_offs_init_aligned(offsets_, offsets);
 
   ut_ad(level != ULINT_UNDEFINED);
 
@@ -2275,8 +2275,8 @@ bool btr_cur_open_at_rnd_pos(dict_index_t *index, /*!< in: index */
   ulint n_releases = 0;
   mem_heap_t *heap = nullptr;
   ulint offsets_[REC_OFFS_NORMAL_SIZE];
-  ulint *offsets = offsets_;
-  rec_offs_init(offsets_);
+  ulint *offsets;
+  rec_offs_init_aligned(offsets_, offsets);
 
   ut_ad(!dict_index_is_spatial(index));
 
@@ -4277,11 +4277,12 @@ const byte *btr_cur_parse_del_mark_set_clust_rec(
     if (!(flags & BTR_KEEP_SYS_FLAG)) {
       mem_heap_t *heap = nullptr;
       ulint offsets_[REC_OFFS_NORMAL_SIZE];
-      rec_offs_init(offsets_);
+      ulint *offsets;
+      rec_offs_init_aligned(offsets_, offsets);
 
       row_upd_rec_sys_fields_in_recovery(
           rec, page_zip,
-          rec_get_offsets(rec, index, offsets_, ULINT_UNDEFINED,
+          rec_get_offsets(rec, index, offsets, ULINT_UNDEFINED,
                           UT_LOCATION_HERE, &heap),
           pos, trx_id, roll_ptr);
       if (UNIV_LIKELY_NULL(heap)) {
@@ -4556,8 +4557,8 @@ bool btr_cur_optimistic_delete_func(btr_cur_t *cursor,
   rec_t *rec;
   mem_heap_t *heap = nullptr;
   ulint offsets_[REC_OFFS_NORMAL_SIZE];
-  ulint *offsets = offsets_;
-  rec_offs_init(offsets_);
+  ulint *offsets;
+  rec_offs_init_aligned(offsets_, offsets);
 
   ut_ad(flags == 0 || flags == BTR_CREATE_FLAG);
   ut_ad(mtr_memo_contains(mtr, btr_cur_get_block(cursor), MTR_MEMO_PAGE_X_FIX));

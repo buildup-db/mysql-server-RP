@@ -3814,12 +3814,12 @@ doc_id_t fts_get_max_doc_id(dict_table_t *table) /*!< in: user table */
   if (!page_is_empty(pcur.get_page())) {
     const rec_t *rec = nullptr;
     ulint offsets_[REC_OFFS_NORMAL_SIZE];
-    ulint *offsets = offsets_;
+    ulint *offsets;
     mem_heap_t *heap = nullptr;
     ulint len;
     const void *data;
 
-    rec_offs_init(offsets_);
+    rec_offs_init_aligned(offsets_, offsets);
 
     do {
       rec = pcur.get_rec();
@@ -5229,12 +5229,12 @@ doc_id_t fts_get_doc_id_from_rec(dict_table_t *table, const rec_t *rec,
   ulint col_no;
   doc_id_t doc_id = 0;
   ulint offsets_[REC_OFFS_NORMAL_SIZE];
-  ulint *offsets = offsets_;
+  ulint *offsets;
   mem_heap_t *my_heap = heap;
 
   ut_a(table->fts->doc_col != ULINT_UNDEFINED);
 
-  rec_offs_init(offsets_);
+  rec_offs_init_aligned(offsets_, offsets);
 
   offsets = rec_get_offsets(rec, index, offsets, ULINT_UNDEFINED,
                             UT_LOCATION_HERE, &my_heap);

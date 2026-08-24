@@ -155,7 +155,7 @@ static bool row_purge_reposition_pcur(
   mem_heap_t *heap = nullptr;
   ulint *offsets;
   ulint offsets_[REC_OFFS_NORMAL_SIZE];
-  rec_offs_init(offsets_);
+  rec_offs_init_aligned(offsets_, offsets);
 
   index = node->table->first_index();
 
@@ -179,7 +179,7 @@ static bool row_purge_reposition_pcur(
 
   rec = node->pcur.get_rec();
 
-  offsets = rec_get_offsets(rec, index, offsets_, ULINT_UNDEFINED,
+  offsets = rec_get_offsets(rec, index, offsets, ULINT_UNDEFINED,
                             UT_LOCATION_HERE, &heap);
 
   if (node->roll_ptr != row_get_rec_roll_ptr(rec, index, offsets)) {

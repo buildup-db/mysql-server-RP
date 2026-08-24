@@ -926,9 +926,10 @@ static void row_ins_foreign_fill_virtual(upd_node_t *cascade, const rec_t *rec,
   ulint offsets_[REC_OFFS_NORMAL_SIZE];
   mem_heap_t *v_heap = nullptr;
   upd_t *const update = cascade->update;
-  rec_offs_init(offsets_);
-  const ulint *const offsets = rec_get_offsets(
-      rec, index, offsets_, ULINT_UNDEFINED, UT_LOCATION_HERE, &update->heap);
+  ulint *offsets;
+  rec_offs_init_aligned(offsets_, offsets);
+  offsets = rec_get_offsets(rec, index, offsets, ULINT_UNDEFINED,
+                            UT_LOCATION_HERE, &update->heap);
   dict_table_t *const table = index->table;
   const ulint n_v_fld = table->n_v_def;
   ulint n_diff;
@@ -1439,7 +1440,7 @@ dberr_t row_ins_check_foreign_constraint(
   trx_t *trx = thr_get_trx(thr);
   mem_heap_t *heap = nullptr;
   ulint offsets_[REC_OFFS_NORMAL_SIZE];
-  ulint *offsets = offsets_;
+  ulint *offsets;
 
   bool skip_gap_lock;
   MDL_ticket *mdl = nullptr;
@@ -1459,7 +1460,7 @@ dberr_t row_ins_check_foreign_constraint(
     return DB_SUCCESS;
   }
 
-  rec_offs_init(offsets_);
+  rec_offs_init_aligned(offsets_, offsets);
 
   err = DB_SUCCESS;
 
@@ -2192,8 +2193,8 @@ a newer version of entry (the entry should not be inserted)
   trx_t *trx = thr_get_trx(thr);
   mem_heap_t *heap = nullptr;
   ulint offsets_[REC_OFFS_NORMAL_SIZE];
-  ulint *offsets = offsets_;
-  rec_offs_init(offsets_);
+  ulint *offsets;
+  rec_offs_init_aligned(offsets_, offsets);
 
   UT_NOT_USED(mtr);
 
@@ -2408,8 +2409,8 @@ dberr_t row_ins_clust_index_entry_low(uint32_t flags, ulint mode,
   mtr_t mtr;
   mem_heap_t *offsets_heap = nullptr;
   ulint offsets_[REC_OFFS_NORMAL_SIZE];
-  ulint *offsets = offsets_;
-  rec_offs_init(offsets_);
+  ulint *offsets;
+  rec_offs_init_aligned(offsets_, offsets);
 
   DBUG_TRACE;
 
@@ -2664,8 +2665,8 @@ static dberr_t row_ins_sorted_clust_index_entry(ulint mode, dict_index_t *index,
 
   mem_heap_t *offsets_heap = nullptr;
   ulint offsets_[REC_OFFS_NORMAL_SIZE];
-  ulint *offsets = offsets_;
-  rec_offs_init(offsets_);
+  ulint *offsets;
+  rec_offs_init_aligned(offsets_, offsets);
 
   DBUG_TRACE;
 
@@ -2846,8 +2847,8 @@ dberr_t row_ins_sec_index_entry_low(uint32_t flags, ulint mode,
   ulint n_unique;
   mtr_t mtr;
   ulint offsets_[REC_OFFS_NORMAL_SIZE];
-  ulint *offsets = offsets_;
-  rec_offs_init(offsets_);
+  ulint *offsets;
+  rec_offs_init_aligned(offsets_, offsets);
   rtr_info_t rtr_info;
 
   ut_ad(!index->is_clustered());

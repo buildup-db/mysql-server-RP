@@ -476,8 +476,8 @@ void page_copy_rec_list_end_no_locks(
   rec_t *cur2;
   mem_heap_t *heap = nullptr;
   ulint offsets_[REC_OFFS_NORMAL_SIZE];
-  ulint *offsets = offsets_;
-  rec_offs_init(offsets_);
+  ulint *offsets;
+  rec_offs_init_aligned(offsets_, offsets);
 
   page_cur_position(rec, block, &cur1);
 
@@ -681,8 +681,8 @@ rec_t *page_copy_rec_list_start(
   rtr_rec_move_t *rec_move = nullptr;
   rec_t *ret = page_rec_get_prev(page_get_supremum_rec(new_page));
   ulint offsets_[REC_OFFS_NORMAL_SIZE];
-  ulint *offsets = offsets_;
-  rec_offs_init(offsets_);
+  ulint *offsets;
+  rec_offs_init_aligned(offsets_, offsets);
 
   /* Here, "ret" may be pointing to a user record or the
   predefined infimum record. */
@@ -891,8 +891,8 @@ void page_delete_rec_list_end(
   page_t *page = page_align(rec);
   mem_heap_t *heap = nullptr;
   ulint offsets_[REC_OFFS_NORMAL_SIZE];
-  ulint *offsets = offsets_;
-  rec_offs_init(offsets_);
+  ulint *offsets;
+  rec_offs_init_aligned(offsets_, offsets);
 
   ut_ad(size == ULINT_UNDEFINED || size < UNIV_PAGE_SIZE);
   ut_ad(!page_zip || page_rec_is_comp(rec));
@@ -1074,10 +1074,10 @@ void page_delete_rec_list_start(
 {
   page_cur_t cur1;
   ulint offsets_[REC_OFFS_NORMAL_SIZE];
-  ulint *offsets = offsets_;
+  ulint *offsets;
   mem_heap_t *heap = nullptr;
 
-  rec_offs_init(offsets_);
+  rec_offs_init_aligned(offsets_, offsets);
 
   ut_ad(page_rec_is_comp(rec) == dict_table_is_comp(index->table));
 #ifdef UNIV_ZIP_DEBUG
@@ -1580,8 +1580,8 @@ void page_print_list(
   ulint n_recs;
   mem_heap_t *heap = nullptr;
   ulint offsets_[REC_OFFS_NORMAL_SIZE];
-  ulint *offsets = offsets_;
-  rec_offs_init(offsets_);
+  ulint *offsets;
+  rec_offs_init_aligned(offsets_, offsets);
 
   ut_a(page_is_comp(page) == dict_table_is_comp(index->table));
 
