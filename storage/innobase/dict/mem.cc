@@ -2,6 +2,7 @@
 
 Copyright (c) 1996, 2026, Oracle and/or its affiliates.
 Copyright (c) 2012, Facebook Inc.
+Copyright (c) 2026, buildup-db.
 
 This program is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License, version 2.0, as published by the
@@ -192,7 +193,7 @@ dict_table_t *dict_mem_table_create(const char *name, space_id_t space,
   ut_a(!(flags2 & DICT_TF2_UNUSED_BIT_MASK));
 #endif /* !UNIV_HOTBACKUP */
 
-  heap = mem_heap_create(DICT_HEAP_SIZE, UT_LOCATION_HERE);
+  heap = mem_heap_create(sizeof(*table), UT_LOCATION_HERE);
 
   table = static_cast<dict_table_t *>(mem_heap_zalloc(heap, sizeof(*table)));
 
@@ -288,9 +289,12 @@ dict_index_t *dict_mem_index_create(
 
   ut_ad(table_name && index_name);
 
-  heap = mem_heap_create(DICT_HEAP_SIZE, UT_LOCATION_HERE);
+  heap = mem_heap_create(sizeof(*index) + ut::INNODB_CACHE_LINE_SIZE,
+                         UT_LOCATION_HERE);
 
-  index = static_cast<dict_index_t *>(mem_heap_zalloc(heap, sizeof(*index)));
+  index = static_cast<dict_index_t *>(ut_align(
+      mem_heap_zalloc(heap, sizeof(*index) + ut::INNODB_CACHE_LINE_SIZE),
+      ut::INNODB_CACHE_LINE_SIZE));
 
   new (&index->fields_array)(decltype(index->fields_array))();
   dict_mem_fill_index_struct(index, heap, table_name, index_name, space, type,
