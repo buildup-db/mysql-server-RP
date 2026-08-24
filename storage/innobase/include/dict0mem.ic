@@ -53,10 +53,8 @@ static inline void dict_mem_fill_index_struct(
   if (heap) {
     index->heap = heap;
     index->name = mem_heap_strdup(heap, index_name);
-    index->fields = (dict_field_t *)ut_align(
-        mem_heap_alloc(heap, 1 + n_fields * sizeof(dict_field_t) +
-                                 ut::INNODB_CACHE_LINE_SIZE),
-        ut::INNODB_CACHE_LINE_SIZE);
+    index->fields = (dict_field_t *)mem_heap_alloc(
+        heap, 1 + n_fields * sizeof(dict_field_t), ut::INNODB_CACHE_LINE_SIZE);
   } else {
     index->name = index_name;
     index->heap = nullptr;

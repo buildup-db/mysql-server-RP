@@ -369,6 +369,7 @@ static size_t get_nullable_fields_for_rec(const dict_index_t *index,
     temp = false;
   }
 
+  const bool is_versioned = index->has_instant_cols_or_row_versions();
   ulint data_size = 0;
   /* read the lengths of fields 0..n */
   for (size_t i = 0; UNIV_LIKELY(i < n_fields); i++) {
@@ -382,7 +383,8 @@ static size_t get_nullable_fields_for_rec(const dict_index_t *index,
     col = field->col;
 
     /* Skip the columns which are not in the version */
-    if (UNIV_UNLIKELY(!col->is_visible_in_version(rec_version))) {
+    if (UNIV_UNLIKELY(is_versioned) &&
+        !col->is_visible_in_version(rec_version)) {
       continue;
     }
 

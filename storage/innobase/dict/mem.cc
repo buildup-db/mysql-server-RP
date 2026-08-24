@@ -221,10 +221,9 @@ dict_table_t *dict_mem_table_create(const char *name, space_id_t space,
   table->n_cols = table->n_t_cols - table->n_v_cols;
   table->n_instant_cols = table->n_cols;
 
-  table->cols = static_cast<dict_col_t *>(ut_align(
-      mem_heap_alloc(heap, (table->n_cols + n_drop_cols) * sizeof(dict_col_t) +
-                               ut::INNODB_CACHE_LINE_SIZE),
-      ut::INNODB_CACHE_LINE_SIZE));
+  table->cols = static_cast<dict_col_t *>(
+      mem_heap_alloc(heap, (table->n_cols + n_drop_cols) * sizeof(dict_col_t),
+                     ut::INNODB_CACHE_LINE_SIZE));
   table->v_cols = static_cast<dict_v_col_t *>(
       mem_heap_alloc(heap, n_v_cols * sizeof(*table->v_cols)));
 
@@ -291,12 +290,36 @@ dict_index_t *dict_mem_index_create(
 
   ut_ad(table_name && index_name);
 
-  heap = mem_heap_create(sizeof(*index) + ut::INNODB_CACHE_LINE_SIZE,
+#ifndef UNIV_LIBRARY
+  /** NOTE: In NUMA environment, it appears that performance is more stable when
+    the dict_index_t::lock is placed at separated OS page from dict_field_t,
+    dict_col_t and the other dict_index_t members. Setting the alignment to 4096
+    (OS page size) was an experimental value enough to separate their
+    allocations enough. */
+  constexpr size_t est_os_page_size = 4096;
+  const size_t alignment =
+      srv_numa_interleave ? est_os_page_size : ut::INNODB_CACHE_LINE_SIZE;
+  const size_t alloc_size =
+      sizeof(*index) + (srv_numa_interleave ? alignment : 0);
+#else
+  const size_t alignment = ut::INNODB_CACHE_LINE_SIZE;
+  const size_t alloc_size = sizeof(*index);
+#endif /* !UNIV_LIBRARY */
+
+  heap = mem_heap_create(ut_uint64_align_up(alloc_size, alignment) + alignment,
                          UT_LOCATION_HERE);
 
-  index = static_cast<dict_index_t *>(ut_align(
-      mem_heap_zalloc(heap, sizeof(*index) + ut::INNODB_CACHE_LINE_SIZE),
-      ut::INNODB_CACHE_LINE_SIZE));
+  index =
+      static_cast<dict_index_t *>(mem_heap_zalloc(heap, alloc_size, alignment));
+
+#ifndef UNIV_LIBRARY
+  if (srv_numa_interleave) {
+    /* Intends dict_index_t::lock placed at separated OS page. */
+    ut_ad(alloc_size >= sizeof(*index) + est_os_page_size);
+    size_t lock_offset = (char *)&(index->lock) - (char *)index;
+    index = (dict_index_t *)((ulint)index + est_os_page_size - lock_offset);
+  }
+#endif /* !UNIV_LIBRARY */
 
   new (&index->fields_array)(decltype(index->fields_array))();
   dict_mem_fill_index_struct(index, heap, table_name, index_name, space, type,
