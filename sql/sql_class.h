@@ -424,6 +424,7 @@ class Query_arena {
   bool is_regular() const { return state == STMT_REGULAR_EXECUTION; }
 
   void *alloc(size_t size) { return mem_root->Alloc(size); }
+  void *aligned_alloc(size_t size) { return mem_root->AlignedAlloc(size); }
   void *mem_calloc(size_t size) {
     void *ptr;
     if ((ptr = mem_root->Alloc(size))) memset(ptr, 0, size);

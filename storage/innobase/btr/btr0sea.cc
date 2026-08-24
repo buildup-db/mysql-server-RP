@@ -376,7 +376,10 @@ bool btr_search_enable() {
 btr_search_t *btr_search_info_create(mem_heap_t *heap) {
   btr_search_t *info;
 
-  info = (btr_search_t *)mem_heap_alloc(heap, sizeof(btr_search_t));
+  info = (btr_search_t *)mem_heap_alloc(
+      heap, sizeof(btr_search_t),
+      srv_numa_interleave ? ut::INNODB_KERNEL_PAGE_SIZE_DEFAULT
+                          : ut::INNODB_CACHE_LINE_SIZE);
 
   ut_d(info->magic_n = BTR_SEARCH_MAGIC_N);
 

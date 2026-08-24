@@ -1129,11 +1129,16 @@ inline void rec_init_offsets_comp_ordinary(const rec_t *rec, bool temp,
   ulint offs = 0;
   ulint any_ext = 0;
   ulint null_mask = 1;
-  uint16_t i = 0;
+  ulint i = 0;
   do {
     /* Fields are stored on disk in version they are added in and are
     maintained in fields_array in the same order. Get the right field. */
     const dict_field_t *field = index->get_physical_field(i);
+    if (UNIV_LIKELY(!index->has_row_versions()) &&
+        i + 1 < rec_offs_n_fields(offsets)) {
+      UNIV_PREFETCH_R(field + 1);
+    }
+
     const dict_col_t *col = field->col;
     const uint16_t fixed_len = field->fixed_len;
     uint64_t len;

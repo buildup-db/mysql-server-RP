@@ -523,9 +523,8 @@ void page_cur_search_with_match(const buf_block_t *block,
   /* Perform linear search until the upper and lower records come to
   distance 1 of each other. */
 
-  while (UNIV_LIKELY(page_rec_get_next_const(low_rec) != up_rec)) {
-    mid_rec = page_rec_get_next_const(low_rec);
-
+  mid_rec = page_rec_get_next_const(low_rec);
+  while (UNIV_LIKELY(mid_rec != up_rec)) {
     cur_matched_fields = std::min(low_matched_fields, up_matched_fields);
 
     auto offsets = get_mid_rec_offsets();
@@ -573,6 +572,8 @@ void page_cur_search_with_match(const buf_block_t *block,
     } else {
       goto up_rec_match;
     }
+
+    mid_rec = page_rec_get_next_const(low_rec);
   }
 
   if (mode <= PAGE_CUR_GE) {

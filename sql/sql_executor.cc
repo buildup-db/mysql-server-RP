@@ -748,7 +748,7 @@ bool set_record_buffer(TABLE *table, double expected_rows_to_fetch) {
   }
 
   const auto bufsize = Record_buffer::buffer_size(rows_in_buffer, record_size);
-  const auto ptr = pointer_cast<uchar *>(current_thd->alloc(bufsize));
+  const auto ptr = pointer_cast<uchar *>(current_thd->aligned_alloc(bufsize));
   if (ptr == nullptr) return true; /* purecov: inspected */
 
   table->m_record_buffer = Record_buffer{rows_in_buffer, record_size, ptr};
