@@ -38,7 +38,7 @@ this program; if not, write to the Free Software Foundation, Inc.,
 
 /* Do not include univ.i because univ.i includes this. */
 
-#include <atomic>
+#include "os0atomic.h"
 #include "ut0dbg.h"
 
 /* This module implements the two-way linear list. Note that a single
@@ -110,22 +110,23 @@ struct ut_list_base {
 
   /** Returns number of nodes currently present in the list. */
   size_t get_length() const {
+    os_rmb;
     ut_ad(UT_LIST_IS_INITIALISED(*this));
-    return count.load(std::memory_order_acquire);
+    return count;
   }
 
   /** Updates the length of the list by the amount specified.
    @param diff the value by which to increase the length. Can be negative. */
   void update_length(int diff) {
     ut_ad(diff > 0 || static_cast<size_t>(-diff) <= get_length());
-    count.fetch_add(diff, std::memory_order_acq_rel);
+    count = count + diff;
   }
 
   void clear() {
     ut_ad(UT_LIST_IS_INITIALISED(*this));
     first_element = nullptr;
     last_element = nullptr;
-    count.store(0);
+    count = 0;
   }
 
   void reverse() {
@@ -137,7 +138,7 @@ struct ut_list_base {
  private:
   /** Number of nodes in list. It is atomic to allow unprotected reads. Writes
   must be protected by some external latch. */
-  std::atomic<size_t> count{0};
+  volatile size_t count{0};
 
   template <typename E>
   class base_iterator {
