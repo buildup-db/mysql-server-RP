@@ -647,7 +647,7 @@ void btr_cur_search_to_nth_level(
   page_t *page = nullptr; /* remove warning */
   buf_block_t *block;
   ulint height;
-  ulint up_match;
+  alignas(ut::INNODB_CACHE_LINE_SIZE) ulint up_match;
   ulint up_bytes;
   ulint low_match;
   ulint low_bytes;
@@ -1726,7 +1726,7 @@ void btr_cur_search_to_nth_level_with_no_latch(dict_index_t *index, ulint level,
   page_t *page = nullptr; /* remove warning */
   buf_block_t *block;
   ulint height;
-  ulint up_match;
+  alignas(ut::INNODB_CACHE_LINE_SIZE) ulint up_match;
   ulint low_match;
   ulint rw_latch;
   page_cur_mode_t page_mode;
