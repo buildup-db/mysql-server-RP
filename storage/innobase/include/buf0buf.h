@@ -1755,6 +1755,11 @@ struct buf_block_t {
   bool was_freed() const { return page.file_page_was_freed; }
 #endif /* UNIV_DEBUG */
 
+#ifndef UNIV_DEBUG
+  /** Padding to align this struct size for cache line size */
+  uint64_t pad1;
+  uint64_t pad2;
+#endif /* !UNIV_DEBUG */
 #endif /* UNIV_HOTBACKUP */
 
   /** pointer to buffer frame which is of size UNIV_PAGE_SIZE, and aligned
@@ -1776,7 +1781,7 @@ struct buf_block_t {
 
 #ifndef UNIV_DEBUG
   /** Padding to align this struct size for cache line size */
-  uint64_t pad1;
+  uint64_t pad3;
 #endif /* !UNIV_DEBUG */
 
   /** @name Hash search fields (unprotected)
