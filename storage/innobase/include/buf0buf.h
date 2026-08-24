@@ -2507,6 +2507,9 @@ struct buf_pool_t {
   watch page is protected by a corresponding individual page_hash latch. */
   buf_page_t *watch;
 
+  /** Padding for OS page sizes boundary */
+  uint64_t pad[344];
+
   /** A wrapper for buf_pool_t::allocator.alocate_large which also advices the
   OS that this chunk should not be dumped to a core file if that was requested.
   Emits a warning to the log and disables @@global.core_file if advising was

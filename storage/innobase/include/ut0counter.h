@@ -48,6 +48,12 @@ this program; if not, write to the Free Software Foundation, Inc.,
 #include <atomic>
 #include <functional>
 
+#ifdef HAVE_OS_GETCPU
+#define UT_SHARD_INDEX static_cast<size_t>(os_getcpu())
+#else /* HAVE_OS_GETCPU */
+#define UT_SHARD_INDEX ut::this_thread_hash
+#endif /* HAVE_OS_GETCPU */
+
 /** Default number of slots to use in ib_counter_t */
 constexpr uint32_t IB_N_SLOTS = 64;
 
