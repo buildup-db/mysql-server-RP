@@ -3599,8 +3599,8 @@ static void buf_wait_for_read(buf_block_t *block) {
     /* Page is X-latched on block->lock until the read is completed.
     Let's just wait for S-lock on block->lock, it will be granted as soon as the
     read completes. */
-    rw_lock_s_lock(&block->lock, UT_LOCATION_HERE);
-    rw_lock_s_unlock(&block->lock);
+    rw_lock_s_lock_pfsni(&block->lock, UT_LOCATION_HERE);
+    rw_lock_s_unlock_pfsni(&block->lock);
   }
 }
 
@@ -4012,7 +4012,7 @@ dberr_t Buf_fetch<T>::zip_page_handler(buf_block_t *&fix_block) {
   buf_block_set_io_fix(block, BUF_IO_READ);
 
   ut::Location loc{m_file, m_line};
-  rw_lock_x_lock_gen(&block->lock, 0, loc);
+  rw_lock_x_lock_gen_pfsni(&block->lock, 0, loc);
 
   rw_lock_x_unlock(m_hash_lock);
 
@@ -4054,7 +4054,7 @@ dberr_t Buf_fetch<T>::zip_page_handler(buf_block_t *&fix_block) {
 
   m_buf_pool->n_pend_unzip.fetch_sub(1);
 
-  rw_lock_x_unlock(&block->lock);
+  rw_lock_x_unlock_pfsni(&block->lock);
 
   fix_block = block;
 
@@ -4158,19 +4158,19 @@ void Buf_fetch<T>::mtr_add_page(buf_block_t *block) {
       break;
 
     case RW_S_LATCH:
-      rw_lock_s_lock_gen(&block->lock, 0, loc);
+      rw_lock_s_lock_gen_pfsni(&block->lock, 0, loc);
       fix_type = MTR_MEMO_PAGE_S_FIX;
       break;
 
     case RW_SX_LATCH:
-      rw_lock_sx_lock_gen(&block->lock, 0, loc);
+      rw_lock_sx_lock_gen_pfsni(&block->lock, 0, loc);
 
       fix_type = MTR_MEMO_PAGE_SX_FIX;
       break;
 
     default:
       ut_ad(m_rw_latch == RW_X_LATCH);
-      rw_lock_x_lock_gen(&block->lock, 0, loc);
+      rw_lock_x_lock_gen_pfsni(&block->lock, 0, loc);
 
       fix_type = MTR_MEMO_PAGE_X_FIX;
       break;
@@ -4546,12 +4546,12 @@ bool buf_page_optimistic_get(ulint rw_latch, buf_block_t *block,
 
   auto loc = ut::Location{file, line};
   if (UNIV_LIKELY(rw_latch == RW_S_LATCH)) {
-    success = rw_lock_s_lock_nowait(&block->lock, loc);
+    success = rw_lock_s_lock_nowait_pfsni(&block->lock, loc);
 
     fix_type = MTR_MEMO_PAGE_S_FIX;
 
   } else if (UNIV_LIKELY(rw_latch == RW_X_LATCH)) {
-    success = rw_lock_x_lock_nowait(&block->lock, loc);
+    success = rw_lock_x_lock_nowait_pfsni(&block->lock, loc);
 
     fix_type = MTR_MEMO_PAGE_X_FIX;
 
@@ -4570,9 +4570,9 @@ bool buf_page_optimistic_get(ulint rw_latch, buf_block_t *block,
     buf_block_dbg_add_level(block, SYNC_NO_ORDER_CHECK);
 
     if (rw_latch == RW_S_LATCH) {
-      rw_lock_s_unlock(&block->lock);
+      rw_lock_s_unlock_pfsni(&block->lock);
     } else if (rw_latch == RW_X_LATCH) {
-      rw_lock_x_unlock(&block->lock);
+      rw_lock_x_unlock_pfsni(&block->lock);
     }
 
     buf_block_buf_fix_dec(block);
@@ -4653,11 +4653,11 @@ bool buf_page_get_known_nowait(ulint rw_latch, buf_block_t *block,
   auto loc = ut::Location{file, line};
   switch (rw_latch) {
     case RW_S_LATCH:
-      success = rw_lock_s_lock_nowait(&block->lock, loc);
+      success = rw_lock_s_lock_nowait_pfsni(&block->lock, loc);
       fix_type = MTR_MEMO_PAGE_S_FIX;
       break;
     case RW_X_LATCH:
-      success = rw_lock_x_lock_nowait(&block->lock, loc);
+      success = rw_lock_x_lock_nowait_pfsni(&block->lock, loc);
 
       fix_type = MTR_MEMO_PAGE_X_FIX;
       break;
@@ -4736,7 +4736,7 @@ const buf_block_t *buf_page_try_get(const page_id_t &page_id,
   buf_page_mutex_exit(block);
 
   mtr_memo_type_t fix_type = MTR_MEMO_PAGE_S_FIX;
-  auto success = rw_lock_s_lock_nowait(&block->lock, location);
+  auto success = rw_lock_s_lock_nowait_pfsni(&block->lock, location);
 
   if (!success) {
     /* Let us try to get an X-latch. If the current thread
@@ -4744,7 +4744,7 @@ const buf_block_t *buf_page_try_get(const page_id_t &page_id,
     S-latch. */
 
     fix_type = MTR_MEMO_PAGE_X_FIX;
-    success = rw_lock_x_lock_nowait(&block->lock, location);
+    success = rw_lock_x_lock_nowait_pfsni(&block->lock, location);
   }
 
   if (!success) {
@@ -5000,7 +5000,7 @@ buf_page_t *buf_page_init_for_read(ulint mode, const page_id_t &page_id,
     read is completed.  The x-lock is cleared by the
     io-handler thread. */
 
-    rw_lock_x_lock_gen(&block->lock, BUF_IO_READ, UT_LOCATION_HERE);
+    rw_lock_x_lock_gen_pfsni(&block->lock, BUF_IO_READ, UT_LOCATION_HERE);
 
     rw_lock_x_unlock(hash_lock);
 
@@ -5167,10 +5167,10 @@ buf_block_t *buf_page_create(const page_id_t &page_id,
   mtr_memo_type_t mtr_latch_type;
 
   if (rw_latch == RW_X_LATCH) {
-    rw_lock_x_lock(&block->lock, UT_LOCATION_HERE);
+    rw_lock_x_lock_pfsni(&block->lock, UT_LOCATION_HERE);
     mtr_latch_type = MTR_MEMO_PAGE_X_FIX;
   } else {
-    rw_lock_sx_lock(&block->lock, UT_LOCATION_HERE);
+    rw_lock_sx_lock_pfsni(&block->lock, UT_LOCATION_HERE);
     mtr_latch_type = MTR_MEMO_PAGE_SX_FIX;
   }
   mtr_memo_push(mtr, block, mtr_latch_type);
@@ -5382,7 +5382,7 @@ void buf_read_page_handle_error(buf_page_t *bpage) {
   buf_page_set_io_fix(bpage, BUF_IO_NONE);
 
   if (uncompressed) {
-    rw_lock_x_unlock_gen(&((buf_block_t *)bpage)->lock, BUF_IO_READ);
+    rw_lock_x_unlock_gen_pfsni(&((buf_block_t *)bpage)->lock, BUF_IO_READ);
   }
 
   /* The hash lock and block mutex will be released during the "free" */
@@ -5556,7 +5556,7 @@ void buf_page_free_stale_during_write(buf_page_t *bpage,
   ut_a(buf_page_in_file(bpage));
 
   if (owns_sx_lock) {
-    rw_lock_sx_unlock_gen(&((buf_block_t *)bpage)->lock, BUF_IO_WRITE);
+    rw_lock_sx_unlock_gen_pfsni(&((buf_block_t *)bpage)->lock, BUF_IO_WRITE);
   }
 
   const auto io_type = buf_page_get_io_fix(bpage);
@@ -6032,7 +6032,7 @@ bool buf_page_io_complete(buf_page_t *bpage, bool evict, IORequest *type,
       debugging! */
 
       if (uncompressed) {
-        rw_lock_x_unlock_gen(&((buf_block_t *)bpage)->lock, BUF_IO_READ);
+        rw_lock_x_unlock_gen_pfsni(&((buf_block_t *)bpage)->lock, BUF_IO_READ);
       }
 
       mutex_exit(block_mutex);
@@ -6050,7 +6050,8 @@ bool buf_page_io_complete(buf_page_t *bpage, bool evict, IORequest *type,
       buf_flush_write_complete(bpage);
 
       if (uncompressed) {
-        rw_lock_sx_unlock_gen(&((buf_block_t *)bpage)->lock, BUF_IO_WRITE);
+        rw_lock_sx_unlock_gen_pfsni(&((buf_block_t *)bpage)->lock,
+                                    BUF_IO_WRITE);
       }
 
       buf_pool->stat.n_pages_written.fetch_add(1);

@@ -1316,7 +1316,8 @@ bool buf_flush_page(buf_pool_t *buf_pool, buf_page_t *bpage,
   } else {
     rw_lock = &reinterpret_cast<buf_block_t *>(bpage)->lock;
     if (flush_type != BUF_FLUSH_LIST) {
-      flush = rw_lock_sx_lock_nowait(rw_lock, BUF_IO_WRITE, UT_LOCATION_HERE);
+      flush =
+          rw_lock_sx_lock_nowait_pfsni(rw_lock, BUF_IO_WRITE, UT_LOCATION_HERE);
     } else {
       /* Will SX lock later */
       flush = true;
@@ -1358,14 +1359,15 @@ bool buf_flush_page(buf_pool_t *buf_pool, buf_page_t *bpage,
     }
 
     if (flush_type == BUF_FLUSH_LIST && is_uncompressed &&
-        !rw_lock_sx_lock_nowait(rw_lock, BUF_IO_WRITE, UT_LOCATION_HERE)) {
+        !rw_lock_sx_lock_nowait_pfsni(rw_lock, BUF_IO_WRITE,
+                                      UT_LOCATION_HERE)) {
       if (!fsp_is_system_temporary(bpage->id.space()) && dblwr::is_enabled()) {
         dblwr::force_flush(flush_type, buf_pool_index(buf_pool));
       } else {
         buf_flush_sync_datafiles();
       }
 
-      rw_lock_sx_lock_gen(rw_lock, BUF_IO_WRITE, UT_LOCATION_HERE);
+      rw_lock_sx_lock_gen_pfsni(rw_lock, BUF_IO_WRITE, UT_LOCATION_HERE);
     }
 
     /* If there is an observer that wants to know if the
