@@ -187,10 +187,12 @@ page_t *btr_root_get(const dict_index_t *index, /*!< in: index tree */
 @param[in]      index           Index tree, may be NULL if it is not an insert
                                 buffer tree
 @param[in,out]  mtr             Mini-transaction
+@param[in]      index_root      true if for index root page
 @return block */
 static inline buf_block_t *btr_block_get_func(
     const page_id_t &page_id, const page_size_t &page_size, ulint mode,
-    ut::Location location, IF_DEBUG(const dict_index_t *index, ) mtr_t *mtr);
+    ut::Location location, IF_DEBUG(const dict_index_t *index, ) mtr_t *mtr,
+    bool index_root = false);
 
 /** Gets a buffer page and declares its latching order level.
 @param page_id Tablespace/page identifier
@@ -199,14 +201,16 @@ static inline buf_block_t *btr_block_get_func(
 @param[in]      location  Location from where this method is called.
 @param index Index tree, may be NULL if not the insert buffer tree
 @param mtr Mini-transaction handle
+@param[in] index_root true if for index root page
 @return the block descriptor */
 static inline buf_block_t *btr_block_get(const page_id_t &page_id,
                                          const page_size_t &page_size,
                                          ulint mode, ut::Location location,
-                                         const dict_index_t *index,
-                                         mtr_t *mtr) {
+                                         const dict_index_t *index, mtr_t *mtr,
+                                         bool index_root = false) {
   return btr_block_get_func(page_id, page_size, mode, location,
-                            IF_DEBUG(index, ) mtr);
+                            IF_DEBUG(index, ) mtr,
+                            index_root && !index->table->is_system_table);
 }
 
 #endif /* !UNIV_HOTBACKUP */

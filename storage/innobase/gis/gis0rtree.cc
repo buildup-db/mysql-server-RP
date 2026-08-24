@@ -1704,7 +1704,7 @@ int64_t rtr_estimate_n_rows_in_range(dict_index_t *index, const dtuple_t *tuple,
   mtr_s_lock(dict_index_get_lock(index), &mtr, UT_LOCATION_HERE);
 
   block = btr_block_get(page_id, page_size, RW_S_LATCH, UT_LOCATION_HERE, index,
-                        &mtr);
+                        &mtr, true);
   page = buf_block_get_frame(block);
   n_recs = page_header_get_field(page, PAGE_N_RECS);
 

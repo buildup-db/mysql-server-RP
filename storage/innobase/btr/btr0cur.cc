@@ -954,10 +954,12 @@ search_loop:
 retry_page_get:
   ut_ad(n_blocks < BTR_MAX_LEVELS);
   tree_savepoints[n_blocks] = mtr_set_savepoint(mtr);
-  block =
-      buf_page_get_gen(page_id, page_size, rw_latch,
-                       (height == ULINT_UNDEFINED ? info->root_guess : nullptr),
-                       fetch, {file, line}, mtr);
+  block = buf_page_get_gen(
+      page_id, page_size, rw_latch,
+      (height == ULINT_UNDEFINED ? info->root_guess : nullptr), fetch,
+      {file, line}, mtr,
+      (height == ULINT_UNDEFINED || height + 1 == root_height) &&
+          !index->table->is_system_table);
 
   tree_blocks[n_blocks] = block;
 
@@ -1787,8 +1789,11 @@ void btr_cur_search_to_nth_level_with_no_latch(dict_index_t *index, ulint level,
 
     ut_ad(n_blocks < BTR_MAX_LEVELS);
 
-    block = buf_page_get_gen(page_id, page_size, rw_latch, nullptr, fetch,
-                             {file, line}, mtr, mark_dirty);
+    block = buf_page_get_gen(
+        page_id, page_size, rw_latch, nullptr, fetch, {file, line}, mtr,
+        (height == ULINT_UNDEFINED || height + 1 == root_height) &&
+            !index->table->is_system_table,
+        mark_dirty);
 
     page = buf_block_get_frame(block);
 
@@ -1956,8 +1961,11 @@ void btr_cur_open_at_index_side(bool from_left, dict_index_t *index,
     }
 
     tree_savepoints[n_blocks] = mtr_set_savepoint(mtr);
-    block = buf_page_get_gen(page_id, page_size, rw_latch, nullptr,
-                             cursor->m_fetch_mode, location, mtr);
+    block = buf_page_get_gen(
+        page_id, page_size, rw_latch, nullptr, cursor->m_fetch_mode, location,
+        mtr,
+        (height == ULINT_UNDEFINED || height + 1 == root_height) &&
+            !index->table->is_system_table);
     tree_blocks[n_blocks] = block;
 
     page = buf_block_get_frame(block);
@@ -2171,6 +2179,7 @@ void btr_cur_open_at_index_side_with_no_latch(bool from_left,
                                               mtr_t *mtr) {
   page_cur_t *page_cursor;
   ulint height;
+  ulint root_height = 0; /* remove warning */
   rec_t *node_ptr;
   ulint n_blocks [[maybe_unused]] = 0;
   mem_heap_t *heap = nullptr;
@@ -2194,8 +2203,11 @@ void btr_cur_open_at_index_side_with_no_latch(bool from_left,
 
     ut_ad(n_blocks < BTR_MAX_LEVELS);
 
-    block = buf_page_get_gen(page_id, page_size, rw_latch, nullptr,
-                             cursor->m_fetch_mode, location, mtr);
+    block = buf_page_get_gen(
+        page_id, page_size, rw_latch, nullptr, cursor->m_fetch_mode, location,
+        mtr,
+        (height == ULINT_UNDEFINED || height + 1 == root_height) &&
+            !index->table->is_system_table);
 
     page = buf_block_get_frame(block);
 
@@ -2206,6 +2218,7 @@ void btr_cur_open_at_index_side_with_no_latch(bool from_left,
       /* We are in the root node */
 
       height = btr_page_get_level(page);
+      root_height = height;
       ut_a(height >= level);
     } else {
       /* TODO: flag the index corrupted if this fails */
@@ -2260,6 +2273,7 @@ bool btr_cur_open_at_rnd_pos(dict_index_t *index, /*!< in: index */
   page_cur_t *page_cursor;
   ulint node_ptr_max_size = UNIV_PAGE_SIZE / 2;
   ulint height;
+  ulint root_height = 0; /* remove warning */
   rec_t *node_ptr;
   ulint savepoint;
   ulint upper_rw_latch, root_leaf_rw_latch;
@@ -2353,8 +2367,11 @@ bool btr_cur_open_at_rnd_pos(dict_index_t *index, /*!< in: index */
     }
 
     tree_savepoints[n_blocks] = mtr_set_savepoint(mtr);
-    block = buf_page_get_gen(page_id, page_size, rw_latch, nullptr,
-                             cursor->m_fetch_mode, {file, line}, mtr);
+    block = buf_page_get_gen(
+        page_id, page_size, rw_latch, nullptr, cursor->m_fetch_mode,
+        {file, line}, mtr,
+        (height == ULINT_UNDEFINED || height + 1 == root_height) &&
+            !index->table->is_system_table);
     tree_blocks[n_blocks] = block;
 
     page = buf_block_get_frame(block);
@@ -2381,6 +2398,7 @@ bool btr_cur_open_at_rnd_pos(dict_index_t *index, /*!< in: index */
       /* We are in the root node */
 
       height = btr_page_get_level(page);
+      root_height = height;
     }
 
     if (height == 0) {

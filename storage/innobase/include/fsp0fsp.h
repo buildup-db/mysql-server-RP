@@ -534,13 +534,15 @@ do the check for this individual page
 @param[in,out] init_mtr mtr or another mini-transaction in which
 the page should be initialized. if init_mtr!=mtr, but the page is already
 latched in mtr, do not initialize the page.
+@param[in] index_root true if for index root page
 @retval NULL if no page could be allocated
 @retval block, rw_lock_x_lock_count(&block->lock) == 1 if allocation succeeded
 (init_mtr == mtr, or the page was not previously freed in mtr),
 returned block is not allocated nor initialized otherwise */
 [[nodiscard]] buf_block_t *fseg_alloc_free_page_general(
     fseg_header_t *seg_header, page_no_t hint, byte direction,
-    bool has_done_reservation, mtr_t *mtr, mtr_t *init_mtr);
+    bool has_done_reservation, mtr_t *mtr, mtr_t *init_mtr,
+    bool index_root = false);
 
 /** Allocates a single free page from a segment. This function implements
  the intelligent allocation strategy which tries to minimize
