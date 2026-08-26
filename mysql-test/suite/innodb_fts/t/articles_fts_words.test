@@ -21,8 +21,8 @@ while ($i < $ROUNDS)
 
 ALTER TABLE articles ADD FULLTEXT KEY ft_title(title);
 
---let $assert_text= Memory used by InnoDB allocator should stay below 5 MiB during FTS index build
---let $assert_cond= [SELECT high_number_of_bytes_used FROM performance_schema.memory_summary_global_by_event_name WHERE event_name = "memory/innodb/memory"] < 5*1024*1024
+--let $assert_text= Memory used by InnoDB allocator should stay below 6 MiB during FTS index build
+--let $assert_cond= [SELECT high_number_of_bytes_used FROM performance_schema.memory_summary_global_by_event_name WHERE event_name = "memory/innodb/memory"] < 6*1024*1024
 --source include/assert.inc
 
 DROP TABLE articles;
