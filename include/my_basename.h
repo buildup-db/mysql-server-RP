@@ -47,7 +47,7 @@ constexpr const char *basename_prefix_eval(const char *const path) {
 }
 
 constexpr int basename_prefix_find(const char *const path, const int index) {
-  return (path[index] == '/' || path[index] == '\\')
+  return (index == -1 || path[index] == '/' || path[index] == '\\')
              ? index + 1
              : basename_prefix_find(path, index - 1);
 }
