@@ -125,7 +125,6 @@ MACRO(GET_PACKAGE_FILE_NAME Var)
   IF(PACKAGE_SUFFIX)
     SET(package_name "${package_name}${PACKAGE_SUFFIX}")
   ENDIF()
-  STRING(TOLOWER ${package_name} package_name)
   SET(${Var} ${package_name})
 ENDMACRO()
 
