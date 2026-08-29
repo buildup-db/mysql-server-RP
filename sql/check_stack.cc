@@ -45,6 +45,16 @@
         Check stack size; Send error if there isn't enough stack to continue
 ****************************************************************************/
 
+#if defined(__clang__)
+#pragma clang optimize off
+#elif defined(__GNUC__)
+#pragma GCC optimize ("O0")
+#endif  // defined(__GNUC__)
+
+#if defined(_MSC_VER)
+#pragma optimize("", off)
+#endif  // defined(_MSC_VER)
+
 namespace {
 int stack_direction = 0;
 }
