@@ -532,7 +532,7 @@ The corresponding unlock operation is adding link to log.recent_closed.
 @param[in]     len     number of data bytes to reserve for write
 @return start sn of reserved */
 static inline sn_t log_buffer_s_lock_enter_reserve(log_t &log, size_t len) {
-#ifdef UNIV_PFS_RWLOCK
+#if defined(UNIV_PFS_RWLOCK) && defined(UNIV_DEBUG)
   PSI_rwlock_locker *locker = nullptr;
   PSI_rwlock_locker_state state;
   if (UNIV_LIKELY(log.pfs_psi != nullptr)) {
@@ -543,7 +543,7 @@ static inline sn_t log_buffer_s_lock_enter_reserve(log_t &log, size_t len) {
           static_cast<uint>(__LINE__));
     }
   }
-#endif /* UNIV_PFS_RWLOCK */
+#endif /* UNIV_PFS_RWLOCK && UNIV_DEBUG */
 
   /* Reserve space in sequence of data bytes: */
   sn_t start_sn = log.sn.fetch_add(len);
@@ -561,11 +561,11 @@ static inline sn_t log_buffer_s_lock_enter_reserve(log_t &log, size_t len) {
 
   ut_d(
       rw_lock_add_debug_info(log.sn_lock_inst, 0, RW_LOCK_S, UT_LOCATION_HERE));
-#ifdef UNIV_PFS_RWLOCK
+#if defined(UNIV_PFS_RWLOCK) && defined(UNIV_DEBUG)
   if (UNIV_UNLIKELY(locker != nullptr)) {
     PSI_RWLOCK_CALL(end_rwlock_rdwait)(locker, 0);
   }
-#endif /* UNIV_PFS_RWLOCK */
+#endif /* UNIV_PFS_RWLOCK && UNIV_DEBUG */
 
   return start_sn;
 }
@@ -576,7 +576,7 @@ static inline sn_t log_buffer_s_lock_enter_reserve(log_t &log, size_t len) {
 @param[in]     end_lsn   end lsn of the reservation */
 static inline void log_buffer_s_lock_exit_close(log_t &log, lsn_t start_lsn,
                                                 lsn_t end_lsn) {
-#ifdef UNIV_PFS_RWLOCK
+#if defined(UNIV_PFS_RWLOCK) && defined(UNIV_DEBUG)
   if (UNIV_LIKELY(log.pfs_psi != nullptr)) {
     if (UNIV_UNLIKELY(log.pfs_psi->m_enabled)) {
       /* Inform performance schema we are unlocking the lock */
@@ -584,7 +584,7 @@ static inline void log_buffer_s_lock_exit_close(log_t &log, lsn_t start_lsn,
       (log.pfs_psi, PSI_RWLOCK_SHAREDUNLOCK);
     }
   }
-#endif /* UNIV_PFS_RWLOCK */
+#endif /* UNIV_PFS_RWLOCK && UNIV_DEBUG */
   ut_d(rw_lock_remove_debug_info(log.sn_lock_inst, 0, RW_LOCK_S));
 
   log.recent_closed.add_link_advance_tail(start_lsn, end_lsn);

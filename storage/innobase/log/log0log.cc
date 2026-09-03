@@ -429,8 +429,8 @@ Read more about redo log details:
 *******************************************************/
 // clang-format on
 
-/** Redo log system. Singleton used to populate global pointer. */
-ut::aligned_pointer<log_t, ut::INNODB_CACHE_LINE_SIZE> *log_sys_object;
+/** Allocated memory for Redo log system. */
+void *log_sys_mem = nullptr;
 
 /** Redo log system (singleton). */
 log_t *log_sys;
@@ -585,21 +585,21 @@ static void log_resume_writer_threads(log_t &log);
 static void log_sys_create() {
   ut_a(log_sys == nullptr);
 
-  /* The log_sys_object is pointer to aligned_pointer. That's
-  temporary solution until we refactor redo log more.
+  /* Allocate log_sys with dedicated OS pages for NUMA case. */
+  const size_t alignment = srv_numa_interleave
+                               ? ut::INNODB_KERNEL_PAGE_SIZE_DEFAULT
+                               : ut::INNODB_CACHE_LINE_SIZE;
+  log_sys_mem = ut::zalloc_withkey(
+      UT_NEW_THIS_FILE_PSI_KEY,
+      ut_uint64_align_up(sizeof(log_t), alignment) + alignment * 2);
+  void *log_sys_object = ut_align(log_sys_mem, alignment);
+  if (srv_numa_interleave) {
+    /* Place around log.sn for the first separated OS page. */
+    log_sys_object =
+        (byte *)log_sys_object + (alignment - ut::INNODB_CACHE_LINE_SIZE * 2);
+  }
 
-  That's required for now, because the aligned_pointer, has dtor
-  which tries to free the memory and as long as this is global
-  variable it will have the dtor called. However because we can
-  exit without proper cleanup for redo log in some cases, we
-  need to forbid dtor calls then. */
-
-  using log_t_aligned_pointer = std::decay_t<decltype(*log_sys_object)>;
-  log_sys_object =
-      ut::new_withkey<log_t_aligned_pointer>(UT_NEW_THIS_FILE_PSI_KEY);
-  log_sys_object->alloc_withkey(UT_NEW_THIS_FILE_PSI_KEY);
-
-  log_sys = *log_sys_object;
+  log_sys = new (log_sys_object) log_t();
 
   log_t &log = *log_sys;
 
@@ -863,9 +863,10 @@ static void log_sys_free() {
   os_event_destroy(log.m_file_removed_event);
   os_event_destroy(log.sn_lock_event);
 
-  log_sys_object->dealloc();
-  ut::delete_(log_sys_object);
-  log_sys_object = nullptr;
+  log_sys->~log_t();
+
+  ut::free(log_sys_mem);
+  log_sys_mem = nullptr;
 
   log_sys = nullptr;
 }
