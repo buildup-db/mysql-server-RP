@@ -1,6 +1,7 @@
 /*****************************************************************************
 
 Copyright (c) 1996, 2026, Oracle and/or its affiliates.
+Copyright (c) 2026, buildup-db.
 
 This program is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License, version 2.0, as published by the
@@ -569,6 +570,11 @@ void trx_sys_create(void) {
   UT_LIST_INIT(trx_sys->serialisation_list);
   UT_LIST_INIT(trx_sys->rw_trx_list);
   UT_LIST_INIT(trx_sys->mysql_trx_list);
+
+#if defined(__x86_64__) || defined(_M_X64) || defined(__aarch64__) || \
+    defined(_M_ARM64)
+  trx_sys->rw_trx_list_min_id = TRX_ID_MAX;
+#endif /* __x86_64__ || _M_X64 || __aarch64__ || _M_ARM64 */
 
   trx_sys->mvcc = ut::new_withkey<MVCC>(UT_NEW_THIS_FILE_PSI_KEY, 1024);
 

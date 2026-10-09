@@ -1,6 +1,7 @@
 /*****************************************************************************
 
 Copyright (c) 1996, 2026, Oracle and/or its affiliates.
+Copyright (c) 2026, buildup-db.
 
 This program is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License, version 2.0, as published by the
@@ -1062,6 +1063,14 @@ Requires trx_sys->mutex, unless called in the single threaded startup code.
 static inline void trx_add_to_rw_trx_list(trx_t *trx) {
   ut_ad(srv_is_being_started || trx_sys_mutex_own());
   ut_ad(!trx->in_rw_trx_list);
+#if defined(__x86_64__) || defined(_M_X64) || defined(__aarch64__) || \
+    defined(_M_ARM64)
+  if (UT_LIST_GET_LEN(trx_sys->rw_trx_list) == 0) {
+    ut_ad(trx_sys->rw_trx_list_min_id == TRX_ID_MAX);
+    trx_sys->rw_trx_list_min_id = trx->id;
+    /* os_wmb is omitted for performance. mutex_exit afterword is enough. */
+  }
+#endif /* __x86_64__ || _M_X64 || __aarch64__ || _M_ARM64 */
   UT_LIST_ADD_FIRST(trx_sys->rw_trx_list, trx);
   ut_d(trx->in_rw_trx_list = true);
 }
@@ -1073,6 +1082,19 @@ Requires trx_sys->mutex, unless called in the single threaded startup code.
 static inline void trx_remove_from_rw_trx_list(trx_t *trx) {
   ut_ad(srv_is_being_started || trx_sys_mutex_own());
   ut_ad(trx->in_rw_trx_list);
+#if defined(__x86_64__) || defined(_M_X64) || defined(__aarch64__) || \
+    defined(_M_ARM64)
+  if (UT_LIST_GET_NEXT(trx_list, trx) == nullptr) {
+    const trx_t *prev_trx = UT_LIST_GET_PREV(trx_list, trx);
+    ut_ad(trx_sys->rw_trx_list_min_id == trx->id);
+    if (prev_trx == nullptr) {
+      trx_sys->rw_trx_list_min_id = TRX_ID_MAX;
+    } else {
+      trx_sys->rw_trx_list_min_id = prev_trx->id;
+    }
+    /* os_wmb is omitted for performance. mutex_exit afterword is enough. */
+  }
+#endif /* __x86_64__ || _M_X64 || __aarch64__ || _M_ARM64 */
   UT_LIST_REMOVE(trx_sys->rw_trx_list, trx);
   ut_d(trx->in_rw_trx_list = false);
 }

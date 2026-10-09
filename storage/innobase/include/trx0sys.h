@@ -1,6 +1,7 @@
 /*****************************************************************************
 
 Copyright (c) 1996, 2026, Oracle and/or its affiliates.
+Copyright (c) 2026, buildup-db.
 
 This program is free software; you can redistribute it and/or modify it under
 the terms of the GNU General Public License, version 2.0, as published by the
@@ -535,6 +536,12 @@ struct trx_sys_t {
   /** List of active and committed in memory read-write transactions, sorted
   on trx id, biggest first. Recovered transactions are always on this list. */
   UT_LIST_BASE_NODE_T(trx_t, trx_list) rw_trx_list;
+
+#if defined(__x86_64__) || defined(_M_X64) || defined(__aarch64__) || \
+    defined(_M_ARM64)
+  /** Minimum trx_id in rw_trx_list, or TRX_ID_MAX for no trx. */
+  volatile trx_id_t rw_trx_list_min_id;
+#endif /* __x86_64__ || _M_X64 || __aarch64__ || _M_ARM64 */
 
   char pad6[ut::INNODB_CACHE_LINE_SIZE];
 

@@ -965,6 +965,11 @@ The difficulties to keep in mind here:
                  the seen trx_id is still active or not
 */
 static bool can_older_trx_be_still_active(trx_id_t max_old_active_id) {
+#if defined(__x86_64__) || defined(_M_X64) || defined(__aarch64__) || \
+    defined(_M_ARM64)
+  os_rmb;
+  const trx_id_t min_active_now_id = trx_sys->rw_trx_list_min_id;
+#else
   if (UNIV_UNLIKELY(mutex_enter_nowait(&trx_sys->mutex) != 0)) {
     ut_ad(!trx_sys_mutex_own());
     /* The mutex is currently locked by somebody else. Instead of wasting time
@@ -992,6 +997,7 @@ static bool can_older_trx_be_still_active(trx_id_t max_old_active_id) {
   assert_trx_in_rw_list(trx);
   const trx_id_t min_active_now_id = trx->id;
   trx_sys_mutex_exit();
+#endif /* __x86_64__ || _M_X64 || __aarch64__ || _M_ARM64 */
   return min_active_now_id <= max_old_active_id;
 }
 

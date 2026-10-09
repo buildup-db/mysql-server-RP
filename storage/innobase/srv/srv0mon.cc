@@ -157,12 +157,12 @@ static monitor_info_t innodb_counter_info[] = {
      MONITOR_NONE, MONITOR_DEFAULT_START, MONITOR_NUM_RECLOCK_REQ},
 
     {"lock_rec_release_attempts", "lock",
-     "Number of times we attempted to release record locks", MONITOR_DEFAULT_ON,
+     "Number of times we attempted to release record locks", MONITOR_NONE,
      MONITOR_DEFAULT_START, MONITOR_RECLOCK_RELEASE_ATTEMPTS},
 
     {"lock_rec_grant_attempts", "lock",
-     "Number of times we attempted to grant locks for a record",
-     MONITOR_DEFAULT_ON, MONITOR_DEFAULT_START, MONITOR_RECLOCK_GRANT_ATTEMPTS},
+     "Number of times we attempted to grant locks for a record", MONITOR_NONE,
+     MONITOR_DEFAULT_START, MONITOR_RECLOCK_GRANT_ATTEMPTS},
 
     {"lock_rec_lock_created", "lock", "Number of record locks created",
      MONITOR_NONE, MONITOR_DEFAULT_START, MONITOR_RECLOCK_CREATED},
