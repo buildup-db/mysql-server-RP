@@ -168,12 +168,13 @@ static inline ulint rw_lock_get_x_lock_count(
     /* no s-lock, no sx-lock, 2 or more x-locks.
     First 2 x-locks are set with -X_LOCK_DECR,
     all other recursive x-locks are set with -1 */
-    return (2 - (lock_copy + X_LOCK_DECR));
+    return (2 - (lock_copy + X_LOCK_DECR) / X_LOCK_SMALL_DECR);
   } else {
     /* no s-lock, 1 or more sx-lock, 2 or more x-locks.
     First 2 x-locks are set with -(X_LOCK_DECR + X_LOCK_HALF_DECR),
     all other recursive x-locks are set with -1 */
-    return (2 - (lock_copy + X_LOCK_DECR + X_LOCK_HALF_DECR));
+    return (2 -
+            (lock_copy + X_LOCK_DECR + X_LOCK_HALF_DECR) / X_LOCK_SMALL_DECR);
   }
 }
 
@@ -217,8 +218,26 @@ bool rw_lock_lock_word_decr(rw_lock_t *lock, /*!< in/out: rw-lock */
 
   local_lock_word = lock->lock_word.load(std::memory_order_acquire);
   while (UNIV_LIKELY(local_lock_word > threshold)) {
-    if (UNIV_LIKELY(lock->lock_word.compare_exchange_strong(
-            local_lock_word, local_lock_word - amount))) {
+    const int32_t base_val =
+        (local_lock_word > X_LOCK_HALF_DECR) ? X_LOCK_DECR : X_LOCK_HALF_DECR;
+    if (UNIV_UNLIKELY((base_val - local_lock_word) / amount > 4)) {
+      /* There are several concurrent same lock owners.
+      Optimistic attempt not to conflict with them. */
+
+      local_lock_word = lock->lock_word.fetch_sub(amount);
+      if (UNIV_LIKELY(local_lock_word > threshold)) {
+        return (true);
+      }
+
+      local_lock_word = lock->lock_word.fetch_add(amount) + amount;
+      if (UNIV_UNLIKELY(local_lock_word == 0) ||
+          UNIV_UNLIKELY(local_lock_word == -X_LOCK_HALF_DECR)) {
+        /* This optimistic operation might interrupted signaling. */
+        os_event_set(lock->wait_ex_event);
+        sync_array_object_signalled();
+      }
+    } else if (UNIV_LIKELY(lock->lock_word.compare_exchange_strong(
+                   local_lock_word, local_lock_word - amount))) {
       return (true);
     }
   }
@@ -316,15 +335,15 @@ static inline bool rw_lock_x_lock_func_nowait(rw_lock_t *lock,
     threads can modify (lock, unlock, or reserve) lock_word while
     there is an exclusive writer and this is the writer thread. */
     const int32_t lock_word = lock->lock_word;
-    if (lock_word == 0 || lock_word == -X_LOCK_HALF_DECR) {
-      /* There are 1 x-locks */
-      lock->lock_word -= X_LOCK_DECR;
-    } else if (lock_word <= -X_LOCK_DECR) {
-      /* There are 2 or more x-locks */
-      lock->lock_word--;
-    } else {
+    if (UNIV_UNLIKELY(lock_word > 0)) {
       /* Failure */
       return false;
+    } else if (lock_word > -X_LOCK_DECR) {
+      /* There are 1 x-locks */
+      lock->lock_word -= X_LOCK_DECR;
+    } else {
+      /* There are 2 or more x-locks */
+      lock->lock_word -= X_LOCK_SMALL_DECR;
     }
 
     /* Watch for too many recursive locks */
@@ -382,8 +401,8 @@ another thread to unlock
 @param[in,out] lock lock rw-lock */
 static inline void rw_lock_x_unlock_func(IF_DEBUG(ulint pass, )
                                              rw_lock_t *lock) {
-  ut_ad(lock->lock_word == 0 || lock->lock_word == -X_LOCK_HALF_DECR ||
-        lock->lock_word <= -X_LOCK_DECR);
+  const int32_t lock_word = lock->lock_word;
+  ut_ad(lock_word <= 0);
 
   /* lock->recursive == true implies that the lock->writer_thread is the
   current writer. If we are the last of the recursive callers then we must unset
@@ -391,15 +410,14 @@ static inline void rw_lock_x_unlock_func(IF_DEBUG(ulint pass, )
   stale. Otherwise if our thread tried to reacquire the lock it would wrongly
   believe it already has it.
   Note that since we still hold the x-lock we can safely read the lock_word. */
-  if (UNIV_LIKELY(lock->lock_word == 0)) {
+  if (UNIV_LIKELY(lock_word > -X_LOCK_HALF_DECR)) {
     /* Last caller in a possible recursive chain. */
     lock->recursive.store(false, std::memory_order_relaxed);
   }
 
   ut_d(rw_lock_remove_debug_info(lock, pass, RW_LOCK_X));
 
-  const int32_t lock_word = lock->lock_word;
-  if (UNIV_LIKELY(lock_word == 0) || lock_word == -X_LOCK_HALF_DECR) {
+  if (UNIV_LIKELY(lock_word > -X_LOCK_DECR)) {
     /* There is 1 x-lock */
     /* atomic increment is needed, because it is last */
     if (UNIV_UNLIKELY(rw_lock_lock_word_incr(lock, X_LOCK_DECR) <= 0)) {
@@ -416,14 +434,17 @@ static inline void rw_lock_x_unlock_func(IF_DEBUG(ulint pass, )
       os_event_set(lock->event);
       sync_array_object_signalled();
     }
-  } else if (lock_word == -X_LOCK_DECR ||
-             lock_word == -(X_LOCK_DECR + X_LOCK_HALF_DECR)) {
+  } else if ((lock_word <= -X_LOCK_DECR &&
+              lock_word > -(X_LOCK_DECR + X_LOCK_SMALL_DECR)) ||
+             (lock_word <= -(X_LOCK_DECR + X_LOCK_HALF_DECR) &&
+              lock_word >
+                  -(X_LOCK_DECR + X_LOCK_HALF_DECR + X_LOCK_SMALL_DECR))) {
     /* There are 2 x-locks */
     lock->lock_word += X_LOCK_DECR;
   } else {
     /* There are more than 2 x-locks. */
     ut_ad(lock_word < -X_LOCK_DECR);
-    lock->lock_word += 1;
+    lock->lock_word += X_LOCK_SMALL_DECR;
   }
 
   ut_ad(rw_lock_validate(lock));
@@ -462,7 +483,8 @@ static inline void rw_lock_sx_unlock_func(IF_DEBUG(ulint pass, )
       }
     } else {
       /* still has x-lock */
-      ut_ad(lock->lock_word == -X_LOCK_HALF_DECR ||
+      ut_ad((lock->lock_word <= -X_LOCK_HALF_DECR &&
+             lock->lock_word > -X_LOCK_DECR) ||
             lock->lock_word <= -(X_LOCK_DECR + X_LOCK_HALF_DECR));
       lock->lock_word += X_LOCK_HALF_DECR;
     }

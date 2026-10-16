@@ -126,6 +126,22 @@ of concurrent read locks before the rw_lock breaks. */
 /* We decrement lock_word by X_LOCK_HALF_DECR for sx_lock. */
 constexpr int32_t X_LOCK_DECR = 0x20000000;
 constexpr int32_t X_LOCK_HALF_DECR = 0x10000000;
+/* Due to the optimistic manipulation of `lock_word` by `s-lock`,
+`lock_word` may momentarily roll back to the `x-wait` state.
+If, by any chance, this state persists into the second or subsequent
+recursive `x-lock`, an inconsistency in `lock_word` will occur,
+(since it is impossible to distinguish whether the value `-1`
+ is caused by `s-lock` or by a recursive `x-lock`).
+Sets the operation for the second or subsequent x-locks to -0x100.
+As a result, even if the rollbacks from 255 concurrent s-lock attempts remain
+in the second or subsequent recursive x-locks, no inconsistency will occur.
+
+Although this is execution-dependent,
+it remains safe even in a situation where, during 255 simultaneous s-lock
+attempts, context switches occur at the exact same point for all of them and
+paused. This probability is astronomically lower than that of other
+execution-dependent parts of InnoDB (such as index block latch order...). */
+constexpr int32_t X_LOCK_SMALL_DECR = 0x100;
 
 #ifdef UNIV_DEBUG
 struct rw_lock_debug_t;

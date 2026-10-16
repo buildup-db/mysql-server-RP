@@ -488,12 +488,14 @@ static inline bool rw_lock_x_lock_low(
         /* At least one X lock by this thread already
         exists. Add another. */
         const int32_t lock_word = lock->lock_word;
-        if (UNIV_LIKELY(lock_word == 0) || lock_word == -X_LOCK_HALF_DECR) {
+        if (UNIV_LIKELY(lock_word > -X_LOCK_DECR)) {
           lock->lock_word -= X_LOCK_DECR;
         } else {
-          ut_ad(lock->lock_word <= -X_LOCK_DECR);
-          --lock->lock_word;
+          lock->lock_word -= X_LOCK_SMALL_DECR;
         }
+
+        /* Watch for too many recursive locks */
+        ut_ad(lock->lock_word < 0);
       }
     } else {
       /* Another thread locked before us */
@@ -551,7 +553,7 @@ bool rw_lock_sx_lock_low(rw_lock_t *lock, ulint pass, ut::Location location) {
           thread working on this lock and it is safe to
           read and write to the lock_word. */
 
-        ut_ad((lock->lock_word == 0) ||
+        ut_ad((lock->lock_word <= 0 && lock->lock_word > -X_LOCK_HALF_DECR) ||
               ((lock->lock_word <= -X_LOCK_DECR) &&
                (lock->lock_word > -(X_LOCK_DECR + X_LOCK_HALF_DECR))));
         lock->lock_word -= X_LOCK_HALF_DECR;
