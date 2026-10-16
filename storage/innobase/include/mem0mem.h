@@ -149,6 +149,13 @@ MEM_HEAP_BTR_SEARCH type heaps) */
 static inline void *mem_heap_alloc(mem_heap_t *heap, ulint n,
                                    ulint align = UNIV_MEM_ALIGNMENT);
 
+/** Adjust the aligned gap area after aligned alloc,
+to reuse the area 'from' to  'to'.
+@param[in]      heap    memory heap
+@param[in]      from    allocated storage by mem_heap_alloc()
+@param[in]      to      aligned start of storage */
+static inline void mem_heap_adjust_gap(mem_heap_t *heap, byte *from, byte *to);
+
 /** Returns a pointer to the heap top.
 @param[in]      heap            memory heap
 @return pointer to the heap top */

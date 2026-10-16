@@ -299,7 +299,7 @@ dict_index_t *dict_mem_index_create(
     page also seems to result in more stable performance. */
   const size_t alignment = ut::INNODB_KERNEL_PAGE_SIZE_DEFAULT;
   const size_t alloc_size =
-      sizeof(*index) + (srv_numa_interleave ? alignment : 0);
+      (srv_numa_interleave ? alignment * 2 : sizeof(*index));
 #else
   const size_t alignment = ut::INNODB_CACHE_LINE_SIZE;
   const size_t alloc_size = sizeof(*index);
@@ -316,7 +316,9 @@ dict_index_t *dict_mem_index_create(
     /* Intends dict_index_t::lock placed at separated OS page. */
     ut_ad(alloc_size >= sizeof(*index) + alignment);
     const size_t lock_offset = (char *)&(index->lock) - (char *)index;
+    dict_index_t *index_prev = index;
     index = (dict_index_t *)((ulint)index + alignment - lock_offset);
+    mem_heap_adjust_gap(heap, (byte *)index_prev, (byte *)index);
   }
 #endif /* !UNIV_LIBRARY */
 

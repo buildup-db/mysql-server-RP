@@ -236,6 +236,23 @@ static inline void *mem_heap_alloc(mem_heap_t *heap, ulint n, ulint align) {
   return (buf);
 }
 
+/** Adjust the aligned gap area after aligned alloc,
+to reuse the area 'from' to  'to'.
+@param[in]      heap    memory heap
+@param[in]      from    allocated storage by mem_heap_alloc()
+@param[in]      to      aligned start of storage */
+static inline void mem_heap_adjust_gap(mem_heap_t *heap, byte *from, byte *to) {
+  mem_block_t *block = UT_LIST_GET_LAST(heap->base);
+  ulint from_gap =
+      (block->gap_end > 0) ? block->gap_end : mem_block_get_start(block);
+  ut_ad(to > from);
+  ut_ad((from - MEM_NO_MANS_LAND) == ((byte *)block + from_gap));
+  if ((from - MEM_NO_MANS_LAND) == ((byte *)block + from_gap)) {
+    block->gap_end = ((to - MEM_NO_MANS_LAND) - (byte *)block);
+    ut_ad(mem_block_get_free(block) > block->gap_end);
+  }
+}
+
 #ifdef UNIV_DEBUG
 static inline void validate_no_mans_land(byte *no_mans_land_begin,
                                          byte mem_no_mans_land_byte) {
