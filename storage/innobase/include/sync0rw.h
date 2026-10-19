@@ -761,24 +761,34 @@ NOTE! The following macros should be used in rw locking and
 unlocking, not the corresponding function. */
 
 static inline void rw_lock_s_lock(rw_lock_t *M, ut::Location L) {
-  pfs_rw_lock_s_lock_func(M, 0, L);
+  /* FIXME: Reference on lock->pfs_psi is very expensive when s-lock
+   concentration on NUMA environment. Skips it for now. */
+  rw_lock_s_lock_func(M, 0, L);
 }
 
 static inline void rw_lock_s_lock_gen(rw_lock_t *M, ulint P, ut::Location L) {
-  pfs_rw_lock_s_lock_func(M, P, L);
+  /* FIXME: Reference on lock->pfs_psi is very expensive when s-lock
+   concentration on NUMA environment. Skips it for now. */
+  rw_lock_s_lock_func(M, P, L);
 }
 
 static inline bool rw_lock_s_lock_nowait(rw_lock_t *M, ut::Location L) {
-  return pfs_rw_lock_s_lock_low(M, 0, L);
+  /* FIXME: Reference on lock->pfs_psi is very expensive when s-lock
+   concentration on NUMA environment. Skips it for now. */
+  return rw_lock_s_lock_low(M, 0, L);
 }
 
 #ifdef UNIV_DEBUG
 static inline void rw_lock_s_unlock_gen(rw_lock_t *L, ulint P) {
-  pfs_rw_lock_s_unlock_func(P, L);
+  /* FIXME: Reference on lock->pfs_psi is very expensive when s-lock
+   concentration on NUMA environment. Skips it for now. */
+  rw_lock_s_unlock_func(P, L);
 }
 #else
 static inline void rw_lock_s_unlock_gen(rw_lock_t *L, ulint P) {
-  pfs_rw_lock_s_unlock_func(L);
+  /* FIXME: Reference on lock->pfs_psi is very expensive when s-lock
+   concentration on NUMA environment. Skips it for now. */
+  rw_lock_s_unlock_func(L);
 }
 #endif
 
